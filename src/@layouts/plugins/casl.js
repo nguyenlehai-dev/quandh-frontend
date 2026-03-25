@@ -1,4 +1,4 @@
-import { useAbility } from '@casl/vue'
+import { ability } from '@/plugins/casl/ability'
 
 /**
  * Returns ability result if ACL is configured or else just return true
@@ -35,8 +35,6 @@ export const canViewNavMenuGroup = item => {
   return can(item.action, item.subject) && hasAnyVisibleChild
 }
 export const canNavigate = to => {
-  const ability = useAbility()
-
   // Get the most specific route (last one in the matched array)
   const targetRoute = to.matched[to.matched.length - 1]
 
