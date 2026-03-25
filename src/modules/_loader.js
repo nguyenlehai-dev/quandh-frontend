@@ -5,8 +5,26 @@
 // -> he thong tu nhan dien, khong can sua bat ky file nao khac.
 const moduleFiles = import.meta.glob('./*/index.js', { eager: true })
 
+// Danh sách các module không tải vào app (demo hoặc chưa dùng tới)
+const IGNORED_MODULES = [
+  'example',
+  'ecommerce',
+  'academy',
+  'logistics',
+  'kanban',
+  'chat',
+  'email',
+  'calendar',
+  'invoice',
+  'front-pages',
+]
+
 export const modules = Object.entries(moduleFiles)
-  .filter(([path]) => !path.includes('/example/')) // Bỏ qua folder example (chỉ là template mẫu)
+  .filter(([path]) => {
+    const moduleName = path.split('/')[1]
+
+    return !IGNORED_MODULES.includes(moduleName)
+  })
   .map(([path, mod]) => {
     const moduleName = path.split('/')[1]
 
