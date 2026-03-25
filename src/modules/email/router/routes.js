@@ -5,6 +5,8 @@ export const routes = [
     component: () => import('../views/EmailPage.vue'),
     meta: {
       layoutWrapperClasses: 'layout-content-height-fixed',
+      action: 'read',
+      subject: 'Email',
     },
   },
   {
@@ -14,6 +16,8 @@ export const routes = [
     meta: {
       navActiveLink: 'apps-email',
       layoutWrapperClasses: 'layout-content-height-fixed',
+      action: 'read',
+      subject: 'Email',
     },
   },
   {
@@ -23,6 +27,8 @@ export const routes = [
     meta: {
       navActiveLink: 'apps-email',
       layoutWrapperClasses: 'layout-content-height-fixed',
+      action: 'read',
+      subject: 'Email',
     },
   },
 ]

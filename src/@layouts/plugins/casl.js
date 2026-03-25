@@ -11,12 +11,10 @@ import { ability } from '@/plugins/casl/ability'
  * @param {string} subject CASL Subject // https://casl.js.org/v4/en/guide/intro#basics
  */
 export const can = (action, subject) => {
-  const vm = getCurrentInstance()
-  if (!vm)
-    return false
-  const localCan = vm.proxy && '$can' in vm.proxy
-    
-  return localCan ? vm.proxy?.$can(action, subject) : true
+  if (!action && !subject)
+    return true
+
+  return ability.can(action, subject)
 }
 
 /**
