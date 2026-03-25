@@ -26,26 +26,36 @@ export const login = async (email, password) => {
   })
 
   // Nếu có lỗi (422, network error, ...)
-  if (res.errors || res.code) {
+  if (res.errors || res.code || res.success === false) {
     throw res
   }
 
-  const { accessToken, userData, userAbilityRules } = res
+  // Laravel backend chuẩn trả về payload nằm trong property 'data'
+  const data = res.data || res
+
+  const accessToken = data.access_token
+  const userData = data.user
+  const userAbilityRules = data.abilities || []
+
+  // Bổ sung quyền mặc định để truy cập Dashboard và các Route không được định nghĩa rõ ràng
+  userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
+  userAbilityRules.push({ action: 'read', subject: 'Auth' })
 
   // Lưu session vào cookies
   useCookie(TOKEN_KEY).value = accessToken
   useCookie(USER_KEY).value = userData
-  useCookie(ABILITY_KEY).value = userAbilityRules
+  localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
 
   // Lưu organization mặc định (nếu BE trả về)
-  if (userData?.organizations?.length) {
-    useCookie(ORG_KEY).value = userData.organizations[0].id
+  const orgId = data.current_organization_id || (data.available_organizations?.length ? data.available_organizations[0].id : null)
+  if (orgId) {
+    useCookie(ORG_KEY).value = orgId
   }
 
   // Update CASL permissions
   ability.update(userAbilityRules)
 
-  return res
+  return data
 }
 
 /**
@@ -56,7 +66,7 @@ export const logout = async router => {
   // Xóa cookies
   useCookie(TOKEN_KEY).value = null
   useCookie(USER_KEY).value = null
-  useCookie(ABILITY_KEY).value = null
+  localStorage.removeItem(ABILITY_KEY)
   useCookie(ORG_KEY).value = null
 
   // Redirect trước rồi mới reset ability (tránh flickering nav menu)

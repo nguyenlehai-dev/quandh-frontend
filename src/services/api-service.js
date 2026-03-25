@@ -217,7 +217,7 @@ export default class ApiService {
         // Xóa auth cookies
         useCookie('accessToken').value = null
         useCookie('userData').value = null
-        useCookie('userAbilityRules').value = null
+        localStorage.removeItem('userAbilityRules')
         useCookie('currentOrganizationId').value = null
 
         return router.push('/login')

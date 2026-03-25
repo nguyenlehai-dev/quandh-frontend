@@ -6,13 +6,11 @@ export const redirects = [
     path: '/',
     name: 'index',
     redirect: to => {
-      // TODO: Get type from backend
+      // Bỏ check role vì backend không bắt buộc có userRole trong root object user
       const userData = useCookie('userData')
-      const userRole = userData.value?.role
-      if (userRole === 'admin')
+      
+      if (userData.value)
         return { name: 'dashboards-crm' }
-      if (userRole === 'client')
-        return { name: 'access-control' }
       
       return { name: 'login', query: to.query }
     },

@@ -11,192 +11,29 @@ import avatar8 from '@images/avatars/avatar-8.png'
 import avatar9 from '@images/avatars/avatar-9.png'
 import girlUsingMobile from '@images/pages/girl-using-mobile.png'
 
-const roles = ref([
-  {
-    role: 'Administrator',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-    ],
-    details: {
-      name: 'Administrator',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'API Control',
-          read: true,
-          write: true,
-          create: true,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Manager',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-      avatar7,
-    ],
-    details: {
-      name: 'Manager',
-      permissions: [
-        {
-          name: 'Reporting',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Payroll',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'User Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Users',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-    ],
-    details: {
-      name: 'Users',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Support',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-    ],
-    details: {
-      name: 'Support',
-      permissions: [
-        {
-          name: 'Repository Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Restricted User',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-      avatar7,
-      avatar8,
-      avatar9,
-      avatar10,
-    ],
-    details: {
-      name: 'Restricted User',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-      ],
-    },
-  },
-])
+const roles = ref([])
+
+const fetchRoles = async () => {
+  try {
+    const res = await $api('/roles', { query: { limit: -1 } })
+    roles.value = (res.data ?? []).map(r => ({
+      role: r.name,
+      users: [],
+      users_count: r.users_count || 0,
+      details: {
+        id: r.id,
+        name: r.name,
+        permissions: r.permissions || []
+      }
+    }))
+  } catch (err) {
+    console.error('Fetch roles error:', err)
+  }
+}
+
+onMounted(() => {
+  fetchRoles()
+})
 
 const isRoleDialogVisible = ref(false)
 const roleDetail = ref()
@@ -221,7 +58,7 @@ const editPermission = value => {
       <VCard>
         <VCardText class="d-flex align-center pb-4">
           <div class="text-body-1">
-            Total {{ item.users.length }} users
+            Total {{ item.users_count || 0 }} users
           </div>
 
           <VSpacer />
@@ -319,12 +156,13 @@ const editPermission = value => {
           </VCol>
         </VRow>
       </VCard>
-      <AddEditRoleDialog v-model:is-dialog-visible="isAddRoleDialogVisible" />
+      <AddEditRoleDialog v-model:is-dialog-visible="isAddRoleDialogVisible" @saved="fetchRoles" />
     </VCol>
   </VRow>
 
   <AddEditRoleDialog
     v-model:is-dialog-visible="isRoleDialogVisible"
     v-model:role-permissions="roleDetail"
+    @saved="fetchRoles"
   />
 </template>

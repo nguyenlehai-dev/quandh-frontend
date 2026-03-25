@@ -50,45 +50,36 @@ const headers = [
 const {
   data: usersData,
   execute: fetchUsers,
-} = await useApi(createUrl('/apps/users', {
+} = await useApi(createUrl('/users', {
   query: {
-    q: searchQuery,
+    search: searchQuery,
     status: selectedStatus,
     plan: selectedPlan,
     role: selectedRole,
-    itemsPerPage,
+    limit: itemsPerPage,
     page,
-    sortBy,
-    orderBy,
+    sort_by: sortBy,
+    sort_order: orderBy,
   },
 }))
 
-const users = computed(() => usersData.value.users)
-const totalUsers = computed(() => usersData.value.totalUsers)
+const users = computed(() => usersData.value?.data ?? usersData.value?.users ?? [])
+const totalUsers = computed(() => usersData.value?.meta?.total ?? usersData.value?.total ?? usersData.value?.totalUsers ?? 0)
 
 // 👉 search filters
-const roles = [
-  {
-    title: 'Admin',
-    value: 'admin',
-  },
-  {
-    title: 'Author',
-    value: 'author',
-  },
-  {
-    title: 'Editor',
-    value: 'editor',
-  },
-  {
-    title: 'Maintainer',
-    value: 'maintainer',
-  },
-  {
-    title: 'Subscriber',
-    value: 'subscriber',
-  },
-]
+const roles = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await $api('/roles', { query: { limit: -1 } })
+    roles.value = (res.data ?? []).map(r => ({
+      title: r.name,
+      value: r.name,
+    }))
+  } catch (err) {
+    console.error('Fetch filtering roles error', err)
+  }
+})
 
 const resolveUserRoleVariant = role => {
   const roleLowerCase = role.toLowerCase()
@@ -139,7 +130,7 @@ const resolveUserStatusVariant = stat => {
 const isAddNewUserDrawerVisible = ref(false)
 
 const addNewUser = async userData => {
-  await $api('/apps/users', {
+  await $api('/users', {
     method: 'POST',
     body: userData,
   })
@@ -149,7 +140,7 @@ const addNewUser = async userData => {
 }
 
 const deleteUser = async id => {
-  await $api(`/apps/users/${ id }`, { method: 'DELETE' })
+  await $api(`/users/${ id }`, { method: 'DELETE' })
 
   // Delete from selectedRows
   const index = selectedRows.value.findIndex(row => row === id)
@@ -260,12 +251,12 @@ const deleteUser = async id => {
           <div class="d-flex align-center gap-x-2">
             <VIcon
               :size="22"
-              :icon="resolveUserRoleVariant(item.role).icon"
-              :color="resolveUserRoleVariant(item.role).color"
+              :icon="resolveUserRoleVariant(item.assignments?.[0]?.role_name || item.role || 'user').icon"
+              :color="resolveUserRoleVariant(item.assignments?.[0]?.role_name || item.role || 'user').color"
             />
 
             <div class="text-capitalize text-high-emphasis text-body-1">
-              {{ item.role }}
+              {{ item.assignments?.[0]?.role_name || item.role || 'Unknown' }}
             </div>
           </div>
         </template>

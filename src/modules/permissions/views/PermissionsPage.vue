@@ -1,21 +1,21 @@
 <script setup>
 const headers = [
   {
-    title: 'Name',
+    title: 'Tên quyền',
     key: 'name',
   },
   {
-    title: 'Assigned To',
-    key: 'assignedTo',
+    title: 'Mô tả',
+    key: 'description',
     sortable: false,
   },
   {
-    title: 'Created Date',
-    key: 'createdDate',
+    title: 'Ngày tạo',
+    key: 'created_at',
     sortable: false,
   },
   {
-    title: 'Actions',
+    title: 'Hành động',
     key: 'actions',
     sortable: false,
   },
@@ -38,45 +38,73 @@ const isPermissionDialogVisible = ref(false)
 const isAddPermissionDialogVisible = ref(false)
 const permissionName = ref('')
 
-const colors = {
-  'support': {
-    color: 'info',
-    text: 'Support',
-  },
-  'users': {
-    color: 'success',
-    text: 'Users',
-  },
-  'manager': {
-    color: 'warning',
-    text: 'Manager',
-  },
-  'administrator': {
-    color: 'primary',
-    text: 'Administrator',
-  },
-  'restricted-user': {
-    color: 'error',
-    text: 'Restricted User',
-  },
+
+
+
+const permissions = ref([])
+const totalPermissions = ref(0)
+const loading = ref(false)
+
+const fetchPermissions = async () => {
+  loading.value = true
+  try {
+    const res = await $api('/permissions', {
+      params: {
+        search: search.value,
+        limit: itemsPerPage.value,
+        page: page.value,
+        sort_by: sortBy.value,
+        sort_order: orderBy.value,
+      },
+    })
+
+    permissions.value = res.data ?? []
+    totalPermissions.value = res.meta?.total ?? res.total ?? 0
+  }
+  catch (err) {
+    console.error('Fetch permissions error:', err)
+    permissions.value = []
+    totalPermissions.value = 0
+  }
+  finally {
+    loading.value = false
+  }
 }
 
-const { data: permissionsData } = await useApi(createUrl('/apps/permissions', {
-  query: {
-    q: search,
-    itemsPerPage,
-    page,
-    sortBy,
-    orderBy,
-  },
-}))
+// Debounce search (500ms)
+watchDebounced(search, () => {
+  page.value = 1
+  fetchPermissions()
+}, { debounce: 500 })
 
-const permissions = computed(() => permissionsData.value.permissions)
-const totalPermissions = computed(() => permissionsData.value.totalPermissions)
+// Pagination/sort changes fire immediately
+watch([itemsPerPage, page, sortBy, orderBy], () => {
+  fetchPermissions()
+})
 
-const editPermission = name => {
+// Initial fetch
+onMounted(() => fetchPermissions())
+
+const editPermission = item => {
   isPermissionDialogVisible.value = true
-  permissionName.value = name
+  permissionName.value = item.name
+  editingPermissionId.value = item.id
+}
+
+const editingPermissionId = ref(null)
+
+const deletePermission = async id => {
+  try {
+    await $api(`/permissions/${id}`, { method: 'DELETE' })
+    fetchPermissions()
+  }
+  catch (err) {
+    console.error('Delete permission error:', err)
+  }
+}
+
+const onPermissionSaved = () => {
+  fetchPermissions()
 }
 </script>
 
@@ -143,19 +171,17 @@ const editPermission = name => {
             </div>
           </template>
 
-          <!-- Assigned To -->
-          <template #item.assignedTo="{ item }">
-            <div class="d-flex gap-4">
-              <VChip
-                v-for="text in item.assignedTo"
-                :key="text"
-                label
-                size="small"
-                :color="colors[text].color"
-                class="font-weight-medium"
-              >
-                {{ colors[text].text }}
-              </VChip>
+          <!-- Description -->
+          <template #item.description="{ item }">
+            <div class="text-body-2">
+              {{ item.description || '—' }}
+            </div>
+          </template>
+
+          <!-- Created At -->
+          <template #item.created_at="{ item }">
+            <div class="text-body-2">
+              {{ item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : '—' }}
             </div>
           </template>
 
@@ -169,22 +195,20 @@ const editPermission = name => {
 
           <!-- Actions -->
           <template #item.actions="{ item }">
-            <VBtn
-              icon
-              size="small"
-              color="medium-emphasis"
-              variant="text"
-              @click="editPermission(item.name)"
+            <IconBtn
+              @click="editPermission(item)"
             >
               <VIcon
                 size="22"
                 icon="tabler-edit"
               />
-            </VBtn>
-            <IconBtn>
+            </IconBtn>
+            <IconBtn
+              @click="deletePermission(item.id)"
+            >
               <VIcon
-                icon="tabler-dots-vertical"
                 size="22"
+                icon="tabler-trash"
               />
             </IconBtn>
           </template>
@@ -194,8 +218,13 @@ const editPermission = name => {
       <AddEditPermissionDialog
         v-model:is-dialog-visible="isPermissionDialogVisible"
         v-model:permission-name="permissionName"
+        :permission-id="editingPermissionId"
+        @saved="onPermissionSaved"
       />
-      <AddEditPermissionDialog v-model:is-dialog-visible="isAddPermissionDialogVisible" />
+      <AddEditPermissionDialog
+        v-model:is-dialog-visible="isAddPermissionDialogVisible"
+        @saved="onPermissionSaved"
+      />
     </VCol>
   </VRow>
 </template>

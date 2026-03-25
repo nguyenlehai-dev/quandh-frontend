@@ -8,7 +8,9 @@
 export const navigation = {
   title: 'Nhan vien',
   icon: { icon: 'tabler-users' },
+  action: 'read',
+  subject: 'Employee',
   children: [
-    { title: 'Danh sach', to: 'apps-employee-list' },
+    { title: 'Danh sach', to: 'apps-employee-list', action: 'read', subject: 'Employee' },
   ],
 }

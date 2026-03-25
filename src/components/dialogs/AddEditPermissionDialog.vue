@@ -9,27 +9,69 @@ const props = defineProps({
     required: false,
     default: '',
   },
+  permissionId: {
+    type: Number,
+    required: false,
+    default: null,
+  },
 })
 
 const emit = defineEmits([
   'update:isDialogVisible',
   'update:permissionName',
+  'saved',
 ])
 
 const currentPermissionName = ref('')
+const currentDescription = ref('')
+const saving = ref(false)
 
 const onReset = () => {
   emit('update:isDialogVisible', false)
   currentPermissionName.value = ''
+  currentDescription.value = ''
 }
 
-const onSubmit = () => {
-  emit('update:isDialogVisible', false)
-  emit('update:permissionName', currentPermissionName.value)
+const onSubmit = async () => {
+  if (!currentPermissionName.value) return
+
+  saving.value = true
+  try {
+    if (props.permissionId) {
+      await $api(`/permissions/${props.permissionId}`, {
+        method: 'PUT',
+        body: {
+          name: currentPermissionName.value,
+          description: currentDescription.value,
+        },
+      })
+    }
+    else {
+      await $api('/permissions', {
+        method: 'POST',
+        body: {
+          name: currentPermissionName.value,
+          description: currentDescription.value,
+        },
+      })
+    }
+
+    emit('saved')
+    onReset()
+  }
+  catch (err) {
+    console.error('Save permission error:', err)
+  }
+  finally {
+    saving.value = false
+  }
 }
 
-watch(() => props, () => {
-  currentPermissionName.value = props.permissionName
+watch(() => props.isDialogVisible, visible => {
+  if (visible) {
+    currentPermissionName.value = props.permissionName || ''
+    currentDescription.value = ''
+  }
 })
 </script>
 
@@ -39,57 +81,60 @@ watch(() => props, () => {
     :model-value="props.isDialogVisible"
     @update:model-value="onReset"
   >
-    <!-- 👉 dialog close btn -->
     <DialogCloseBtn @click="onReset" />
 
     <VCard class="pa-2 pa-sm-10">
       <VCardText>
-        <!-- 👉 Title -->
         <h4 class="text-h4 text-center mb-2">
-          {{ props.permissionName ? 'Edit' : 'Add' }} Permission
+          {{ props.permissionId ? 'Chỉnh sửa' : 'Thêm' }} Quyền
         </h4>
         <p class="text-body-1 text-center mb-6">
-          {{ props.permissionName ? 'Edit' : 'Add' }}  permission as per your requirements.
+          {{ props.permissionId ? 'Cập nhật' : 'Thêm mới' }} quyền truy cập.
         </p>
 
-        <!-- 👉 Form -->
-        <VForm>
+        <VForm @submit.prevent="onSubmit">
           <VAlert
             type="warning"
-            title="Warning!"
+            title="Lưu ý!"
             variant="tonal"
             class="mb-6"
           >
             <template #text>
-              By {{ props.permissionName ? 'editing' : 'adding' }} the permission name, you might break the system permissions functionality.
+              Việc {{ props.permissionId ? 'sửa' : 'thêm' }} quyền có thể ảnh hưởng đến phân quyền hệ thống.
             </template>
           </VAlert>
 
-          <!-- 👉 Role name -->
-          <div class="d-flex gap-4 mb-6 flex-wrap flex-column flex-sm-row">
-            <AppTextField
-              v-model="currentPermissionName"
-              placeholder="Enter Permission Name"
-            />
+          <AppTextField
+            v-model="currentPermissionName"
+            label="Tên quyền"
+            placeholder="Ví dụ: users.create"
+            class="mb-4"
+          />
 
-            <VBtn @click="onSubmit">
-              {{ props.permissionName ? 'Update' : 'Add' }}
+          <AppTextField
+            v-model="currentDescription"
+            label="Mô tả"
+            placeholder="Mô tả quyền..."
+            class="mb-6"
+          />
+
+          <div class="d-flex gap-4 justify-center">
+            <VBtn
+              type="submit"
+              :loading="saving"
+            >
+              {{ props.permissionId ? 'Cập nhật' : 'Thêm mới' }}
+            </VBtn>
+            <VBtn
+              color="secondary"
+              variant="tonal"
+              @click="onReset"
+            >
+              Hủy
             </VBtn>
           </div>
-
-          <VCheckbox label="Set as core permission" />
         </VForm>
       </VCardText>
     </VCard>
   </VDialog>
 </template>
-
-<style lang="scss">
-.permission-table {
-  td {
-    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    padding-block: 0.5rem;
-    padding-inline: 0;
-  }
-}
-</style>

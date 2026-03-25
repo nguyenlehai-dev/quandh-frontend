@@ -33,14 +33,14 @@ export const canViewNavMenuGroup = item => {
   return can(item.action, item.subject) && hasAnyVisibleChild
 }
 export const canNavigate = to => {
-  // Get the most specific route (last one in the matched array)
-  const targetRoute = to.matched[to.matched.length - 1]
+  // Find the most specific route that has action & subject defined
+  // Check from most specific (last) to least specific (first)
+  for (let i = to.matched.length - 1; i >= 0; i--) {
+    const route = to.matched[i]
+    if (route.meta?.action && route.meta?.subject)
+      return ability.can(route.meta.action, route.meta.subject)
+  }
 
-  // If the target route has specific permissions, check those first
-  if (targetRoute?.meta?.action && targetRoute?.meta?.subject)
-    return ability.can(targetRoute.meta.action, targetRoute.meta.subject)
-
-  // If no specific permissions, fall back to checking if any parent route allows access
-    
-  return to.matched.some(route => ability.can(route.meta.action, route.meta.subject))
+  // No route has explicit permissions → allow navigation
+  return true
 }

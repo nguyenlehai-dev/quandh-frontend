@@ -49,24 +49,50 @@ const headers = [
   },
 ]
 
-const {
-  data: usersData,
-  execute: fetchUsers,
-} = await useApi(createUrl('/apps/users', {
-  query: {
-    q: searchQuery,
-    status: selectedStatus,
-    plan: selectedPlan,
-    role: selectedRole,
-    itemsPerPage,
-    page,
-    sortBy,
-    orderBy,
-  },
-}))
+const users = ref([])
+const totalUsers = ref(0)
+const loading = ref(false)
 
-const users = computed(() => usersData.value.users)
-const totalUsers = computed(() => usersData.value.totalUsers)
+const fetchUsers = async () => {
+  loading.value = true
+  try {
+    const res = await $api('/users', {
+      params: {
+        search: searchQuery.value,
+        status: selectedStatus.value,
+        plan: selectedPlan.value,
+        role: selectedRole.value,
+        limit: itemsPerPage.value,
+        page: page.value,
+        sort_by: sortBy.value,
+        sort_order: orderBy.value,
+      },
+    })
+
+    users.value = res.data ?? []
+    totalUsers.value = res.meta?.total ?? res.total ?? 0
+  } catch (err) {
+    console.error('Fetch users error:', err)
+    users.value = []
+    totalUsers.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+// Debounce search/filter changes (500ms) to reduce API calls
+watchDebounced([searchQuery, selectedStatus, selectedPlan, selectedRole], () => {
+  page.value = 1
+  fetchUsers()
+}, { debounce: 500 })
+
+// Pagination/sort changes fire immediately
+watch([itemsPerPage, page, sortBy, orderBy], () => {
+  fetchUsers()
+})
+
+// Initial fetch
+onMounted(() => fetchUsers())
 
 // 👉 search filters
 const roles = [
@@ -127,6 +153,7 @@ const status = [
 ]
 
 const resolveUserRoleVariant = role => {
+  if (!role) return { color: 'primary', icon: 'tabler-user' }
   const roleLowerCase = role.toLowerCase()
   if (roleLowerCase === 'subscriber')
     return {
@@ -161,6 +188,7 @@ const resolveUserRoleVariant = role => {
 }
 
 const resolveUserStatusVariant = stat => {
+  if (!stat) return 'primary'
   const statLowerCase = stat.toLowerCase()
   if (statLowerCase === 'pending')
     return 'warning'
@@ -175,7 +203,7 @@ const resolveUserStatusVariant = stat => {
 const isAddNewUserDrawerVisible = ref(false)
 
 const addNewUser = async userData => {
-  await $api('/apps/users', {
+  await $api('/users', {
     method: 'POST',
     body: userData,
   })
@@ -185,7 +213,7 @@ const addNewUser = async userData => {
 }
 
 const deleteUser = async id => {
-  await $api(`/apps/users/${ id }`, { method: 'DELETE' })
+  await $api(`/users/${ id }`, { method: 'DELETE' })
 
   // Delete from selectedRows
   const index = selectedRows.value.findIndex(row => row === id)

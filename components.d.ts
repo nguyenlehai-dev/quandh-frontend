@@ -16,6 +16,7 @@ declare module 'vue' {
     AcademyUpcomingWebinar: typeof import('./src/modules/academy/components/AcademyUpcomingWebinar.vue')['default']
     AddAuthenticatorAppDialog: typeof import('./src/components/dialogs/AddAuthenticatorAppDialog.vue')['default']
     AddEditAddressDialog: typeof import('./src/components/dialogs/AddEditAddressDialog.vue')['default']
+    AddEditOrganizationDialog: typeof import('./src/components/dialogs/AddEditOrganizationDialog.vue')['default']
     AddEditPermissionDialog: typeof import('./src/components/dialogs/AddEditPermissionDialog.vue')['default']
     AddEditRoleDialog: typeof import('./src/components/dialogs/AddEditRoleDialog.vue')['default']
     AddEmployeeDrawer: typeof import('./src/modules/example/components/AddEmployeeDrawer.vue')['default']
@@ -448,6 +449,5 @@ declare module 'vue' {
     UserTabNotifications: typeof import('./src/modules/user/components/UserTabNotifications.vue')['default']
     UserTabSecurity: typeof import('./src/modules/user/components/UserTabSecurity.vue')['default']
     UserUpgradePlanDialog: typeof import('./src/components/dialogs/UserUpgradePlanDialog.vue')['default']
-    VueApexCharts: typeof import('vue3-apexcharts')['default']
   }
 }

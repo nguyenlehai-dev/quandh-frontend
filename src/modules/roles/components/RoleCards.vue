@@ -1,215 +1,61 @@
 <script setup>
-import avatar1 from '@images/avatars/avatar-1.png'
-import avatar10 from '@images/avatars/avatar-10.png'
-import avatar2 from '@images/avatars/avatar-2.png'
-import avatar3 from '@images/avatars/avatar-3.png'
-import avatar4 from '@images/avatars/avatar-4.png'
-import avatar5 from '@images/avatars/avatar-5.png'
-import avatar6 from '@images/avatars/avatar-6.png'
-import avatar7 from '@images/avatars/avatar-7.png'
-import avatar8 from '@images/avatars/avatar-8.png'
-import avatar9 from '@images/avatars/avatar-9.png'
 import girlUsingMobile from '@images/pages/girl-using-mobile.png'
 
-const roles = ref([
-  {
-    role: 'Administrator',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-    ],
-    details: {
-      name: 'Administrator',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'API Control',
-          read: true,
-          write: true,
-          create: true,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Manager',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-      avatar7,
-    ],
-    details: {
-      name: 'Manager',
-      permissions: [
-        {
-          name: 'Reporting',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Payroll',
-          read: true,
-          write: true,
-          create: true,
-        },
-        {
-          name: 'User Management',
-          read: true,
-          write: true,
-          create: true,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Users',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-    ],
-    details: {
-      name: 'Users',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Support',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-    ],
-    details: {
-      name: 'Support',
-      permissions: [
-        {
-          name: 'Repository Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: true,
-          create: false,
-        },
-      ],
-    },
-  },
-  {
-    role: 'Restricted User',
-    users: [
-      avatar1,
-      avatar2,
-      avatar3,
-      avatar4,
-      avatar5,
-      avatar6,
-      avatar7,
-      avatar8,
-      avatar9,
-      avatar10,
-    ],
-    details: {
-      name: 'Restricted User',
-      permissions: [
-        {
-          name: 'User Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Content Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Disputes Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-        {
-          name: 'Database Management',
-          read: true,
-          write: false,
-          create: false,
-        },
-      ],
-    },
-  },
-])
+const roles = ref([])
+const loading = ref(false)
+
+const fetchRoles = async () => {
+  loading.value = true
+  try {
+    const res = await $api('/roles', { params: { limit: 100 } })
+
+    roles.value = (res.data ?? res ?? []).map(role => ({
+      id: role.id,
+      role: role.name,
+      totalUsers: role.users_count ?? 0,
+      permissions: role.permissions ?? [],
+    }))
+  }
+  catch (err) {
+    console.error('Fetch roles error:', err)
+    roles.value = []
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => fetchRoles())
 
 const isRoleDialogVisible = ref(false)
-const roleDetail = ref()
+const roleDetail = ref({ id: null, name: '', permissions: [] })
 const isAddRoleDialogVisible = ref(false)
 
-const editPermission = value => {
+const editPermission = item => {
   isRoleDialogVisible.value = true
-  roleDetail.value = value
+  roleDetail.value = {
+    id: item.id,
+    name: item.role,
+    permissions: item.permissions,
+  }
+}
+
+const onRoleSaved = () => {
+  fetchRoles()
 }
 </script>
 
 <template>
   <VRow>
+    <!-- Loading -->
+    <VCol
+      v-if="loading"
+      cols="12"
+      class="text-center"
+    >
+      <VProgressCircular indeterminate />
+    </VCol>
+
     <!-- 👉 Roles -->
     <VCol
       v-for="item in roles"
@@ -221,37 +67,10 @@ const editPermission = value => {
       <VCard>
         <VCardText class="d-flex align-center pb-4">
           <div class="text-body-1">
-            Total {{ item.users.length }} users
+            Tổng {{ item.totalUsers }} người dùng
           </div>
 
           <VSpacer />
-
-          <div class="v-avatar-group">
-            <template
-              v-for="(user, index) in item.users"
-              :key="user"
-            >
-              <VAvatar
-                v-if="item.users.length > 4 && item.users.length !== 4 && index < 3"
-                size="40"
-                :image="user"
-              />
-
-              <VAvatar
-                v-if="item.users.length === 4"
-                size="40"
-                :image="user"
-              />
-            </template>
-            <VAvatar
-              v-if="item.users.length > 4"
-              :color="$vuetify.theme.current.dark ? '#373B50' : '#EEEDF0'"
-            >
-              <span>
-                +{{ item.users.length - 3 }}
-              </span>
-            </VAvatar>
-          </div>
         </VCardText>
 
         <VCardText>
@@ -263,9 +82,9 @@ const editPermission = value => {
               <div class="d-flex align-center">
                 <a
                   href="javascript:void(0)"
-                  @click="editPermission(item.details)"
+                  @click="editPermission(item)"
                 >
-                  Edit Role
+                  Chỉnh sửa vai trò
                 </a>
               </div>
             </div>
@@ -310,21 +129,25 @@ const editPermission = value => {
                 size="small"
                 @click="isAddRoleDialogVisible = true"
               >
-                Add New Role
+                Thêm vai trò
               </VBtn>
               <div class="text-end">
-                Add new role,<br> if it doesn't exist.
+                Thêm vai trò mới,<br> nếu chưa tồn tại.
               </div>
             </VCardText>
           </VCol>
         </VRow>
       </VCard>
-      <AddEditRoleDialog v-model:is-dialog-visible="isAddRoleDialogVisible" />
+      <AddEditRoleDialog
+        v-model:is-dialog-visible="isAddRoleDialogVisible"
+        @saved="onRoleSaved"
+      />
     </VCol>
   </VRow>
 
   <AddEditRoleDialog
     v-model:is-dialog-visible="isRoleDialogVisible"
     v-model:role-permissions="roleDetail"
+    @saved="onRoleSaved"
   />
 </template>
