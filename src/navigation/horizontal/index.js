@@ -1,10 +1,9 @@
-import apps from './apps'
-import charts from './charts'
-import dashboard from './dashboard'
-import forms from './forms'
-import misc from './misc'
-import pages from './pages'
-import tables from './tables'
-import uiElements from './ui-elements'
+// Horizontal Navigation — Auto-Discovery
+//
+// Menu duoc tu dong tao tu modules/*/router/navigation.js (qua _loader.js)
+// Giong voi vertical navigation nhung danh cho layout horizontal
+import { getModuleNavigation } from '@/modules/_loader'
 
-export default [...dashboard, ...apps, ...pages, ...uiElements, ...forms, ...tables, ...charts, ...misc]
+export default [
+  ...getModuleNavigation(),
+]
