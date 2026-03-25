@@ -18,7 +18,7 @@ export const $api = ofetch.create({
       options.headers.set('Authorization', `Bearer ${accessToken}`)
 
     // Multi-org header (trừ auth routes)
-    const orgId = useCookie('currentOrganizationId').value
+    const orgId = useCookie('currentOrganizationId').value || 1
     if (orgId && !isAuthRoute(String(request)))
       options.headers.set('X-Organization-Id', String(orgId))
   },

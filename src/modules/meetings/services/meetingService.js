@@ -8,11 +8,47 @@ import {
 
 // ===== CUỘC HỌP =====
 export const fetchMeetings = params => $api(API_BASE, { params })
+
+/**
+ * Lấy lịch họp của tôi (Đại biểu)
+ */
+export const fetchMyMeetings = params => $api('/my-meetings', { params })
 export const fetchMeeting = id => $api(`${API_BASE}/${id}`)
 export const createMeeting = data => $api(API_BASE, { method: 'POST', body: data })
 export const updateMeeting = (id, data) => $api(`${API_BASE}/${id}`, { method: 'PUT', body: data })
 export const deleteMeeting = id => $api(`${API_BASE}/${id}`, { method: 'DELETE' })
 export const exportMeetings = params => $api(`${API_BASE}/export`, { params, responseType: 'blob' })
+export const changeMeetingStatus = (id, status) => $api(`${API_BASE}/${id}/status`, { method: 'PATCH', body: { status } })
+export const setActiveAgenda = (meetingId, agendaId) => $api(`${API_BASE}/${meetingId}/agendas/${agendaId}/set-active`, { method: 'PATCH' })
+
+// ===== TÀI LIỆU CUỘC HỌP (SUB-RESOURCE) =====
+export const fetchMeetingDocuments = meetingId => $api(`${API_BASE}/${meetingId}/documents`)
+export const createMeetingDocument = (meetingId, data) => $api(`${API_BASE}/${meetingId}/documents`, { method: 'POST', body: data })
+export const deleteMeetingDocument = (meetingId, docId) => $api(`${API_BASE}/${meetingId}/documents/${docId}`, { method: 'DELETE' })
+
+// ===== KẾT LUẬN (SUB-RESOURCE) =====
+export const fetchMeetingConclusions = meetingId => $api(`${API_BASE}/${meetingId}/conclusions`)
+export const createMeetingConclusion = (meetingId, data) => $api(`${API_BASE}/${meetingId}/conclusions`, { method: 'POST', body: data })
+export const updateMeetingConclusion = (meetingId, conclusionId, data) => $api(`${API_BASE}/${meetingId}/conclusions/${conclusionId}`, { method: 'PUT', body: data })
+export const deleteMeetingConclusion = (meetingId, conclusionId) => $api(`${API_BASE}/${meetingId}/conclusions/${conclusionId}`, { method: 'DELETE' })
+
+// ===== BIỂU QUYẾT (SUB-RESOURCE) =====
+export const fetchMeetingVotes = meetingId => $api(`${API_BASE}/${meetingId}/votings`)
+export const createMeetingVote = (meetingId, data) => $api(`${API_BASE}/${meetingId}/votings`, { method: 'POST', body: data })
+export const updateMeetingVote = (meetingId, voteId, data) => $api(`${API_BASE}/${meetingId}/votings/${voteId}`, { method: 'PUT', body: data })
+export const deleteMeetingVote = (meetingId, voteId) => $api(`${API_BASE}/${meetingId}/votings/${voteId}`, { method: 'DELETE' })
+
+// ===== NGƯỜI DỰ HỌP (SUB-RESOURCE) =====
+export const fetchMeetingParticipants = meetingId => $api(`${API_BASE}/${meetingId}/participants`)
+export const createMeetingParticipant = (meetingId, data) => $api(`${API_BASE}/${meetingId}/participants`, { method: 'POST', body: data })
+export const updateMeetingParticipant = (meetingId, participantId, data) => $api(`${API_BASE}/${meetingId}/participants/${participantId}`, { method: 'PUT', body: data })
+export const deleteMeetingParticipant = (meetingId, participantId) => $api(`${API_BASE}/${meetingId}/participants/${participantId}`, { method: 'DELETE' })
+
+// ===== GHI CHÚ CÁ NHÂN (SUB-RESOURCE) =====
+export const fetchPersonalNotes = meetingId => $api(`${API_BASE}/${meetingId}/personal-notes`)
+export const createPersonalNote = (meetingId, data) => $api(`${API_BASE}/${meetingId}/personal-notes`, { method: 'POST', body: data })
+export const updatePersonalNote = (meetingId, noteId, data) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'PUT', body: data })
+export const deletePersonalNote = (meetingId, noteId) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'DELETE' })
 
 // ===== BIỂU QUYẾT =====
 export const fetchVotes = params => $api(API_VOTES, { params })

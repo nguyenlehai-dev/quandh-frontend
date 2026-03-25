@@ -6,30 +6,6 @@ export const routes = [
     meta: { action: 'read', subject: 'Meeting' },
   },
   {
-    path: '/meetings/votes',
-    name: 'meetings-votes',
-    component: () => import('../views/VoteListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
-  },
-  {
-    path: '/meetings/documents',
-    name: 'meetings-documents',
-    component: () => import('../views/DocumentListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
-  },
-  {
-    path: '/meetings/conclusions',
-    name: 'meetings-conclusions',
-    component: () => import('../views/ConclusionListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
-  },
-  {
-    path: '/meetings/attendees',
-    name: 'meetings-attendees',
-    component: () => import('../views/AttendeeListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
-  },
-  {
     path: '/meetings/attendee-groups',
     name: 'meetings-attendee-groups',
     component: () => import('../views/AttendeeGroupListPage.vue'),
@@ -45,6 +21,30 @@ export const routes = [
     path: '/meetings/meeting-types',
     name: 'meetings-meeting-types',
     component: () => import('../views/MeetingTypeListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/live/:id',
+    name: 'meetings-live-controller',
+    component: () => import('../views/admin/live/LiveMeetingController.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/edit/:id?',
+    name: 'meetings-edit',
+    component: () => import('../views/admin/edit/MeetingEditPage.vue'),
+    meta: { action: 'update', subject: 'Meeting' },
+  },
+  {
+    path: '/my-meetings',
+    name: 'meetings-participant-my-meetings',
+    component: () => import('../views/participant/MyMeetingsPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/my-meetings/:id',
+    name: 'meetings-participant-details',
+    component: () => import('../views/participant/details/MeetingDetailsPage.vue'),
     meta: { action: 'read', subject: 'Meeting' },
   },
 ]

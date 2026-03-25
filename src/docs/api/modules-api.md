@@ -242,24 +242,57 @@
   - DELETE /activity-logs/:id (Delete)
   - GET /activity-logs/export (Export)
 
-## 16. Meetings Module
-- **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)
-- **Base Path**: /meetings
-- **Các models chính**: Meeting, Vote, Document, Conclusion, Attendee, AttendeeGroup, DocumentType, MeetingType
-- **APIs**:
-  - GET /meetings (List)
-  - POST /meetings (Create)
-  - GET /meetings/:id (View)
-  - PUT /meetings/:id (Update)
-  - DELETE /meetings/:id (Delete)
-  - GET /meetings/export (Export)
-  - CRUD /meetings/votes
-  - CRUD /meetings/documents
-  - CRUD /meetings/conclusions
-  - CRUD /meetings/attendees
-  - CRUD /meetings/attendee-groups
-  - CRUD /meetings/document-types
-  - CRUD /meetings/meeting-types
+## 16. Meetings (`/meetings`)
+
+### Cuộc họp (`/meetings`)
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings` | `fetchMeetings(params)` | Danh sách cuộc họp |
+| GET | `/meetings/:id` | `fetchMeeting(id)` | Chi tiết cuộc họp |
+| POST | `/meetings` | `createMeeting(data)` | Tạo cuộc họp mới |
+| PUT | `/meetings/:id` | `updateMeeting(id, data)` | Cập nhật thông tin cuộc họp |
+| DELETE | `/meetings/:id` | `deleteMeeting(id)` | Xóa cuộc họp |
+
+### Người dự họp (`/meetings/:meetingId/attendees`)
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings/:meetingId/attendees`| `fetchMeetingAttendees(meetingId, params)`| Danh sách người dự họp theo cuộc họp |
+| POST | `/meetings/:meetingId/attendees`| `createMeetingAttendee(meetingId, data)` | Thêm người dự họp |
+| PUT | `/meetings/attendees/:id` | `updateMeetingAttendee(id, data)` | Cập nhật thông tin đại biểu |
+| DELETE| `/meetings/attendees/:id` | `deleteMeetingAttendee(id)` | Nhận diện xóa đại biểu khỏi cuộc họp |
+
+### Tài liệu (`/meetings/:meetingId/documents`)
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings/:meetingId/documents`| `fetchMeetingDocuments(meetingId, params)`| Danh sách tài liệu đính kèm |
+| POST | `/meetings/:meetingId/documents`| `createMeetingDocument(meetingId, data)` | Tải tài liệu lên cuộc họp |
+| PUT | `/meetings/documents/:id` | `updateMeetingDocument(id, data)` | Cập nhật tài liệu |
+| DELETE| `/meetings/documents/:id` | `deleteMeetingDocument(id)` | Xóa tài liệu |
+
+### Biểu quyết (`/meetings/:meetingId/votes`)
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings/:meetingId/votes` | `fetchMeetingVotes(meetingId, params)` | Danh sách biểu quyết trong cuộc họp |
+| POST | `/meetings/:meetingId/votes` | `createMeetingVote(meetingId, data)` | Tạo phiên biểu quyết mới |
+| PUT | `/meetings/votes/:id` | `updateMeetingVote(id, data)` | Sửa phiên biểu quyết |
+| DELETE| `/meetings/votes/:id` | `deleteMeetingVote(id)` | Xóa phiên biểu quyết |
+
+### Kết luận (`/meetings/:meetingId/conclusions`)
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings/:meetingId/conclusions`| `fetchMeetingConclusions(meetingId, params)`| Danh sách kết luận |
+| POST | `/meetings/:meetingId/conclusions`| `createMeetingConclusion(meetingId, data)` | Ghi nhận kết luận |
+| PUT | `/meetings/conclusions/:id` | `updateMeetingConclusion(id, data)` | Sửa kết luận |
+| DELETE| `/meetings/conclusions/:id` | `deleteMeetingConclusion(id)` | Xóa kết luận |
+
+### Danh mục cuộc họp
+| Method | Endpoint | Service Function | Mô tả |
+|--------|----------|-----------------|-------|
+| GET | `/meetings/attendee-groups` | `fetchAttendeeGroups(params)` | Danh sách nhóm đại biểu |
+| GET | `/meetings/meeting-types` | `fetchMeetingTypes(params)` | Danh sách loại cuộc họp |
+| GET | `/meetings/document-types` | `fetchDocumentTypes(params)` | Danh sách loại tài liệu |
+
+**Services**: `src/modules/meetings/services/*`
 
 ## 17. Organizations Module
 - **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)

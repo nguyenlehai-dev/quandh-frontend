@@ -235,3 +235,25 @@
 | CRUD Employee | Ví dụ CRUD đầy đủ với phân trang, filter, export |
 
 > ⚠️ Module này chỉ là template tham khảo, không chạy trên production.
+
+---
+
+## 15. Meetings — Quản lý cuộc họp
+
+**Mục đích**: Quản lý toàn bộ thông tin về các cuộc họp, thành phần tham dự, tài liệu liên đới, biểu quyết và kết luận cuộc họp. Cấu trúc giao diện được tổ chức theo kiến trúc Mega-Form để tăng trải nghiệm người dùng (gom nhóm các tính năng liên quan vào cùng một màn hình chi tiết).
+
+| Chức năng | Mô tả |
+|-----------|-------|
+| Danh sách cuộc họp | Bảng danh sách các cuộc họp có phân trang, lọc theo thời gian, trạng thái |
+| Tạo cuộc họp | Form tạo mới thông tin cơ bản của cuộc họp (Thời gian, địa điểm, phòng họp...) |
+| Quản lý chi tiết (Tabs) | Màn hình thao tác chính cho 1 cuộc họp cụ thể, chia làm nhiều tab chuyên biệt |
+| > Thông tin chung | Xem và cập nhật các thông tin cơ bản của cuộc họp |
+| > Người dự họp | Quản lý danh sách đại biểu tham gia, gán nhóm đại biểu |
+| > Tài liệu | Tải lên và quản lý các tài liệu, báo cáo phục vụ cuộc họp |
+| > Biểu quyết | Thiết lập các phiên biểu quyết, quản lý các tuỳ chọn biểu quyết |
+| > Kết luận | Ghi nhận văn bản kết luận, chỉ đạo sau khi cuộc họp kết thúc |
+| Nhóm người dự họp | Quản lý danh mục phân loại/nhóm người tham gia (Đại biểu, Khách mời...) |
+| Loại cuộc họp | Quản lý danh mục loại hình cuộc họp (Họp giao ban, Tổng kết...) |
+| Loại tài liệu | Quản lý danh mục loại giấy tờ, tài liệu |
+
+**Quyền mặc định**: `meeting.view`, `meeting.create`, `meeting.edit`, `meeting.delete`

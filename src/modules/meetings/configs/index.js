@@ -11,7 +11,7 @@ export const API_DOCUMENTS = '/meetings/documents'
 export const API_CONCLUSIONS = '/meetings/conclusions'
 export const API_ATTENDEES = '/meetings/attendees'
 export const API_ATTENDEE_GROUPS = '/meetings/attendee-groups'
-export const API_DOCUMENT_TYPES = '/meetings/document-types'
+export const API_DOCUMENT_TYPES = '/document-types'
 export const API_MEETING_TYPES = '/meetings/meeting-types'
 
 /** Số dòng mặc định trên 1 trang */

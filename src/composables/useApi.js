@@ -10,12 +10,20 @@ export const useApi = createFetch({
   },
   options: {
     refetch: true,
-    async beforeFetch({ options }) {
+    async beforeFetch({ url, options }) {
       const accessToken = useCookie('accessToken').value
       if (accessToken) {
         options.headers = {
           ...options.headers,
           Authorization: `Bearer ${accessToken}`,
+        }
+      }
+      
+      const orgId = useCookie('currentOrganizationId').value || 1
+      if (orgId && !url.includes('/auth/')) {
+        options.headers = {
+          ...options.headers,
+          'X-Organization-Id': String(orgId),
         }
       }
       
