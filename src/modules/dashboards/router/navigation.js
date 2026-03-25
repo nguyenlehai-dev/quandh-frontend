@@ -1,38 +1,18 @@
 export const navigation = [
-  { heading: 'Dashboards' },
+  { heading: 'Bảng điều khiển' }, // Changed from Dashboards
   {
-    title: 'Analytics',
+    title: 'Tổng quan hệ thống', // Analytics -> System overview
     icon: { icon: 'tabler-chart-pie-2' },
     to: 'dashboards-analytics',
     action: 'read',
     subject: 'Dashboard',
   },
   {
-    title: 'CRM',
-    icon: { icon: 'tabler-3d-cube-sphere' },
+    title: 'Tổng quan nghiệp vụ', // CRM -> Business overview
+    icon: { icon: 'tabler-briefcase' },
     to: 'dashboards-crm',
     action: 'read',
     subject: 'Dashboard',
   },
-  {
-    title: 'Ecommerce',
-    icon: { icon: 'tabler-shopping-cart' },
-    to: 'dashboards-ecommerce',
-    action: 'read',
-    subject: 'Dashboard',
-  },
-  {
-    title: 'Academy',
-    icon: { icon: 'tabler-school' },
-    to: 'dashboards-academy',
-    action: 'read',
-    subject: 'Dashboard',
-  },
-  {
-    title: 'Logistics',
-    icon: { icon: 'tabler-truck' },
-    to: 'dashboards-logistics',
-    action: 'read',
-    subject: 'Dashboard',
-  },
+  // The rest are removed since they are demo dashboards
 ]

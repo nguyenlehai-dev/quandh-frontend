@@ -231,3 +231,53 @@
 | POST | `/front-pages/contact` | `submitContactForm(data)` | Gửi liên hệ |
 
 **Service**: `src/modules/front-pages/services/frontPageService.js`
+
+## 15. Activity Logs Module
+- **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)
+- **Base Path**: /activity-logs
+- **Các models chính**: ActivityLog
+- **APIs**:
+  - GET /activity-logs (List)
+  - GET /activity-logs/:id (View)
+  - DELETE /activity-logs/:id (Delete)
+  - GET /activity-logs/export (Export)
+
+## 16. Meetings Module
+- **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)
+- **Base Path**: /meetings
+- **Các models chính**: Meeting, Vote, Document, Conclusion, Attendee, AttendeeGroup, DocumentType, MeetingType
+- **APIs**:
+  - GET /meetings (List)
+  - POST /meetings (Create)
+  - GET /meetings/:id (View)
+  - PUT /meetings/:id (Update)
+  - DELETE /meetings/:id (Delete)
+  - GET /meetings/export (Export)
+  - CRUD /meetings/votes
+  - CRUD /meetings/documents
+  - CRUD /meetings/conclusions
+  - CRUD /meetings/attendees
+  - CRUD /meetings/attendee-groups
+  - CRUD /meetings/document-types
+  - CRUD /meetings/meeting-types
+
+## 17. Organizations Module
+- **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)
+- **Base Path**: /organizations
+- **Các models chính**: Organization
+- **APIs**:
+  - GET /organizations (List)
+  - POST /organizations (Create)
+  - GET /organizations/:id (View)
+  - PUT /organizations/:id (Update)
+  - DELETE /organizations/:id (Delete)
+
+## 18. System Settings Module
+- **Trạng thái**: [NEW] Đã khởi tạo (Restructure navigation)
+- **Base Path**: /system-settings
+- **Các models chính**: GeneralSetting, NotificationSetting
+- **APIs**:
+  - GET /system-settings/general (View General)
+  - PUT /system-settings/general (Update General)
+  - GET /system-settings/notifications (View Notifications)
+  - PUT /system-settings/notifications (Update Notifications)

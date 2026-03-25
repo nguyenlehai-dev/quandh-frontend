@@ -1,10 +1,10 @@
 export const navigation = {
-  title: 'Roles & Permissions',
-  icon: { icon: 'tabler-lock' },
+  title: 'Vai trò & Quyền hạn',
+  icon: { icon: 'tabler-shield-lock' }, // Changed from lock to shield-lock for better context
   action: 'read',
   subject: 'Role',
   children: [
-    { title: 'Roles', to: 'apps-roles', action: 'read', subject: 'Role' },
-    { title: 'Permissions', to: 'apps-permissions', action: 'read', subject: 'Permission' },
+    { title: 'Vai trò', to: 'apps-roles', action: 'read', subject: 'Role' },
+    { title: 'Quyền hạn', to: 'apps-permissions', action: 'read', subject: 'Permission' },
   ],
 }

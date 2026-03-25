@@ -1,10 +1,7 @@
 export const navigation = {
-  title: 'User',
-  icon: { icon: 'tabler-user' },
+  title: 'Người dùng',
+  icon: { icon: 'tabler-users' }, // Changed from single user to multiple
   action: 'read',
   subject: 'User',
-  children: [
-    { title: 'List', to: 'apps-user-list', action: 'read', subject: 'User' },
-    { title: 'View', to: { name: 'apps-user-view-id', params: { id: 21 } }, action: 'read', subject: 'User' },
-  ],
+  to: 'apps-user-list', // Direct navigation instead of children
 }

@@ -47,15 +47,24 @@ export function getModuleNavigation() {
       return a.name.localeCompare(b.name)
     })
 
-  const appNav = appModules
+  const meetingsNav = appModules
+    .filter(m => (m.navOrder ?? 999) < 50)
+    .map(m => m.navigation)
+    .filter(Boolean)
+    .flat()
+
+  const systemNav = appModules
+    .filter(m => (m.navOrder ?? 999) >= 50)
     .map(m => m.navigation)
     .filter(Boolean)
     .flat()
 
   return [
     ...dashboardNav,
-    { heading: 'Apps & Pages' },
-    ...appNav,
+    { heading: 'Quản lý cuộc họp' },
+    ...meetingsNav,
+    { heading: 'Quản lý hệ thống' },
+    ...systemNav,
   ]
 }
 

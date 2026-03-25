@@ -1,0 +1,13 @@
+/**
+ * Organizations Module Config
+ */
+export const API_BASE = '/organizations'
+export const DEFAULT_PER_PAGE = 10
+export const PER_PAGE_OPTIONS = [10, 25, 50, 100]
+export const DEFAULT_COLUMNS = ['name', 'code', 'phone', 'status']
+export const PERMISSIONS = {
+  VIEW: 'organization.view',
+  CREATE: 'organization.create',
+  EDIT: 'organization.edit',
+  DELETE: 'organization.delete',
+}
