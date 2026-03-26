@@ -2,7 +2,7 @@
  * Auth Service
  *
  * Quản lý tập trung: login, logout, session state.
- * Sử dụng: import { login, logout } from '@/services/auth'
+ * Sử dụng: import { login, logout, switchOrganization } from '@/services/auth'
  */
 import { ability } from '@/plugins/casl/ability'
 import ApiService from '@/services/api-service'
@@ -13,10 +13,14 @@ const TOKEN_KEY = 'accessToken'
 const USER_KEY = 'userData'
 const ABILITY_KEY = 'userAbilityRules'
 const ORG_KEY = 'currentOrganizationId'
+const ORGS_KEY = 'availableOrganizations'
 
 /**
  * Login
  * POST /auth/login → lưu cookies + update CASL ability
+ *
+ * Khi current_organization_id = null (nhiều org, chưa có preference)
+ * → không lưu cookie org, trả data cho page hiển thị dialog chọn.
  */
 export const login = async (email, password) => {
   const res = await api.callApi({
@@ -46,13 +50,48 @@ export const login = async (email, password) => {
   useCookie(USER_KEY).value = userData
   localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
 
-  // Lưu organization mặc định (nếu BE trả về)
-  const orgId = data.current_organization_id || (data.available_organizations?.length ? data.available_organizations[0].id : null)
-  if (orgId) {
-    useCookie(ORG_KEY).value = orgId
+  // Lưu danh sách tổ chức user có quyền truy cập
+  if (data.available_organizations) {
+    localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
+  }
+
+  // Lưu organization (nếu BE đã xác định được)
+  if (data.current_organization_id) {
+    useCookie(ORG_KEY).value = data.current_organization_id
   }
 
   // Update CASL permissions
+  ability.update(userAbilityRules)
+
+  return data
+}
+
+/**
+ * Chuyển tổ chức làm việc
+ * POST /auth/switch-organization → lưu DB + cập nhật cookie & CASL
+ */
+export const switchOrganization = async orgId => {
+  const res = await api.callApi({
+    method: 'POST',
+    url: '/auth/switch-organization',
+    param: { organization_id: orgId },
+  })
+
+  if (res.errors || res.code || res.success === false) {
+    throw res
+  }
+
+  const data = res.data || res
+
+  // Lưu org đã chọn vào cookie
+  useCookie(ORG_KEY).value = data.current_organization_id
+
+  // Cập nhật CASL abilities theo org mới
+  const userAbilityRules = data.abilities || []
+
+  userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
+  userAbilityRules.push({ action: 'read', subject: 'Auth' })
+  localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
   ability.update(userAbilityRules)
 
   return data
@@ -67,6 +106,7 @@ export const logout = async router => {
   useCookie(TOKEN_KEY).value = null
   useCookie(USER_KEY).value = null
   localStorage.removeItem(ABILITY_KEY)
+  localStorage.removeItem(ORGS_KEY)
   useCookie(ORG_KEY).value = null
 
   // Redirect trước rồi mới reset ability (tránh flickering nav menu)
@@ -93,8 +133,9 @@ export const isAuthenticated = () => {
 }
 
 /**
- * Đổi organization hiện tại
+ * Đổi organization hiện tại (chỉ client-side, không gọi API)
  */
 export const setCurrentOrganization = orgId => {
   useCookie(ORG_KEY).value = orgId
 }
+

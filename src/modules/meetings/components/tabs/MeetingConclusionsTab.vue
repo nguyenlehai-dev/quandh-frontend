@@ -9,8 +9,10 @@ const props = defineProps({
 const items = ref([])
 const isLoading = ref(false)
 
-// Dialog Add
+// Dialog Add & Edit
 const isAddDialogVisible = ref(false)
+const isEditDialogVisible = ref(false)
+const selectedItemId = ref(null)
 const isSubmitting = ref(false)
 const formData = ref({
   title: '',
@@ -70,6 +72,30 @@ const submitAdd = async () => {
     isSubmitting.value = false
   }
 }
+
+const openEditDialog = item => {
+  selectedItemId.value = item.id
+  formData.value = { title: item.title, content: item.content }
+  isEditDialogVisible.value = true
+}
+
+const submitEdit = async () => {
+  if (!formData.value.title || !formData.value.content) return alert('Vui lòng nhập đầy đủ tiêu đề và nội dung')
+  
+  isSubmitting.value = true
+  try {
+    const { updateMeetingConclusion } = await import('@/modules/meetings/services/meetingService')
+    await updateMeetingConclusion(props.meetingId, selectedItemId.value, formData.value)
+    
+    isEditDialogVisible.value = false
+    formData.value = { title: '', content: '' }
+    loadData()
+  } catch (err) {
+    console.error('Lỗi khi cập nhật kết luận', err)
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -95,6 +121,9 @@ const submitAdd = async () => {
         class="text-no-wrap"
       >
         <template #item.actions="{ item }">
+          <IconBtn @click="openEditDialog(item)">
+            <VIcon icon="tabler-pencil" />
+          </IconBtn>
           <IconBtn @click="deleteItem(item.id)">
             <VIcon icon="tabler-trash" />
           </IconBtn>
@@ -147,6 +176,51 @@ const submitAdd = async () => {
             @click="submitAdd"
           >
             Lưu
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
+
+    <!-- Dialog Cập nhật -->
+    <VDialog
+      v-model="isEditDialogVisible"
+      max-width="600"
+    >
+      <VCard title="Cập nhật Kết luận">
+        <VCardText>
+          <VRow>
+            <VCol cols="12">
+              <AppTextField
+                v-model="formData.title"
+                label="Tiêu đề *"
+                placeholder="Ví dụ: Thống nhất phương án A"
+              />
+            </VCol>
+            
+            <VCol cols="12">
+              <AppTextarea
+                v-model="formData.content"
+                label="Nội dung kết luận *"
+                placeholder="Nhập chi tiết nội dung kết luận..."
+                rows="5"
+              />
+            </VCol>
+          </VRow>
+        </VCardText>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isEditDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            @click="submitEdit"
+          >
+            Cập nhật
           </VBtn>
         </VCardText>
       </VCard>

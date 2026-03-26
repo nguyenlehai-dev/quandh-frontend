@@ -1,6 +1,6 @@
 <script setup>
-import { deleteMeetingDocument, fetchMeetingDocuments, fetchMeetings } from '@/modules/meetings/services/meetingService'
-import { onMounted, ref, watch } from 'vue'
+import { createMeetingDocument, deleteMeetingDocument, fetchMeetingDocuments } from '@/modules/meetings/services/meetingService'
+import { ref, watch } from 'vue'
 
 const props = defineProps({
   meetingId: { type: [String, Number], required: true },
@@ -12,9 +12,11 @@ const isLoading = ref(false)
 // Dialog Add
 const isAddDialogVisible = ref(false)
 const isSubmitting = ref(false)
+
 const formData = ref({
   title: '',
   description: '',
+  file: [],
 })
 
 const headers = [
@@ -34,6 +36,7 @@ const loadData = async () => {
   isLoading.value = true
   try {
     const res = await fetchMeetingDocuments(props.meetingId)
+
     items.value = res.data || []
   } catch (error) {
     console.error(error)
@@ -59,19 +62,43 @@ const submitAdd = async () => {
   isSubmitting.value = true
   try {
     const payload = new FormData()
+
     payload.append('title', formData.value.title)
     if (formData.value.description) {
       payload.append('description', formData.value.description)
+    }
+    let filesToUpload = []
+    if (Array.isArray(formData.value.file)) {
+      filesToUpload = formData.value.file
+    } else if (formData.value.file) {
+      filesToUpload = [formData.value.file]
+    }
+
+    if (filesToUpload.length > 0) {
+      filesToUpload.forEach(f => payload.append('files[]', f))
+    } else {
+      isSubmitting.value = false
+      
+      return alert('Vui lòng chọn file tải lên')
     }
     
     // We import createMeetingDocument below if we didn't already
     await createMeetingDocument(props.meetingId, payload)
     
     isAddDialogVisible.value = false
-    formData.value = { title: '', description: '' }
+    formData.value = { title: '', description: '', file: [] }
     loadData()
   } catch (err) {
     console.error('Lỗi khi thêm file', err)
+    let errorMsg = 'Có lỗi xảy ra'
+    if (err.response?._data?.errors) {
+      errorMsg = Object.values(err.response._data.errors).flat().join('\n')
+    } else if (err.data?.errors) {
+      errorMsg = Object.values(err.data.errors).flat().join('\n')
+    } else if (err.message) {
+      errorMsg = err.message
+    }
+    alert(errorMsg)
   } finally {
     isSubmitting.value = false
   }
@@ -126,6 +153,17 @@ const submitAdd = async () => {
                 v-model="formData.title"
                 label="Tên tài liệu *"
                 placeholder="Nhập tên tài liệu"
+              />
+            </VCol>
+
+            <VCol cols="12">
+              <VFileInput
+                v-model="formData.file"
+                label="Chọn tài liệu (PDF, Word, Excel...) *"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                prepend-icon="tabler-upload"
+                show-size
+                variant="outlined"
               />
             </VCol>
             

@@ -9,6 +9,7 @@ import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import NavbarShortcuts from '@/layouts/components/NavbarShortcuts.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
+import OrgSwitcher from '@/layouts/components/OrgSwitcher.vue'
 import NavBarI18n from '@core/components/I18n.vue'
 
 // @layouts plugin
@@ -34,6 +35,8 @@ import { VerticalNavLayout } from '@layouts'
         <NavSearchBar class="ms-lg-n3" />
 
         <VSpacer />
+
+        <OrgSwitcher class="me-2" />
 
         <NavBarI18n
           v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"

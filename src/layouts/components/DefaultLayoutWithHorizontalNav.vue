@@ -9,6 +9,7 @@ import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import NavbarShortcuts from '@/layouts/components/NavbarShortcuts.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
+import OrgSwitcher from '@/layouts/components/OrgSwitcher.vue'
 import NavBarI18n from '@core/components/I18n.vue'
 import { HorizontalNavLayout } from '@layouts'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
@@ -29,6 +30,8 @@ import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
         </h1>
       </RouterLink>
       <VSpacer />
+
+      <OrgSwitcher class="me-2" />
 
       <NavSearchBar trigger-btn-class="ms-lg-n3" />
 

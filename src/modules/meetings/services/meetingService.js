@@ -37,6 +37,10 @@ export const fetchMeetingVotes = meetingId => $api(`${API_BASE}/${meetingId}/vot
 export const createMeetingVote = (meetingId, data) => $api(`${API_BASE}/${meetingId}/votings`, { method: 'POST', body: data })
 export const updateMeetingVote = (meetingId, voteId, data) => $api(`${API_BASE}/${meetingId}/votings/${voteId}`, { method: 'PUT', body: data })
 export const deleteMeetingVote = (meetingId, voteId) => $api(`${API_BASE}/${meetingId}/votings/${voteId}`, { method: 'DELETE' })
+export const openVoting = (meetingId, voteId) => $api(`${API_BASE}/${meetingId}/votings/${voteId}/open`, { method: 'PATCH' })
+export const closeVoting = (meetingId, voteId) => $api(`${API_BASE}/${meetingId}/votings/${voteId}/close`, { method: 'PATCH' })
+export const castVote = (meetingId, voteId, choice) => $api(`${API_BASE}/${meetingId}/votings/${voteId}/vote`, { method: 'POST', body: { choice } })
+export const fetchVotingResults = (meetingId, voteId) => $api(`${API_BASE}/${meetingId}/votings/${voteId}/results`)
 
 // ===== NGƯỜI DỰ HỌP (SUB-RESOURCE) =====
 export const fetchMeetingParticipants = meetingId => $api(`${API_BASE}/${meetingId}/participants`)
@@ -49,6 +53,13 @@ export const fetchPersonalNotes = meetingId => $api(`${API_BASE}/${meetingId}/pe
 export const createPersonalNote = (meetingId, data) => $api(`${API_BASE}/${meetingId}/personal-notes`, { method: 'POST', body: data })
 export const updatePersonalNote = (meetingId, noteId, data) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'PUT', body: data })
 export const deletePersonalNote = (meetingId, noteId) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'DELETE' })
+
+// ===== ĐĂNG KÝ PHÁT BIỂU (SUB-RESOURCE) =====
+export const fetchSpeechRequests = meetingId => $api(`${API_BASE}/${meetingId}/speech-requests`)
+export const createSpeechRequest = meetingId => $api(`${API_BASE}/${meetingId}/speech-requests`, { method: 'POST' })
+export const deleteSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}`, { method: 'DELETE' })
+export const approveSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}/approve`, { method: 'PATCH' })
+export const rejectSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}/reject`, { method: 'PATCH' })
 
 // ===== BIỂU QUYẾT =====
 export const fetchVotes = params => $api(API_VOTES, { params })

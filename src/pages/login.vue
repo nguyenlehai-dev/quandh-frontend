@@ -1,7 +1,7 @@
 <!-- ❗Errors in the form are set on line 60 -->
 <script setup>
 import { VForm } from 'vuetify/components/VForm'
-import { login as authLogin } from '@/services/auth'
+import { login as authLogin, switchOrganization } from '@/services/auth'
 import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
@@ -41,11 +41,26 @@ const credentials = ref({
 
 const rememberMe = ref(false)
 
+// ── Chọn tổ chức ──
+const showOrgDialog = ref(false)
+const availableOrganizations = ref([])
+const selectedOrgId = ref(null)
+const isOrgLoading = ref(false)
+
 const login = async () => {
   try {
-    await authLogin(credentials.value.email, credentials.value.password)
+    const data = await authLogin(credentials.value.email, credentials.value.password)
 
-    // Redirect to `to` query if exist or redirect to index route
+    // Nếu BE trả current_organization_id = null → cần chọn tổ chức
+    if (!data.current_organization_id && data.available_organizations?.length > 1) {
+      availableOrganizations.value = data.available_organizations
+      selectedOrgId.value = null
+      showOrgDialog.value = true
+
+      return
+    }
+
+    // Đã có org → redirect bình thường
     await nextTick(() => {
       router.replace(route.query.to ? String(route.query.to) : '/')
     })
@@ -58,6 +73,25 @@ const login = async () => {
     else {
       console.error(err)
     }
+  }
+}
+
+const confirmOrganization = async () => {
+  if (!selectedOrgId.value) return
+
+  isOrgLoading.value = true
+  try {
+    await switchOrganization(selectedOrgId.value)
+    showOrgDialog.value = false
+    await nextTick(() => {
+      router.replace(route.query.to ? String(route.query.to) : '/')
+    })
+  }
+  catch (err) {
+    console.error('Switch organization failed:', err)
+  }
+  finally {
+    isOrgLoading.value = false
   }
 }
 
@@ -229,8 +263,47 @@ const onSubmit = () => {
       </VCard>
     </VCol>
   </VRow>
+
+  <!-- Dialog chọn tổ chức -->
+  <VDialog
+    v-model="showOrgDialog"
+    persistent
+    max-width="460"
+  >
+    <VCard>
+      <VCardTitle class="text-h5 pa-5">
+        Chọn tổ chức làm việc
+      </VCardTitle>
+      <VCardText>
+        <p class="text-body-1 mb-4">
+          Tài khoản của bạn thuộc nhiều tổ chức. Vui lòng chọn tổ chức để tiếp tục.
+        </p>
+        <VSelect
+          v-model="selectedOrgId"
+          :items="availableOrganizations"
+          item-title="name"
+          item-value="id"
+          label="Tổ chức"
+          variant="outlined"
+          :rules="[requiredValidator]"
+        />
+      </VCardText>
+      <VCardActions class="pa-5 pt-0">
+        <VSpacer />
+        <VBtn
+          color="primary"
+          :loading="isOrgLoading"
+          :disabled="!selectedOrgId"
+          @click="confirmOrganization"
+        >
+          Xác nhận
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="scss">
 @use "@core/scss/template/pages/page-auth";
 </style>
+

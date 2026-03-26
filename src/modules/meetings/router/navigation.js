@@ -15,5 +15,6 @@ export const navigation = {
         { title: 'Loại cuộc họp', to: 'meetings-meeting-types', action: 'read', subject: 'Meeting' },
       ],
     },
+    { title: 'Cuộc họp của tôi', to: 'meetings-participant-my-meetings', action: 'read', subject: 'Meeting' },
   ],
 }

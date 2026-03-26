@@ -395,6 +395,7 @@ declare module 'vue' {
     TimelineWithIcons: typeof import('./src/views/demos/components/timeline/TimelineWithIcons.vue')['default']
     TiptapEditor: typeof import('./src/@core/components/TiptapEditor.vue')['default']
     TwoFactorAuthDialog: typeof import('./src/components/dialogs/TwoFactorAuthDialog.vue')['default']
+    UserAssignmentsManager: typeof import('./src/modules/user/components/UserAssignmentsManager.vue')['default']
     UserBioPanel: typeof import('./src/modules/user/components/UserBioPanel.vue')['default']
     UserInfoEditDialog: typeof import('./src/components/dialogs/UserInfoEditDialog.vue')['default']
     UserInvoiceTable: typeof import('./src/modules/user/components/UserInvoiceTable.vue')['default']

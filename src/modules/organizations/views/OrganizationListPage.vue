@@ -113,6 +113,7 @@ const resolveStatusVariant = status => {
           </template>
         </AppTextField>
         <VBtn
+          v-if="$can('create', 'Organization')"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
         >
@@ -160,10 +161,16 @@ const resolveStatusVariant = status => {
         </template>
 
         <template #item.actions="{ item }">
-          <IconBtn @click="openEditDialog(item)">
+          <IconBtn
+            v-if="$can('update', 'Organization')"
+            @click="openEditDialog(item)"
+          >
             <VIcon icon="tabler-edit" />
           </IconBtn>
-          <IconBtn @click="deleteOrganization(item.id)">
+          <IconBtn
+            v-if="$can('delete', 'Organization')"
+            @click="deleteOrganization(item.id)"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>

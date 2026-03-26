@@ -1,11 +1,9 @@
 <script setup>
-import AddNewUserDrawer from '../components/AddNewUserDrawer.vue'
+
 
 const { t } = useI18n()
 
 const searchQuery = ref('')
-const selectedRole = ref()
-const selectedPlan = ref()
 const selectedStatus = ref()
 
 // Data table options
@@ -23,27 +21,23 @@ const updateOptions = options => {
 // Headers
 const headers = [
   {
-    title: t('user.user.headers.user'),
-    key: 'user',
+    title: 'Cán bộ',
+    key: 'name',
   },
   {
-    title: t('user.user.headers.role'),
-    key: 'role',
+    title: 'Email',
+    key: 'email',
   },
   {
-    title: t('user.user.headers.plan'),
-    key: 'plan',
+    title: 'Tên đăng nhập',
+    key: 'user_name',
   },
   {
-    title: t('user.user.headers.billing'),
-    key: 'billing',
-  },
-  {
-    title: t('common.common.labels.status'),
+    title: 'Trạng thái',
     key: 'status',
   },
   {
-    title: t('common.common.labels.actions'),
+    title: 'Hành động',
     key: 'actions',
     sortable: false,
   },
@@ -60,8 +54,6 @@ const fetchUsers = async () => {
       params: {
         search: searchQuery.value,
         status: selectedStatus.value,
-        plan: selectedPlan.value,
-        role: selectedRole.value,
         limit: itemsPerPage.value,
         page: page.value,
         sort_by: sortBy.value,
@@ -81,7 +73,7 @@ const fetchUsers = async () => {
 }
 
 // Debounce search/filter changes (500ms) to reduce API calls
-watchDebounced([searchQuery, selectedStatus, selectedPlan, selectedRole], () => {
+watchDebounced([searchQuery, selectedStatus], () => {
   page.value = 1
   fetchUsers()
 }, { debounce: 500 })
@@ -94,113 +86,59 @@ watch([itemsPerPage, page, sortBy, orderBy], () => {
 // Initial fetch
 onMounted(() => fetchUsers())
 
-// 👉 search filters
-const roles = [
-  {
-    title: t('user.user.roles.admin'),
-    value: 'admin',
-  },
-  {
-    title: t('user.user.roles.author'),
-    value: 'author',
-  },
-  {
-    title: t('user.user.roles.editor'),
-    value: 'editor',
-  },
-  {
-    title: t('user.user.roles.maintainer'),
-    value: 'maintainer',
-  },
-  {
-    title: t('user.user.roles.subscriber'),
-    value: 'subscriber',
-  },
-]
-
-const plans = [
-  {
-    title: t('user.user.plans.basic'),
-    value: 'basic',
-  },
-  {
-    title: t('user.user.plans.company'),
-    value: 'company',
-  },
-  {
-    title: t('user.user.plans.enterprise'),
-    value: 'enterprise',
-  },
-  {
-    title: t('user.user.plans.team'),
-    value: 'team',
-  },
-]
-
 const status = [
   {
-    title: t('common.common.status.pending'),
-    value: 'pending',
-  },
-  {
-    title: t('common.common.status.active'),
+    title: 'Đang hoạt động',
     value: 'active',
   },
   {
-    title: t('common.common.status.inactive'),
+    title: 'Tạm khóa',
     value: 'inactive',
   },
+  {
+    title: 'Cấm',
+    value: 'banned',
+  },
 ]
-
-const resolveUserRoleVariant = role => {
-  if (!role) return { color: 'primary', icon: 'tabler-user' }
-  const roleLowerCase = role.toLowerCase()
-  if (roleLowerCase === 'subscriber')
-    return {
-      color: 'success',
-      icon: 'tabler-user',
-    }
-  if (roleLowerCase === 'author')
-    return {
-      color: 'error',
-      icon: 'tabler-device-desktop',
-    }
-  if (roleLowerCase === 'maintainer')
-    return {
-      color: 'info',
-      icon: 'tabler-chart-pie',
-    }
-  if (roleLowerCase === 'editor')
-    return {
-      color: 'warning',
-      icon: 'tabler-edit',
-    }
-  if (roleLowerCase === 'admin')
-    return {
-      color: 'primary',
-      icon: 'tabler-crown',
-    }
-  
-  return {
-    color: 'primary',
-    icon: 'tabler-user',
-  }
-}
 
 const resolveUserStatusVariant = stat => {
   if (!stat) return 'primary'
   const statLowerCase = stat.toLowerCase()
-  if (statLowerCase === 'pending')
-    return 'warning'
   if (statLowerCase === 'active')
     return 'success'
   if (statLowerCase === 'inactive')
-    return 'secondary'
+    return 'warning'
+  if (statLowerCase === 'banned')
+    return 'error'
   
   return 'primary'
 }
 
 const isAddNewUserDrawerVisible = ref(false)
+
+const newUser = ref({
+  name: '',
+  user_name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+  status: 'active',
+})
+
+const onSubmitNewUser = async () => {
+  try {
+    await $api('/users', {
+      method: 'POST',
+      body: newUser.value,
+    })
+
+    isAddNewUserDrawerVisible.value = false
+    newUser.value = { name: '', user_name: '', email: '', password: '', password_confirmation: '', status: 'active' }
+    fetchUsers()
+  } catch (err) {
+    console.error('Create user error:', err)
+  }
+}
 
 const addNewUser = async userData => {
   await $api('/users', {
@@ -261,7 +199,7 @@ const widgetData = ref([
 </script>
 
 <template>
-  <section>
+  <div>
     <!-- 👉 Widgets -->
     <div class="d-flex mb-6">
       <VRow>
@@ -322,32 +260,6 @@ const widgetData = ref([
 
       <VCardText>
         <VRow>
-          <!-- 👉 Select Role -->
-          <VCol
-            cols="12"
-            sm="4"
-          >
-            <AppSelect
-              v-model="selectedRole"
-              :placeholder="t('user.user.filters.select_role')"
-              :items="roles"
-              clearable
-              clear-icon="tabler-x"
-            />
-          </VCol>
-          <!-- 👉 Select Plan -->
-          <VCol
-            cols="12"
-            sm="4"
-          >
-            <AppSelect
-              v-model="selectedPlan"
-              :placeholder="t('user.user.filters.select_plan')"
-              :items="plans"
-              clearable
-              clear-icon="tabler-x"
-            />
-          </VCol>
           <!-- 👉 Select Status -->
           <VCol
             cols="12"
@@ -355,7 +267,7 @@ const widgetData = ref([
           >
             <AppSelect
               v-model="selectedStatus"
-              :placeholder="t('user.user.filters.select_status')"
+              placeholder="Chọn trạng thái"
               :items="status"
               clearable
               clear-icon="tabler-x"
@@ -403,6 +315,7 @@ const widgetData = ref([
 
           <!-- 👉 Add user button -->
           <VBtn
+            v-if="$can('create', 'User')"
             prepend-icon="tabler-plus"
             @click="isAddNewUserDrawerVisible = true"
           >
@@ -426,55 +339,24 @@ const widgetData = ref([
         show-select
         @update:options="updateOptions"
       >
-        <!-- User -->
-        <template #item.user="{ item }">
+        <!-- Cán bộ -->
+        <template #item.name="{ item }">
           <div class="d-flex align-center gap-x-4">
             <VAvatar
               size="34"
-              :variant="!item.avatar ? 'tonal' : undefined"
-              :color="!item.avatar ? resolveUserRoleVariant(item.role).color : undefined"
+              variant="tonal"
+              color="primary"
             >
-              <VImg
-                v-if="item.avatar"
-                :src="item.avatar"
-              />
-              <span v-else>{{ avatarText(item.fullName) }}</span>
+              <span>{{ avatarText(item.name) }}</span>
             </VAvatar>
             <div class="d-flex flex-column">
-              <h6 class="text-base">
-                <RouterLink
-                  :to="{ name: 'apps-user-view-id', params: { id: item.id } }"
-                  class="font-weight-medium text-link"
-                >
-                  {{ item.fullName }}
-                </RouterLink>
+              <h6 class="text-base font-weight-medium">
+                {{ item.name }}
               </h6>
-              <div class="text-sm">
-                {{ item.email }}
+              <div class="text-sm text-disabled">
+                @{{ item.user_name }}
               </div>
             </div>
-          </div>
-        </template>
-
-        <!-- 👉 Role -->
-        <template #item.role="{ item }">
-          <div class="d-flex align-center gap-x-2">
-            <VIcon
-              :size="22"
-              :icon="resolveUserRoleVariant(item.role).icon"
-              :color="resolveUserRoleVariant(item.role).color"
-            />
-
-            <div class="text-capitalize text-high-emphasis text-body-1">
-              {{ item.role }}
-            </div>
-          </div>
-        </template>
-
-        <!-- Plan -->
-        <template #item.plan="{ item }">
-          <div class="text-body-1 text-high-emphasis text-capitalize">
-            {{ item.currentPlan }}
           </div>
         </template>
 
@@ -486,13 +368,16 @@ const widgetData = ref([
             label
             class="text-capitalize"
           >
-            {{ item.status }}
+            {{ item.status === 'active' ? 'Đang hoạt động' : (item.status === 'banned' ? 'Cấm' : 'Tạm khóa') }}
           </VChip>
         </template>
 
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <IconBtn @click="deleteUser(item.id)">
+          <IconBtn
+            v-if="$can('delete', 'User')"
+            @click="deleteUser(item.id)"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
 
@@ -523,7 +408,10 @@ const widgetData = ref([
                   <VListItemTitle>{{ t('common.common.actions.edit') }}</VListItemTitle>
                 </VListItem>
 
-                <VListItem @click="deleteUser(item.id)">
+                <VListItem
+                  v-if="$can('delete', 'User')"
+                  @click="deleteUser(item.id)"
+                >
                   <template #prepend>
                     <VIcon icon="tabler-trash" />
                   </template>
@@ -545,10 +433,98 @@ const widgetData = ref([
       </VDataTableServer>
       <!-- SECTION -->
     </VCard>
-    <!-- 👉 Add New User -->
-    <AddNewUserDrawer
-      v-model:is-drawer-open="isAddNewUserDrawerVisible"
-      @user-data="addNewUser"
-    />
-  </section>
+    <!-- 👉 Add New User Dialog (rendered only when open) -->
+    <template v-if="isAddNewUserDrawerVisible">
+      <VCard class="mt-6" title="Thêm Cán bộ mới">
+        <VCardText>
+          <VForm @submit.prevent="onSubmitNewUser">
+            <VRow>
+              <VCol cols="12">
+                <AppTextField
+                  v-model="newUser.name"
+                  :rules="[requiredValidator]"
+                  label="Họ và Tên"
+                  placeholder="Nguyễn Văn A"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="newUser.user_name"
+                  :rules="[requiredValidator]"
+                  label="Tên đăng nhập"
+                  placeholder="nguyenvana"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="newUser.email"
+                  :rules="[requiredValidator, emailValidator]"
+                  label="Email"
+                  placeholder="email@example.com"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="newUser.password"
+                  :rules="[requiredValidator]"
+                  label="Mật khẩu"
+                  type="password"
+                  placeholder="••••••"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="newUser.password_confirmation"
+                  :rules="[requiredValidator]"
+                  label="Xác nhận mật khẩu"
+                  type="password"
+                  placeholder="••••••"
+                />
+              </VCol>
+              <VCol cols="12">
+                <AppSelect
+                  v-model="newUser.status"
+                  label="Trạng thái"
+                  :items="[
+                    { title: 'Đang hoạt động', value: 'active' },
+                    { title: 'Tạm khóa', value: 'inactive' },
+                    { title: 'Cấm', value: 'banned' },
+                  ]"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VBtn
+                  type="submit"
+                  class="me-3"
+                >
+                  Lưu
+                </VBtn>
+                <VBtn
+                  variant="tonal"
+                  color="error"
+                  @click="isAddNewUserDrawerVisible = false"
+                >
+                  Hủy
+                </VBtn>
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </template>
+  </div>
 </template>
+
+

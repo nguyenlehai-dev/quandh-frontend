@@ -84,6 +84,7 @@
     "@videojs-player/vue": "1.0.0",
     "@vitejs/plugin-vue": "5.2.4",
     "@vitejs/plugin-vue-jsx": "4.2.0",
+    "docx": "^9.6.1",
     "eslint": "8.57.1",
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-import-resolver-typescript": "3.10.1",

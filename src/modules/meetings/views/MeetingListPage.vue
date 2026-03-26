@@ -64,6 +64,7 @@ const deleteItem = async id => {
           style="max-inline-size: 250px;" 
         />
         <VBtn 
+          v-if="$can('create', 'Meeting')"
           prepend-icon="tabler-plus"
           :to="{ name: 'meetings-edit' }"
         >
@@ -103,29 +104,38 @@ const deleteItem = async id => {
         <template #item.status="{ item }">
           <VChip
             size="small"
+            :color="item.status === 'active' || item.status === 'in_progress' ? 'success' : (item.status === 'draft' || item.status === 'scheduled' ? 'warning' : 'secondary')"
             label
           >
-            {{ item.status }}
+            {{ item.status === 'active' || item.status === 'in_progress' ? 'Đang diễn ra' : (item.status === 'draft' || item.status === 'scheduled' ? 'Chưa bắt đầu' : 'Đã kết thúc') }}
           </VChip>
         </template>
 
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <IconBtn :to="{ name: 'meetings-live-controller', params: { id: item.id } }">
-            <VIcon icon="tabler-presentation" />
-            <VTooltip
-              activator="parent"
-              location="top"
-            >
-              Vào trang Điều hành
-            </VTooltip>
-          </IconBtn>
+          <VBtn
+            v-if="$can('update', 'Meeting')"
+            size="small"
+            variant="tonal"
+            color="success"
+            class="me-2"
+            prepend-icon="tabler-player-play-filled"
+            :to="{ name: 'meetings-live-controller', params: { id: item.id } }"
+          >
+            Điều hành
+          </VBtn>
 
-          <IconBtn :to="{ name: 'meetings-edit', params: { id: item.id } }">
+          <IconBtn
+            v-if="$can('update', 'Meeting')"
+            :to="{ name: 'meetings-edit', params: { id: item.id } }"
+          >
             <VIcon icon="tabler-pencil" />
           </IconBtn>
 
-          <IconBtn @click="deleteItem(item.id)">
+          <IconBtn
+            v-if="$can('delete', 'Meeting')"
+            @click="deleteItem(item.id)"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>

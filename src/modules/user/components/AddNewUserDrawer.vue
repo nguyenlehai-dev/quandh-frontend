@@ -1,4 +1,5 @@
 <script setup>
+import UserAssignmentsManager from './UserAssignmentsManager.vue'
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 
 const props = defineProps({
@@ -15,15 +16,13 @@ const emit = defineEmits([
 
 const isFormValid = ref(false)
 const refForm = ref()
-const fullName = ref('')
+const name = ref('')
 const userName = ref('')
 const email = ref('')
-const company = ref('')
-const country = ref()
-const contact = ref('')
-const role = ref()
-const plan = ref()
-const status = ref()
+const password = ref('')
+const passwordConfirmation = ref('')
+const status = ref('active')
+const assignments = ref([])
 
 // 👉 drawer close
 const closeNavigationDrawer = () => {
@@ -31,6 +30,7 @@ const closeNavigationDrawer = () => {
   nextTick(() => {
     refForm.value?.reset()
     refForm.value?.resetValidation()
+    assignments.value = []
   })
 }
 
@@ -38,22 +38,20 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
       emit('userData', {
-        id: 0,
-        fullName: fullName.value,
-        company: company.value,
-        role: role.value,
-        country: country.value,
-        contact: contact.value,
+        name: name.value,
+        user_name: userName.value,
         email: email.value,
-        currentPlan: plan.value,
+        password: password.value,
+        password_confirmation: passwordConfirmation.value,
         status: status.value,
-        avatar: '',
-        billing: 'Auto Debit',
+        assignments: assignments.value,
       })
+
       emit('update:isDrawerOpen', false)
       nextTick(() => {
         refForm.value?.reset()
         refForm.value?.resetValidation()
+        assignments.value = []
       })
     }
   })
@@ -68,7 +66,7 @@ const handleDrawerModelValueUpdate = val => {
   <VNavigationDrawer
     data-allow-mismatch
     temporary
-    :width="400"
+    :width="600"
     location="end"
     class="scrollable-content"
     :model-value="props.isDrawerOpen"
@@ -76,7 +74,7 @@ const handleDrawerModelValueUpdate = val => {
   >
     <!-- 👉 Title -->
     <AppDrawerHeaderSection
-      title="Add New User"
+      title="Thêm Cán bộ mới"
       @cancel="closeNavigationDrawer"
     />
 
@@ -95,84 +93,64 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉 Full name -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="fullName"
+                  v-model="name"
                   :rules="[requiredValidator]"
-                  label="Full Name"
-                  placeholder="John Doe"
+                  label="Họ và Tên"
+                  placeholder="Nguyễn Văn A"
                 />
               </VCol>
 
               <!-- 👉 Username -->
-              <VCol cols="12">
+              <VCol
+                cols="12"
+                md="6"
+              >
                 <AppTextField
                   v-model="userName"
                   :rules="[requiredValidator]"
-                  label="Username"
-                  placeholder="Johndoe"
+                  label="Tên đăng nhập"
+                  placeholder="nguyenvana"
                 />
               </VCol>
 
               <!-- 👉 Email -->
-              <VCol cols="12">
+              <VCol
+                cols="12"
+                md="6"
+              >
                 <AppTextField
                   v-model="email"
                   :rules="[requiredValidator, emailValidator]"
                   label="Email"
-                  placeholder="johndoe@email.com"
+                  placeholder="email@example.com"
                 />
               </VCol>
 
-              <!-- 👉 company -->
-              <VCol cols="12">
+              <!-- 👉 Password -->
+              <VCol
+                cols="12"
+                md="6"
+              >
                 <AppTextField
-                  v-model="company"
+                  v-model="password"
                   :rules="[requiredValidator]"
-                  label="Company"
-                  placeholder="PixInvent"
+                  label="Mật khẩu"
+                  type="password"
+                  placeholder="••••••"
                 />
               </VCol>
 
-              <!-- 👉 Country -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="country"
-                  label="Select Country"
-                  placeholder="Select Country"
-                  :rules="[requiredValidator]"
-                  :items="['USA', 'UK', 'India', 'Australia']"
-                />
-              </VCol>
-
-              <!-- 👉 Contact -->
-              <VCol cols="12">
+              <!-- 👉 Password Confirmation -->
+              <VCol
+                cols="12"
+                md="6"
+              >
                 <AppTextField
-                  v-model="contact"
-                  type="number"
+                  v-model="passwordConfirmation"
                   :rules="[requiredValidator]"
-                  label="Contact"
-                  placeholder="+1-541-754-3010"
-                />
-              </VCol>
-
-              <!-- 👉 Role -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="role"
-                  label="Select Role"
-                  placeholder="Select Role"
-                  :rules="[requiredValidator]"
-                  :items="['Admin', 'Author', 'Editor', 'Maintainer', 'Subscriber']"
-                />
-              </VCol>
-
-              <!-- 👉 Plan -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="plan"
-                  label="Select Plan"
-                  placeholder="Select Plan"
-                  :rules="[requiredValidator]"
-                  :items="['Basic', 'Company', 'Enterprise', 'Team']"
+                  label="Xác nhận mật khẩu"
+                  type="password"
+                  placeholder="••••••"
                 />
               </VCol>
 
@@ -180,11 +158,19 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <AppSelect
                   v-model="status"
-                  label="Select Status"
-                  placeholder="Select Status"
-                  :rules="[requiredValidator]"
-                  :items="[{ title: 'Active', value: 'active' }, { title: 'Inactive', value: 'inactive' }, { title: 'Pending', value: 'pending' }]"
+                  label="Trạng thái"
+                  :items="[
+                    { title: 'Đang hoạt động', value: 'active' },
+                    { title: 'Tạm khóa', value: 'inactive' },
+                    { title: 'Cấm', value: 'banned' },
+                  ]"
                 />
+              </VCol>
+
+              <!-- 👉 Assignments -->
+              <VCol cols="12">
+                <VDivider class="mb-4" />
+                <UserAssignmentsManager v-model="assignments" />
               </VCol>
 
               <!-- 👉 Submit and Cancel -->
@@ -193,7 +179,7 @@ const handleDrawerModelValueUpdate = val => {
                   type="submit"
                   class="me-3"
                 >
-                  Submit
+                  Lưu
                 </VBtn>
                 <VBtn
                   type="reset"
@@ -201,7 +187,7 @@ const handleDrawerModelValueUpdate = val => {
                   color="error"
                   @click="closeNavigationDrawer"
                 >
-                  Cancel
+                  Hủy
                 </VBtn>
               </VCol>
             </VRow>

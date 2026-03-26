@@ -12,7 +12,10 @@ const loadMyMeetings = async () => {
     const params = {}
     if (searchQuery.value) params.search = searchQuery.value
     const res = await apiFetchMyMeetings(params)
-    meetings.value = res.data?.data || []
+
+    // successCollection wraps: { success: true, data: [...meetings], meta: {...} }
+    // $api unwraps to: { success, data, meta }
+    meetings.value = Array.isArray(res.data) ? res.data : (res.data?.data || [])
   } catch (error) {
     console.error('Lỗi khi tải Lịch họp của tôi', error)
   } finally {
@@ -62,7 +65,7 @@ onMounted(() => {
                   <template #subtitle>
                     <div class="d-flex align-center mt-1 gap-2">
                       <VIcon icon="tabler-calendar" size="16" />
-                      <span>{{ meeting.start_time || 'Chưa xác định' }}</span>
+                      <span>{{ meeting.start_at || 'Chưa xác định' }}</span>
                     </div>
                   </template>
                 </VCardItem>
@@ -70,7 +73,7 @@ onMounted(() => {
                 <VCardText class="pt-2">
                   <div class="d-flex align-center gap-2 mb-2">
                     <VIcon icon="tabler-map-pin" size="16" class="text-disabled" />
-                    <span class="text-body-2">{{ meeting.room_name || 'Phòng trực tuyến' }}</span>
+                    <span class="text-body-2">{{ meeting.location || 'Phòng trực tuyến' }}</span>
                   </div>
                   <div class="text-body-2 text-truncate line-clamp-2 text-medium-emphasis">
                     {{ meeting.description || 'Không có mô tả chi tiết.' }}
