@@ -33,12 +33,14 @@ const fetchPermissions = async () => {
   try {
     const res = await $api('/permissions', { params: { limit: 999 } })
 
-    allPermissions.value = (res.data ?? []).map(p => ({
-      id: p.id,
-      name: p.name,
-      description: p.description || p.name,
-      checked: false,
-    }))
+    allPermissions.value = (res.data ?? [])
+      .filter(p => !p.name.startsWith('group:'))
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || p.name,
+        checked: false,
+      }))
   }
   catch (err) {
     console.error('Fetch permissions error:', err)
@@ -73,6 +75,37 @@ watch(() => checkedCount.value, count => {
   if (count === allPermissions.value.length && count > 0)
     isSelectAll.value = true
 })
+
+// Tree/Group logic
+const permissionGroups = computed(() => {
+  const groups = {}
+  allPermissions.value.forEach(p => {
+    const prefix = p.name.split('.')[0]
+    if (!groups[prefix]) {
+      const label = p.description.includes(' - ') ? p.description.split(' - ')[0] : prefix
+      groups[prefix] = {
+        name: prefix,
+        label,
+        permissions: []
+      }
+    }
+    groups[prefix].permissions.push(p)
+  })
+  return Object.values(groups)
+})
+
+const isGroupChecked = (group) => {
+  return group.permissions.length > 0 && group.permissions.every(p => p.checked)
+}
+
+const isGroupIndeterminate = (group) => {
+  const checkedCount = group.permissions.filter(p => p.checked).length
+  return checkedCount > 0 && checkedCount < group.permissions.length
+}
+
+const toggleGroup = (group, val) => {
+  group.permissions.forEach(p => p.checked = val)
+}
 
 // When dialog opens, fetch permissions and populate form
 watch(() => props.isDialogVisible, async visible => {
@@ -205,15 +238,41 @@ const onReset = () => {
             </tr>
 
             <template
-              v-for="permission in allPermissions"
-              :key="permission.id"
+              v-for="group in permissionGroups"
+              :key="group.name"
             >
-              <tr>
+              <tr class="bg-var-theme-background bg-opacity-50">
                 <td>
-                  <h6 class="text-h6">
-                    {{ permission.description }}
+                  <h6 class="text-h6 text-primary">
+                    {{ group.label }}
                   </h6>
-                  <span class="text-caption text-disabled">{{ permission.name }}</span>
+                  <span class="text-caption text-disabled">{{ group.name }}</span>
+                </td>
+                <td>
+                  <div class="d-flex justify-end">
+                    <VCheckbox
+                      :model-value="isGroupChecked(group)"
+                      :indeterminate="isGroupIndeterminate(group)"
+                      label="Chọn nhóm"
+                      @update:model-value="toggleGroup(group, $event)"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr
+                v-for="permission in group.permissions"
+                :key="permission.id"
+              >
+                <td class="pl-8">
+                  <div class="d-flex align-center">
+                    <VIcon icon="tabler-corner-down-right" size="16" class="me-2 text-disabled" />
+                    <div>
+                      <h6 class="text-h6">
+                        {{ permission.description.includes(' - ') ? permission.description.split(' - ')[1] : permission.description }}
+                      </h6>
+                      <span class="text-caption text-disabled">{{ permission.name }}</span>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <div class="d-flex justify-end">

@@ -6,9 +6,9 @@ const saving = ref(false)
 const fetchSettings = async () => {
   loading.value = true
   try {
-    const res = await $api('/system-settings/general')
+    const res = await $api('/settings')
 
-    settings.value = res.data ?? res ?? {}
+    settings.value = res.data?.general ?? res?.general ?? {}
   }
   catch (err) {
     console.error('Fetch general settings error:', err)
@@ -22,7 +22,7 @@ const fetchSettings = async () => {
 const saveSettings = async () => {
   saving.value = true
   try {
-    await $api('/system-settings/general', {
+    await $api('/settings', {
       method: 'PUT',
       body: settings.value,
     })
