@@ -1,41 +1,68 @@
 <template>
-  <div class="h-100 d-flex align-center justify-md-space-between justify-center">
-    <!-- 👉 Footer: left content -->
-    <span class="d-flex align-center text-medium-emphasis">
-      &copy;
-      {{ new Date().getFullYear() }}
-      Made With
-      <VIcon
-        icon="tabler-heart-filled"
-        color="error"
-        size="1.25rem"
-        class="mx-1"
-      />
-      By <a
-        href="https://pixinvent.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="text-primary ms-1"
-      >Pixinvent</a>
-    </span>
-    <!-- 👉 Footer: right content -->
-    <span class="d-md-flex gap-x-4 text-primary d-none">
-      <a
-        href="https://themeforest.net/licenses/standard"
-        target="noopener noreferrer"
-      >License</a>
-      <a
-        href="https://1.envato.market/pixinvent_portfolio"
-        target="noopener noreferrer"
-      >More Themes</a>
-      <a
-        href="https://demos.pixinvent.com/vuexy-vuejs-admin-template/documentation/"
-        target="noopener noreferrer"
-      >Documentation</a>
-      <a
-        href="https://pixinvent.ticksy.com/"
-        target="noopener noreferrer"
-      >Support</a>
+  <div class="meeting-system-footer">
+    <div class="footer-left">
+      <div class="footer-title">
+        HỆ THỐNG PHÒNG HỌP KHÔNG GIẤY
+      </div>
+      <div class="footer-copy">
+        Bản quyền thuộc về UBND phường Hòa Cường &middot; &copy; {{ new Date().getFullYear() }}
+      </div>
+      <div class="footer-dev">
+        Phát triển bởi <a
+          href="#"
+          class="footer-link"
+        >Danatec</a>
+      </div>
+    </div>
+    <span class="d-md-flex gap-x-5 d-none footer-links">
+      <a href="#">Điều khoản</a>
+      <span class="text-disabled">&middot;</span>
+      <a href="#">Bảo mật</a>
+      <span class="text-disabled">&middot;</span>
+      <a href="#">Hỗ trợ</a>
     </span>
   </div>
 </template>
+
+<style scoped>
+.meeting-system-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.footer-title {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.87);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.footer-copy {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.footer-dev {
+  font-size: 0.72rem;
+  color: rgba(var(--v-theme-on-surface), 0.4);
+}
+
+.footer-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+}
+
+.footer-links a {
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: rgb(var(--v-theme-primary));
+}
+</style>

@@ -1,7 +1,6 @@
 /**
  * Non-Module Navigation Items
  *
- * Các menu items không thuộc module nào.
- * Hiện tại đã chuyển hết sang kiến trúc module nên mảng này trống.
+ * Trống — toàn bộ navigation tree được build trong _loader.js
  */
 export default []

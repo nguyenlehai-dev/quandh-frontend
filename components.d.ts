@@ -374,6 +374,7 @@ declare module 'vue' {
     MeetingAttendeesTab: typeof import('./src/modules/meetings/components/tabs/MeetingAttendeesTab.vue')['default']
     MeetingConclusionsTab: typeof import('./src/modules/meetings/components/tabs/MeetingConclusionsTab.vue')['default']
     MeetingDocumentsTab: typeof import('./src/modules/meetings/components/tabs/MeetingDocumentsTab.vue')['default']
+    MeetingFormModal: typeof import('./src/modules/meetings/components/MeetingFormModal.vue')['default']
     MeetingVotesTab: typeof import('./src/modules/meetings/components/tabs/MeetingVotesTab.vue')['default']
     MoreBtn: typeof import('./src/@core/components/MoreBtn.vue')['default']
     Notifications: typeof import('./src/@core/components/Notifications.vue')['default']

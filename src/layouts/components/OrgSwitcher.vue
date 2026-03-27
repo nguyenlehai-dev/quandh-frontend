@@ -1,8 +1,6 @@
 <script setup>
-import { switchOrganization } from '@/services/auth'
 
 const currentOrgId = useCookie('currentOrganizationId')
-const isLoading = ref(false)
 
 // Lấy danh sách tổ chức từ localStorage
 const organizations = computed(() => {
@@ -20,97 +18,54 @@ const organizations = computed(() => {
 const currentOrgName = computed(() => {
   const org = organizations.value.find(o => o.id === Number(currentOrgId.value))
 
-  return org?.name || 'Chọn tổ chức'
+  return org?.name || 'Sở Nội vụ thành phố Đà Nẵng'
 })
-
-// Chỉ hiển thị nếu user có >=2 tổ chức
-const showSwitcher = computed(() => organizations.value.length >= 2)
-
-const handleSwitch = async orgId => {
-  if (orgId === Number(currentOrgId.value)) return
-
-  isLoading.value = true
-  try {
-    await switchOrganization(orgId)
-
-    // Reload trang để cập nhật toàn bộ dữ liệu theo org mới
-    window.location.reload()
-  }
-  catch (err) {
-    console.error('Switch org failed:', err)
-  }
-  finally {
-    isLoading.value = false
-  }
-}
 </script>
 
 <template>
-  <VMenu
-    v-if="showSwitcher"
-    offset="12px"
-    location="bottom end"
-  >
-    <template #activator="{ props }">
-      <VBtn
-        v-bind="props"
-        variant="tonal"
-        color="primary"
-        size="small"
-        :loading="isLoading"
-        class="org-switcher-btn"
-      >
+  <div class="org-header-info">
+    <div class="d-flex align-center gap-3">
+      <!-- Organization Logo -->
+      <div class="org-logo">
         <VIcon
-          icon="tabler-building"
-          size="18"
-          start
+          icon="tabler-building-community"
+          size="20"
+          color="primary"
         />
-        <span class="d-none d-sm-inline text-truncate org-name">
-          {{ currentOrgName }}
-        </span>
-        <VIcon
-          icon="tabler-chevron-down"
-          size="16"
-          end
-        />
-      </VBtn>
-    </template>
-
-    <VList
-      density="compact"
-      min-width="220"
-    >
-      <VListSubheader>Chuyển tổ chức</VListSubheader>
-
-      <VListItem
-        v-for="org in organizations"
-        :key="org.id"
-        :active="org.id === Number(currentOrgId)"
-        :value="org.id"
-        @click="handleSwitch(org.id)"
-      >
-        <template #prepend>
-          <VIcon
-            :icon="org.id === Number(currentOrgId) ? 'tabler-circle-check-filled' : 'tabler-building'"
-            size="20"
-            :color="org.id === Number(currentOrgId) ? 'primary' : undefined"
-          />
-        </template>
-
-        <VListItemTitle>{{ org.name }}</VListItemTitle>
-      </VListItem>
-    </VList>
-  </VMenu>
+      </div>
+      <div>
+        <div class="org-name-text">
+          <!-- {{ currentOrgName }} -->
+          Sở Nội vụ thành phố Đà Nẵng
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.org-switcher-btn {
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
+.org-header-info {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
 }
 
-.org-name {
-  max-inline-size: 140px;
+.org-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 50%;
+  background: rgba(0, 137, 123, 0.08);
+  flex-shrink: 0;
+}
+
+.org-name-text {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  letter-spacing: 0.2px;
+  line-height: 1.3;
 }
 </style>

@@ -20,7 +20,7 @@ import { VerticalNavLayout } from '@layouts'
   <VerticalNavLayout :nav-items="navItems">
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div class="d-flex h-100 align-center">
+      <div class="d-flex h-100 align-center" style="gap: 4px;">
         <IconBtn
           id="vertical-nav-toggle-btn"
           class="ms-n3 d-lg-none"
@@ -32,11 +32,7 @@ import { VerticalNavLayout } from '@layouts'
           />
         </IconBtn>
 
-        <NavSearchBar class="ms-lg-n3" />
-
-        <VSpacer />
-
-        <OrgSwitcher class="me-2" />
+        <OrgSwitcher />
 
         <NavBarI18n
           v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
@@ -61,3 +57,24 @@ import { VerticalNavLayout } from '@layouts'
     <TheCustomizer />
   </VerticalNavLayout>
 </template>
+
+<style lang="scss">
+/* Clean government-style navbar — no gradient, white/surface background */
+.layout-wrapper.layout-nav-type-vertical {
+  .layout-navbar {
+    margin-block-start: 0 !important;
+
+    &.navbar-blur::after {
+      display: none !important;
+    }
+
+    .navbar-content-container {
+      background: rgb(var(--v-theme-surface)) !important;
+      border-radius: 0 !important;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+      border-block-end: 1px solid rgba(0, 0, 0, 0.06) !important;
+      max-inline-size: 100% !important;
+    }
+  }
+}
+</style>

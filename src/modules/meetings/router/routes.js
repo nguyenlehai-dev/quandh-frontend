@@ -1,8 +1,43 @@
 export const routes = [
   {
+    path: '/business-overview',
+    name: 'meetings-business-overview',
+    component: () => import('../views/BusinessOverviewPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/activity-logs',
+    name: 'system-activity-logs',
+    component: () => import('../views/ActivityLogsPage.vue'),
+  },
+  {
     path: '/meetings',
     name: 'meetings-list',
     component: () => import('../views/MeetingListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/votes',
+    name: 'meetings-votes-list',
+    component: () => import('../views/VotesListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/documents',
+    name: 'meetings-documents-list',
+    component: () => import('../views/DocumentsListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/conclusions',
+    name: 'meetings-conclusions-list',
+    component: () => import('../views/ConclusionsListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/attendees',
+    name: 'meetings-attendees-list',
+    component: () => import('../views/AttendeesListPage.vue'),
     meta: { action: 'read', subject: 'Meeting' },
   },
   {

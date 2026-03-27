@@ -86,27 +86,67 @@ const deleteItem = async id => {
 </script>
 
 <template>
-  <div>
-    <VCard>
-      <VCardText class="d-flex align-center flex-wrap gap-4">
-        <h5 class="text-h5">Loại tài liệu</h5>
-        <VSpacer />
-        <AppTextField 
-          v-model="searchQuery" 
-          placeholder="Tìm kiếm..." 
-          density="compact" 
-          style="max-inline-size: 250px;" 
+  <section>
+    <!-- Filter Section -->
+    <div class="meeting-section-card mb-6">
+      <div class="meeting-section-header">
+        <div class="meeting-section-title">
+          <VIcon icon="tabler-category" class="section-icon" />
+          Loại tài liệu
+        </div>
+      </div>
+      <div class="pa-5">
+        <VRow>
+          <VCol cols="12" md="6">
+            <div class="text-body-2 font-weight-medium mb-1">
+              Tìm kiếm
+            </div>
+            <AppTextField
+              v-model="searchQuery"
+              placeholder="Tìm kiếm loại tài liệu..."
+              density="compact"
+            />
+          </VCol>
+        </VRow>
+      </div>
+    </div>
+
+    <!-- Table Actions Bar -->
+    <div class="d-flex align-center justify-space-between flex-wrap gap-4 mb-4">
+      <div class="d-flex align-center gap-3">
+        <AppSelect
+          v-model="itemsPerPage"
+          :items="[
+            { title: '10', value: 10 },
+            { title: '20', value: 20 },
+            { title: '50', value: 50 },
+          ]"
+          density="compact"
+          style="max-inline-size: 80px;"
         />
-        <VBtn prepend-icon="tabler-plus" @click="openAddDialog">
-          Thêm mới
+      </div>
+      <div class="d-flex gap-3">
+        <VBtn
+          variant="outlined"
+          prepend-icon="tabler-download"
+        >
+          Xuất Dữ Liệu
         </VBtn>
-      </VCardText>
-      <VDivider />
-      
+        <VBtn
+          color="primary"
+          prepend-icon="tabler-plus"
+          @click="openAddDialog"
+        >
+          Thêm Mới
+        </VBtn>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="meeting-section-card mb-6">
       <VDataTableServer
         v-model:items-per-page="itemsPerPage"
         v-model:page="page"
-        :items-per-page-options="[ { value: 10, title: '10' }, { value: 20, title: '20' } ]"
         :items="items"
         :items-length="totalItems"
         :headers="headers"
@@ -125,23 +165,32 @@ const deleteItem = async id => {
         </template>
 
         <template #item.actions="{ item }">
-          <IconBtn @click="openEditDialog(item)">
-            <VIcon icon="tabler-pencil" />
-          </IconBtn>
-          <IconBtn @click="deleteItem(item.id)">
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
+          <div class="d-flex gap-1">
+            <IconBtn @click="openEditDialog(item)">
+              <VIcon icon="tabler-pencil" />
+              <VTooltip activator="parent" location="top">Sửa</VTooltip>
+            </IconBtn>
+            <IconBtn @click="deleteItem(item.id)">
+              <VIcon icon="tabler-trash" color="error" />
+              <VTooltip activator="parent" location="top">Xóa</VTooltip>
+            </IconBtn>
+          </div>
         </template>
 
         <template #bottom>
-          <TablePagination
-            v-model:page="page"
-            :items-per-page="itemsPerPage"
-            :total-items="totalItems"
-          />
+          <div class="d-flex align-center justify-space-between pa-4">
+            <span class="text-body-2 text-disabled">
+              Hiển thị {{ Math.min((page - 1) * itemsPerPage + 1, totalItems) }} đến {{ Math.min(page * itemsPerPage, totalItems) }} trên tổng {{ totalItems }} bản ghi
+            </span>
+            <TablePagination
+              v-model:page="page"
+              :items-per-page="itemsPerPage"
+              :total-items="totalItems"
+            />
+          </div>
         </template>
       </VDataTableServer>
-    </VCard>
+    </div>
 
     <!-- Dialog Thêm mới -->
     <VDialog v-model="isAddDialogVisible" max-width="500">
@@ -188,5 +237,5 @@ const deleteItem = async id => {
         </VCardText>
       </VCard>
     </VDialog>
-  </div>
+  </section>
 </template>

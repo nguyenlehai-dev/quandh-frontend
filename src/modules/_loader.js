@@ -43,47 +43,70 @@ export function getModuleRoutes() {
 }
 
 /**
- * Merge tat ca navigation items tu cac modules
- * Thu tu duoc xac dinh boi property `navOrder` trong index.js cua moi module
- * Module nao khong khai bao `navOrder` se o cuoi, sap xep theo alphabet
- * @returns {Array}
+ * Lấy navigation item từ module theo tên
+ */
+function getModNav(name) {
+  const mod = modules.find(m => m.name === name)
+
+  return mod?.navigation || null
+}
+
+/**
+ * Build cây menu sidebar theo cấu trúc chuẩn:
+ * 1. Hồ sơ cá nhân
+ * 2. Bảng điều khiển (Tổng quan hệ thống, Tổng quan nghiệp vụ)
+ * 3. Quản lý cuộc họp (từ meetings module)
+ * 4. Quản lý hệ thống (từ các system modules)
  */
 export function getModuleNavigation() {
-  // 1. Dashboard navigation (co san heading ben trong)
-  const dashboardMod = modules.find(m => m.name === 'dashboards')
-  const dashboardNav = dashboardMod?.navigation || []
+  // 1. Hồ sơ cá nhân
+  const profileItem = {
+    title: 'Hồ sơ cá nhân',
+    icon: { icon: 'tabler-user-circle' },
+    to: { name: 'user-profile' },
+  }
 
-  // 2. App modules navigation (sap xep theo navOrder)
-  const appModules = modules
-    .filter(m => m.name !== 'dashboards' && m.navigation && m.navigation !== null)
-    .sort((a, b) => {
-      const ao = a.navOrder ?? 999
-      const bo = b.navOrder ?? 999
+  // 2. Bảng điều khiển
+  const dashboardGroup = {
+    title: 'Bảng điều khiển',
+    icon: { icon: 'tabler-layout-dashboard' },
+    children: [
+      { title: 'Tổng quan hệ thống', to: 'dashboards-crm' },
+      { title: 'Tổng quan nghiệp vụ', to: 'meetings-business-overview' },
+    ],
+  }
 
-      if (ao !== bo) return ao - bo
+  // 3. Quản lý cuộc họp (từ meetings module)
+  const meetingsNav = getModNav('meetings')
 
-      return a.name.localeCompare(b.name)
-    })
+  // 4. Quản lý hệ thống
+  const orgNav = getModNav('organizations')
+  const userNav = getModNav('user')
+  const rolesNav = getModNav('roles')
+  const settingsNav = getModNav('system-settings')
 
-  const meetingsNav = appModules
-    .filter(m => (m.navOrder ?? 999) < 50)
-    .map(m => m.navigation)
-    .filter(Boolean)
-    .flat()
-
-  const systemNav = appModules
-    .filter(m => (m.navOrder ?? 999) >= 50)
-    .map(m => m.navigation)
-    .filter(Boolean)
-    .flat()
+  const systemGroup = {
+    title: 'Quản lý hệ thống',
+    icon: { icon: 'tabler-settings-2' },
+    children: [
+      orgNav ? { ...orgNav } : null,
+      userNav ? { ...userNav } : null,
+      {
+        title: 'Nhật ký hoạt động',
+        icon: { icon: 'tabler-history' },
+        to: 'system-activity-logs',
+      },
+      rolesNav ? { ...rolesNav } : null,
+      settingsNav ? { ...settingsNav } : null,
+    ].filter(Boolean),
+  }
 
   return [
-    ...dashboardNav,
-    { heading: 'Quản lý cuộc họp' },
-    ...meetingsNav,
-    { heading: 'Quản lý hệ thống' },
-    ...systemNav,
-  ]
+    profileItem,
+    dashboardGroup,
+    meetingsNav,
+    systemGroup,
+  ].filter(Boolean)
 }
 
 /**

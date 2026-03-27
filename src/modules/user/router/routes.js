@@ -1,5 +1,10 @@
 export const routes = [
   {
+    path: '/profile',
+    name: 'user-profile',
+    component: () => import('../views/ProfilePage.vue'),
+  },
+  {
     path: '/apps/user/list',
     name: 'apps-user-list',
     component: () => import('../views/UserListPage.vue'),

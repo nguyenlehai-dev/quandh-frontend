@@ -1,4 +1,5 @@
 <script setup>
+import '@/modules/meetings/assets/meeting-styles.css'
 import {
   approveSpeechRequest,
   changeMeetingStatus,
@@ -12,7 +13,7 @@ import {
   setActiveAgenda,
 } from '@/modules/meetings/services/meetingService'
 import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -40,6 +41,48 @@ const isActivatingVote = ref(false)
 
 // Speech requests
 const speechRequests = ref([])
+
+// Countdown timer
+const countdownDisplay = ref('00:00:00')
+let countdownInterval = null
+
+const startCountdown = () => {
+  if (countdownInterval) clearInterval(countdownInterval)
+  countdownInterval = setInterval(() => {
+    if (!meeting.value?.end_at) {
+      countdownDisplay.value = '00:00:00'
+
+      return
+    }
+    let endTime
+    const raw = meeting.value.end_at
+    if (raw.includes('/')) {
+      const parts = raw.split(' ')
+      const timePart = parts[0]
+      const datePart = parts[1]?.split('/') || []
+      if (datePart.length === 3) {
+        endTime = new Date(`${datePart[2]}-${datePart[1]}-${datePart[0]}T${timePart}`)
+      }
+    }
+    if (!endTime) endTime = new Date(raw)
+
+    const now = new Date()
+    const diff = Math.max(0, endTime - now)
+    const h = String(Math.floor(diff / 3600000)).padStart(2, '0')
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0')
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')
+    countdownDisplay.value = `${h}:${m}:${s}`
+  }, 1000)
+}
+
+// Computed attendance stats
+const attendanceStats = computed(() => {
+  const total = attendees.value.length
+  const present = attendees.value.filter(a => a.status === 'online').length
+  const absent = attendees.value.filter(a => a.status === 'offline').length
+
+  return { total, present, absent }
+})
 
 watch(() => meeting.value, newMeeting => {
   if (newMeeting?.participants?.length) {
@@ -74,13 +117,15 @@ const loadMeeting = async () => {
       meetingStatus.value = meeting.value.status
     }
 
-    // Subscribe to WebSockets 
+    // Subscribe to WebSockets
     meetingStore.subscribeToMeeting(meeting.value.id)
 
     // Load speech requests if meeting is active
     if (['active', 'in_progress'].includes(meeting.value.status)) {
       loadSpeechRequests()
     }
+
+    startCountdown()
   }
   catch (error) {
     console.error('Failed to load meeting', error)
@@ -96,6 +141,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   meetingStore.unsubscribeFromMeeting()
+  if (countdownInterval) clearInterval(countdownInterval)
 })
 
 // Watch store for WS sync updates
@@ -272,63 +318,145 @@ const handleRejectSpeech = async requestId => {
     console.error('Failed to reject speech request:', error)
   }
 }
+
+const resolveStatusLabel = status => {
+  if (status === 'active' || status === 'in_progress') return 'Đang diễn ra'
+  if (status === 'draft' || status === 'scheduled') return 'Chưa bắt đầu'
+
+  return 'Đã kết thúc'
+}
+
+const resolveStatusBadgeClass = status => {
+  if (status === 'active' || status === 'in_progress') return 'status-badge-live'
+  if (status === 'draft' || status === 'scheduled') return 'status-badge-draft'
+
+  return 'status-badge-completed'
+}
 </script>
 
 <template>
-  <VRow v-if="loading">
-    <VCol
-      cols="12"
-      class="text-center pa-10"
-    >
-      <VProgressCircular
-        indeterminate
-        color="primary"
-      />
-    </VCol>
-  </VRow>
-
-  <VRow
-    v-else-if="meeting"
-    class="match-height"
+  <!-- Loading -->
+  <div
+    v-if="loading"
+    class="d-flex justify-center align-center pa-16"
   >
-    <!-- TRUNG TÂM & BẢNG ĐIỀU KHIỂN CHÍNH -->
-    <VCol
-      cols="12"
-      lg="8"
-    >
-      <VCard class="mb-4">
-        <VCardItem>
-          <template #title>
-            <div class="d-flex align-center gap-4">
-              <span class="text-h4 font-weight-bold blur-text">{{ meeting.title }}</span>
-              <VChip
-                :color="['active', 'in_progress'].includes(meetingStatus) ? 'success' : (['draft', 'scheduled'].includes(meetingStatus) ? 'warning' : 'secondary')"
-                variant="elevated"
-              >
-                {{ ['active', 'in_progress'].includes(meetingStatus) ? 'Đang diễn ra' : (['draft', 'scheduled'].includes(meetingStatus) ? 'Chưa bắt đầu' : 'Đã kết thúc') }}
-              </VChip>
-              <VSpacer />
-              <!-- Status Sync Indicator -->
-              <VTooltip location="bottom">
-                <template #activator="{ props }">
-                  <VIcon
-                    v-bind="props"
-                    icon="tabler-wifi"
-                    :color="meetingStatus === 'active' ? 'success' : 'disabled'"
-                    class="me-2"
-                  />
-                </template>
-                Trạng thái đồng bộ hiển thị
-              </VTooltip>
-            </div>
-          </template>
-        </VCardItem>
-        <VDivider />
+    <VProgressCircular
+      indeterminate
+      color="primary"
+      size="48"
+    />
+  </div>
 
-        <VCardText class="pa-6">
+  <div v-else-if="meeting">
+    <!-- ==================== HEADER BANNER ==================== -->
+    <div class="meeting-header-banner">
+      <VRow align="start">
+        <VCol
+          cols="12"
+          md="7"
+        >
+          <div class="meeting-tag">
+            <VIcon
+              icon="tabler-calendar-event"
+              size="14"
+            />
+            {{ meeting.meeting_type || 'Cuộc họp định kỳ' }}
+          </div>
+          <h1 class="meeting-title">
+            {{ meeting.title }}
+          </h1>
+          <p
+            v-if="meeting.description"
+            class="meeting-description"
+          >
+            {{ meeting.description }}
+          </p>
+        </VCol>
+
+        <VCol
+          cols="12"
+          md="5"
+        >
+          <div class="countdown-box">
+            <span :class="resolveStatusBadgeClass(meetingStatus)">
+              {{ resolveStatusLabel(meetingStatus) }}
+            </span>
+            <div class="countdown-timer-wrapper">
+              <div class="countdown-label">
+                THỜI GIAN CÒN LẠI
+              </div>
+              <div class="countdown-time">
+                <VIcon
+                  icon="tabler-alarm"
+                  class="timer-icon"
+                  size="24"
+                />
+                {{ countdownDisplay }}
+              </div>
+            </div>
+          </div>
+        </VCol>
+      </VRow>
+
+      <!-- Meeting Info Row -->
+      <div class="meeting-info-row">
+        <div class="meeting-info-item">
+          <div>
+            <div class="info-label">
+              <VIcon icon="tabler-clock" size="12" class="me-1" /> Thời gian
+            </div>
+            <div class="info-value">
+              {{ meeting.start_at || 'Chưa xác định' }}
+            </div>
+          </div>
+        </div>
+        <div class="meeting-info-item">
+          <div>
+            <div class="info-label">
+              <VIcon icon="tabler-map-pin" size="12" class="me-1" /> Địa điểm
+            </div>
+            <div class="info-value">
+              {{ meeting.location || 'Phòng họp trực tuyến' }}
+            </div>
+          </div>
+        </div>
+        <div class="meeting-info-item">
+          <div>
+            <div class="info-label">
+              <VIcon icon="tabler-wifi" size="12" class="me-1" /> Trạng thái đồng bộ
+            </div>
+            <div class="info-value d-flex align-center gap-1">
+              <VIcon
+                :icon="meetingStatus === 'active' ? 'tabler-circle-filled' : 'tabler-circle'"
+                :color="meetingStatus === 'active' ? 'success' : 'disabled'"
+                size="10"
+              />
+              {{ meetingStatus === 'active' ? 'Đang phát sóng' : 'Chưa phát sóng' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ADMIN CONTROL PANEL ==================== -->
+    <VRow class="match-height">
+      <!-- Main Content Area -->
+      <VCol
+        cols="12"
+        lg="8"
+      >
+        <div class="meeting-section-card">
+          <div class="meeting-section-header">
+            <div class="meeting-section-title">
+              <VIcon icon="tabler-dashboard" class="section-icon" />
+              Bảng điều khiển cuộc họp
+            </div>
+          </div>
+
+          <!-- ===== NOT STARTED ===== -->
           <div
             v-if="['draft', 'scheduled'].includes(meetingStatus)"
-            class="text-center pa-10"
+            class="text-center pa-12"
           >
             <VIcon
               icon="tabler-player-play"
@@ -352,41 +480,34 @@ const handleRejectSpeech = async requestId => {
             </VBtn>
           </div>
 
+          <!-- ===== MEETING ACTIVE ===== -->
           <div v-else>
             <!-- Current Agenda Focus -->
-            <VAlert
-              border="start"
-              border-color="primary"
-              variant="tonal"
-              class="mb-6"
-            >
-              <div class="text-overline mb-1 text-primary">
-                NỘI DUNG ĐANG BÀN LUẬN
+            <div class="time-block">
+              <div class="time-icon">
+                <VIcon
+                  icon="tabler-player-play-filled"
+                  size="16"
+                />
               </div>
-              <h5 class="text-h5 font-weight-medium">
-                {{ meeting.agendas?.[activeAgendaIndex]?.title || 'Không có chương trình' }}
-              </h5>
-              <div class="d-flex align-center gap-4 mt-3">
-                <span class="d-flex align-center gap-1 text-body-2">
-                  <VIcon
-                    icon="tabler-clock"
-                    size="16"
-                  /> {{ meeting.agendas?.[activeAgendaIndex]?.duration || 0 }} phút
-                </span>
-                <span
-                  v-if="meeting.agendas?.[activeAgendaIndex]?.presenter_id"
-                  class="d-flex align-center gap-1 text-body-2"
-                >
-                  <VIcon
-                    icon="tabler-user-microphone"
-                    size="16"
-                  /> {{ meeting.agendas[activeAgendaIndex].presenter_id }}
-                </span>
+              <div class="flex-grow-1">
+                <div class="text-overline mb-0" style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;">
+                  NỘI DUNG ĐANG BÀN LUẬN
+                </div>
+                <div class="time-text">
+                  {{ meeting.agendas?.[activeAgendaIndex]?.title || 'Không có chương trình' }}
+                </div>
+                <div class="d-flex align-center gap-4 mt-1">
+                  <span class="text-body-2 text-disabled d-flex align-center gap-1">
+                    <VIcon icon="tabler-clock" size="14" />
+                    {{ meeting.agendas?.[activeAgendaIndex]?.duration || 0 }} phút
+                  </span>
+                </div>
               </div>
-            </VAlert>
+            </div>
 
             <!-- Quick Actions -->
-            <div class="d-flex gap-4 flex-wrap">
+            <div class="d-flex gap-3 flex-wrap pa-5">
               <VBtn
                 color="primary"
                 variant="elevated"
@@ -405,6 +526,15 @@ const handleRejectSpeech = async requestId => {
               </VBtn>
               <VSpacer />
               <VBtn
+                color="secondary"
+                variant="tonal"
+                append-icon="tabler-arrow-right"
+                :disabled="!meeting.agendas || activeAgendaIndex >= meeting.agendas.length - 1"
+                @click="nextAgenda"
+              >
+                Chuyển nội dung tiếp
+              </VBtn>
+              <VBtn
                 color="error"
                 variant="elevated"
                 prepend-icon="tabler-player-stop-filled"
@@ -412,167 +542,208 @@ const handleRejectSpeech = async requestId => {
               >
                 Kết thúc cuộc họp
               </VBtn>
-              <VBtn
-                color="secondary"
-                variant="tonal"
-                append-icon="tabler-arrow-right"
-                :disabled="!meeting.agendas || activeAgendaIndex >= meeting.agendas.length - 1"
-                @click="nextAgenda"
+            </div>
+
+            <!-- Agenda List -->
+            <VDivider />
+            <div class="px-5 pt-4 pb-2">
+              <div class="meeting-section-title mb-3">
+                <VIcon icon="tabler-list-details" class="section-icon" />
+                Chương trình họp
+              </div>
+            </div>
+            <div
+              v-if="meeting.agendas?.length"
+              class="agenda-list"
+            >
+              <div
+                v-for="(agenda, i) in meeting.agendas"
+                :key="i"
+                class="agenda-item"
+                :class="{ 'cursor-pointer': true }"
+                @click="setActiveAgenda(meeting.id, agenda.id).then(() => { activeAgendaIndex = i }).catch(() => {})"
               >
-                Chuyển nội dung tiếp theo
-              </VBtn>
+                <div
+                  class="agenda-number"
+                  :class="{ active: i === activeAgendaIndex }"
+                >
+                  {{ i + 1 }}
+                </div>
+                <div class="agenda-content">
+                  <div class="agenda-title-text">
+                    {{ agenda.title }}
+                  </div>
+                </div>
+                <div
+                  v-if="agenda.duration"
+                  class="agenda-duration"
+                >
+                  {{ agenda.duration }} phút
+                </div>
+              </div>
             </div>
           </div>
-        </VCardText>
-      </VCard>
-    </VCol>
+        </div>
+      </VCol>
 
-    <!-- TRÁI/PHẢI SIDEBAR: QUẢN LÝ ĐẠI BIỂU -->
-    <VCol
-      cols="12"
-      lg="4"
-    >
-      <VCard class="h-100">
-        <VCardItem class="bg-var-theme-background">
-          <template #title>
-            <div class="d-flex align-center gap-2">
-              <VIcon icon="tabler-users" />
+      <!-- Attendee Sidebar -->
+      <VCol
+        cols="12"
+        lg="4"
+      >
+        <!-- Attendance Stats -->
+        <div class="stats-card mb-4">
+          <div class="stats-header">
+            <div class="stats-title d-flex align-center gap-2">
+              <VIcon icon="tabler-users" size="18" color="primary" />
               Đại biểu tham dự
-              <VSpacer />
-              <VChip
-                size="small"
-                color="primary"
-              >
-                {{ attendees.filter(a => a.status === 'online').length }}/{{ attendees.length }}
-              </VChip>
             </div>
-          </template>
-        </VCardItem>
-        <VDivider />
-        <VList
-          lines="two"
-          class="pa-0"
-        >
-          <template
-            v-for="(attendee, index) in attendees"
-            :key="attendee.id"
+            <VChip size="small" color="primary">
+              {{ attendanceStats.present }}/{{ attendanceStats.total }}
+            </VChip>
+          </div>
+          <div class="py-2">
+            <div class="stat-row">
+              <span class="stat-label">Có mặt</span>
+              <div class="stat-bar-wrapper">
+                <div
+                  class="stat-bar present"
+                  :style="{ width: attendanceStats.total ? (attendanceStats.present / attendanceStats.total * 100) + '%' : '0%' }"
+                />
+              </div>
+              <span class="stat-value">{{ attendanceStats.present }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Vắng mặt</span>
+              <div class="stat-bar-wrapper">
+                <div
+                  class="stat-bar absent"
+                  :style="{ width: attendanceStats.total ? (attendanceStats.absent / attendanceStats.total * 100) + '%' : '0%' }"
+                />
+              </div>
+              <span class="stat-value">{{ attendanceStats.absent }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendee List -->
+        <div class="meeting-section-card mb-4">
+          <div class="meeting-section-header">
+            <div class="meeting-section-title">
+              <VIcon icon="tabler-users-group" class="section-icon" />
+              Danh sách đại biểu
+            </div>
+          </div>
+          <VList
+            lines="two"
+            class="pa-0"
           >
-            <VListItem>
-              <template #prepend>
-                <VBadge
-                  dot
-                  location="bottom right"
-                  offset-x="3"
-                  offset-y="3"
-                  :color="attendee.status === 'online' ? 'success' : 'error'"
-                >
-                  <VAvatar
-                    color="primary"
-                    variant="tonal"
+            <template
+              v-for="(attendee, index) in attendees"
+              :key="attendee.id"
+            >
+              <VListItem>
+                <template #prepend>
+                  <VBadge
+                    dot
+                    location="bottom right"
+                    offset-x="3"
+                    offset-y="3"
+                    :color="attendee.status === 'online' ? 'success' : 'error'"
                   >
-                    {{ attendee.name.charAt(0) }}
-                  </VAvatar>
-                </VBadge>
-              </template>
+                    <VAvatar
+                      color="primary"
+                      variant="tonal"
+                      size="36"
+                    >
+                      <span class="text-body-2 font-weight-bold">{{ attendee.name.charAt(0) }}</span>
+                    </VAvatar>
+                  </VBadge>
+                </template>
 
-              <VListItemTitle class="font-weight-medium">
-                {{ attendee.name }}
+                <VListItemTitle class="font-weight-medium text-body-2">
+                  {{ attendee.name }}
+                </VListItemTitle>
+                <VListItemSubtitle class="text-caption">
+                  {{ attendee.role }}
+                  <span
+                    v-if="attendee.requestSpeak"
+                    class="text-warning ms-2"
+                  >
+                    <VIcon icon="tabler-hand-raise" size="12" /> Xin phát biểu
+                  </span>
+                </VListItemSubtitle>
+
+                <template #append>
+                  <IconBtn
+                    size="small"
+                    :color="attendee.isSpeaking ? 'error' : 'default'"
+                    @click="toggleSpeak(attendee)"
+                  >
+                    <VIcon
+                      :icon="attendee.isSpeaking ? 'tabler-microphone' : 'tabler-microphone-off'"
+                      size="18"
+                    />
+                  </IconBtn>
+                </template>
+              </VListItem>
+              <VDivider v-if="index !== attendees.length - 1" />
+            </template>
+          </VList>
+          <div
+            v-if="!attendees.length"
+            class="pa-5 text-center text-disabled"
+          >
+            Chưa có đại biểu
+          </div>
+        </div>
+
+        <!-- Speech Request Queue -->
+        <div
+          v-if="speechRequests.length"
+          class="meeting-section-card"
+        >
+          <div class="meeting-section-header">
+            <div class="meeting-section-title">
+              <VIcon icon="tabler-hand-stop" class="section-icon" />
+              Yêu cầu phát biểu
+            </div>
+            <VChip size="small" color="warning">
+              {{ speechRequests.length }}
+            </VChip>
+          </div>
+          <VList class="pa-0">
+            <VListItem
+              v-for="req in speechRequests"
+              :key="req.id"
+            >
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ req.user?.name || 'Đại biểu' }}
               </VListItemTitle>
-              <VListItemSubtitle>
-                {{ attendee.role }}
-                <span
-                  v-if="attendee.requestSpeak"
-                  class="text-warning ms-2"
-                >
-                  <VIcon
-                    icon="tabler-hand-raise"
-                    size="14"
-                  /> Xin phát biểu
-                </span>
-              </VListItemSubtitle>
-
               <template #append>
-                <IconBtn
-                  :color="attendee.isSpeaking ? 'error' : 'default'"
-                  @click="toggleSpeak(attendee)"
-                >
-                  <VIcon :icon="attendee.isSpeaking ? 'tabler-microphone' : 'tabler-microphone-off'" />
-                  <VTooltip
-                    activator="parent"
-                    location="top"
+                <div class="d-flex gap-1">
+                  <IconBtn
+                    size="small"
+                    color="success"
+                    @click="handleApproveSpeech(req.id)"
                   >
-                    {{ attendee.isSpeaking ? 'Tắt Mic' : 'Cấp quyền nói' }}
-                  </VTooltip>
-                </IconBtn>
+                    <VIcon icon="tabler-check" size="16" />
+                  </IconBtn>
+                  <IconBtn
+                    size="small"
+                    color="error"
+                    @click="handleRejectSpeech(req.id)"
+                  >
+                    <VIcon icon="tabler-x" size="16" />
+                  </IconBtn>
+                </div>
               </template>
             </VListItem>
-            <VDivider v-if="index !== attendees.length - 1" />
-          </template>
-        </VList>
-      </VCard>
-
-      <!-- Speech Request Queue -->
-      <VCard
-        v-if="speechRequests.length"
-        class="mt-4"
-      >
-        <VCardItem class="bg-var-theme-background">
-          <template #title>
-            <div class="d-flex align-center gap-2">
-              <VIcon icon="tabler-hand-stop" />
-              Yêu cầu phát biểu
-              <VSpacer />
-              <VChip
-                size="small"
-                color="warning"
-              >
-                {{ speechRequests.length }}
-              </VChip>
-            </div>
-          </template>
-        </VCardItem>
-        <VDivider />
-        <VList class="pa-0">
-          <VListItem
-            v-for="req in speechRequests"
-            :key="req.id"
-          >
-            <VListItemTitle class="font-weight-medium">
-              {{ req.user?.name || 'Đại biểu' }}
-            </VListItemTitle>
-            <template #append>
-              <div class="d-flex gap-1">
-                <IconBtn
-                  color="success"
-                  @click="handleApproveSpeech(req.id)"
-                >
-                  <VIcon icon="tabler-check" />
-                  <VTooltip
-                    activator="parent"
-                    location="top"
-                  >
-                    Duyệt
-                  </VTooltip>
-                </IconBtn>
-                <IconBtn
-                  color="error"
-                  @click="handleRejectSpeech(req.id)"
-                >
-                  <VIcon icon="tabler-x" />
-                  <VTooltip
-                    activator="parent"
-                    location="top"
-                  >
-                    Từ chối
-                  </VTooltip>
-                </IconBtn>
-              </div>
-            </template>
-          </VListItem>
-        </VList>
-      </VCard>
-    </VCol>
-  </VRow>
+          </VList>
+        </div>
+      </VCol>
+    </VRow>
+  </div>
 
   <!-- ===== DRAWER: Danh sách Tài liệu ===== -->
   <VNavigationDrawer
@@ -739,3 +910,13 @@ const handleRejectSpeech = async requestId => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  background: #f9fafb;
+}
+</style>
