@@ -1,25 +1,31 @@
 /**
- * Role Store (Pinia) — CRUDS đầy đủ
+ * Organization Store (Pinia) — CRUDS đầy đủ
  */
 import { defineStore } from 'pinia'
 import {
-  fetchRoles,
-  fetchRole,
-  createRole,
-  updateRole,
-  deleteRole,
-  bulkDeleteRoles,
-  fetchRoleStats,
-  exportRoles,
-  importRoles,
-} from '../services/roleService'
+  fetchOrganizations,
+  fetchOrganization,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization,
+  changeOrganizationStatus,
+  fetchOrganizationTree,
+  bulkDeleteOrganizations,
+  bulkUpdateOrganizationStatus,
+  fetchOrganizationStats,
+  exportOrganizations,
+  importOrganizations,
+} from '../services/organizationService'
 import { DEFAULT_PER_PAGE } from '../configs'
 
-export const useRoleStore = defineStore('role', {
+export const useOrganizationStore = defineStore('organization', {
   state: () => ({
-    roles: [],
+    organizations: [],
     totalCount: 0,
     isLoading: false,
+
+    // Tree data
+    tree: [],
 
     // Stats
     stats: { total: 0, active: 0, inactive: 0 },
@@ -29,6 +35,7 @@ export const useRoleStore = defineStore('role', {
 
     filters: {
       search: '',
+      status: null,
       page: 1,
       limit: DEFAULT_PER_PAGE,
       sort_by: 'created_at',
@@ -38,6 +45,7 @@ export const useRoleStore = defineStore('role', {
 
   getters: {
     totalPages: state => Math.ceil(state.totalCount / state.filters.limit),
+    hasActiveFilters: state => !!(state.filters.search || state.filters.status),
     hasSelection: state => state.selectedIds.length > 0,
   },
 
@@ -46,13 +54,13 @@ export const useRoleStore = defineStore('role', {
     async fetchList() {
       this.isLoading = true
       try {
-        const response = await fetchRoles(this.filters)
+        const response = await fetchOrganizations(this.filters)
 
-        this.roles = response.data
+        this.organizations = response.data
         this.totalCount = response.meta?.total || 0
       }
       catch (error) {
-        console.error('Failed to fetch roles:', error)
+        console.error('Failed to fetch organizations:', error)
         throw error
       }
       finally {
@@ -62,54 +70,77 @@ export const useRoleStore = defineStore('role', {
 
     // ─── Show ──────────────────────────────────
     async fetchOne(id) {
-      return await fetchRole(id)
+      return await fetchOrganization(id)
     },
 
     // ─── Create ────────────────────────────────
-    async addRole(data) {
-      const response = await createRole(data)
+    async addOrganization(data) {
+      const response = await createOrganization(data)
       await this.fetchList()
 
       return response
     },
 
     // ─── Update ────────────────────────────────
-    async editRole(id, data) {
-      const response = await updateRole(id, data)
+    async editOrganization(id, data) {
+      const response = await updateOrganization(id, data)
       await this.fetchList()
 
       return response
     },
 
     // ─── Delete ────────────────────────────────
-    async removeRole(id) {
-      await deleteRole(id)
+    async removeOrganization(id) {
+      await deleteOrganization(id)
       await this.fetchList()
+    },
+
+    // ─── Change Status ─────────────────────────
+    async changeStatus(id, status) {
+      await changeOrganizationStatus(id, status)
+      await this.fetchList()
+    },
+
+    // ─── Tree ──────────────────────────────────
+    async fetchTree(params = {}) {
+      const response = await fetchOrganizationTree(params)
+
+      this.tree = response.data || []
+
+      return this.tree
     },
 
     // ─── Bulk Delete ───────────────────────────
     async bulkDelete() {
       if (!this.selectedIds.length) return
-      await bulkDeleteRoles(this.selectedIds)
+      await bulkDeleteOrganizations(this.selectedIds)
+      this.selectedIds = []
+      await this.fetchList()
+    },
+
+    // ─── Bulk Update Status ────────────────────
+    async bulkChangeStatus(status) {
+      if (!this.selectedIds.length) return
+      await bulkUpdateOrganizationStatus(this.selectedIds, status)
       this.selectedIds = []
       await this.fetchList()
     },
 
     // ─── Stats ─────────────────────────────────
     async fetchStats() {
-      const response = await fetchRoleStats(this.filters)
+      const response = await fetchOrganizationStats(this.filters)
 
       this.stats = response.data || { total: 0, active: 0, inactive: 0 }
     },
 
     // ─── Export ─────────────────────────────────
     async exportData() {
-      return await exportRoles(this.filters)
+      return await exportOrganizations(this.filters)
     },
 
     // ─── Import ─────────────────────────────────
     async importData(file) {
-      const response = await importRoles(file)
+      const response = await importOrganizations(file)
       await this.fetchList()
 
       return response
@@ -129,6 +160,7 @@ export const useRoleStore = defineStore('role', {
     resetFilters() {
       this.filters = {
         search: '',
+        status: null,
         page: 1,
         limit: DEFAULT_PER_PAGE,
         sort_by: 'created_at',
@@ -145,7 +177,7 @@ export const useRoleStore = defineStore('role', {
     },
 
     selectAll() {
-      this.selectedIds = this.roles.map(r => r.id)
+      this.selectedIds = this.organizations.map(o => o.id)
     },
 
     clearSelection() {

@@ -36,11 +36,16 @@ export const DEFAULT_COLUMNS = [
   'status',
 ]
 
-/** Permission keys */
+/** Permission keys — khớp với Spatie permission trên BE */
 export const PERMISSIONS = {
   VIEW: 'user.view',
   CREATE: 'user.create',
   EDIT: 'user.edit',
   DELETE: 'user.delete',
   EXPORT: 'user.export',
+  IMPORT: 'user.import',
+  BULK_DELETE: 'user.bulkDestroy',
+  BULK_STATUS: 'user.bulkUpdateStatus',
+  STATS: 'user.stats',
+  CHANGE_STATUS: 'user.changeStatus',
 }

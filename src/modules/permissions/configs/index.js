@@ -10,4 +10,9 @@ export const PERMISSIONS = {
   CREATE: 'permission.create',
   EDIT: 'permission.edit',
   DELETE: 'permission.delete',
+  EXPORT: 'permission.export',
+  IMPORT: 'permission.import',
+  BULK_DELETE: 'permission.bulkDestroy',
+  STATS: 'permission.stats',
+  TREE: 'permission.tree',
 }

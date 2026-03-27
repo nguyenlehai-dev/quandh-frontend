@@ -10,4 +10,8 @@ export const PERMISSIONS = {
   CREATE: 'role.create',
   EDIT: 'role.edit',
   DELETE: 'role.delete',
+  EXPORT: 'role.export',
+  IMPORT: 'role.import',
+  BULK_DELETE: 'role.bulkDestroy',
+  STATS: 'role.stats',
 }

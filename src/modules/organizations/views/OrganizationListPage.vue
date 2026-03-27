@@ -1,11 +1,14 @@
 <script setup>
 import AddEditOrganizationDialog from '@/components/dialogs/AddEditOrganizationDialog.vue'
+import { exportOrganizations, importOrganizations } from '../services/organizationService'
 
 const searchQuery = ref('')
+const selectedStatus = ref()
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
 const orderBy = ref()
+const selectedRows = ref([])
 
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key
@@ -20,9 +23,11 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
+// ─── Data ──────────────────────────────────────
 const organizations = ref([])
 const totalOrganizations = ref(0)
 const loading = ref(false)
+const stats = ref({ total: 0, active: 0, inactive: 0 })
 
 const fetchOrganizations = async () => {
   loading.value = true
@@ -30,6 +35,7 @@ const fetchOrganizations = async () => {
     const res = await $api('/organizations', {
       params: {
         search: searchQuery.value,
+        status: selectedStatus.value,
         limit: itemsPerPage.value,
         page: page.value,
         sort_by: sortBy.value,
@@ -50,18 +56,57 @@ const fetchOrganizations = async () => {
   }
 }
 
-watchDebounced(searchQuery, () => {
+const fetchStats = async () => {
+  try {
+    const res = await $api('/organizations/stats', {
+      params: {
+        search: searchQuery.value,
+        status: selectedStatus.value,
+      },
+    })
+
+    stats.value = res.data ?? { total: 0, active: 0, inactive: 0 }
+  }
+  catch (err) {
+    console.error('Fetch org stats error:', err)
+  }
+}
+
+watchDebounced([searchQuery, selectedStatus], () => {
   page.value = 1
   fetchOrganizations()
+  fetchStats()
 }, { debounce: 500 })
 
 watch([itemsPerPage, page, sortBy, orderBy], () => {
   fetchOrganizations()
 })
 
-onMounted(() => fetchOrganizations())
+onMounted(() => {
+  fetchOrganizations()
+  fetchStats()
+})
 
-// CRUD dialog
+// ─── Status Options ─────────────────────────────
+const statusOptions = [
+  { title: 'Hoạt động', value: 'active' },
+  { title: 'Ngừng', value: 'inactive' },
+]
+
+const resolveStatusVariant = status => {
+  if (status === 'active') return { color: 'success', text: 'Hoạt động' }
+
+  return { color: 'error', text: 'Ngừng' }
+}
+
+// ─── Stats Widgets ──────────────────────────────
+const widgetData = computed(() => [
+  { title: 'Tổng tổ chức', value: stats.value.total ?? 0, icon: 'tabler-building', iconColor: 'primary' },
+  { title: 'Đang hoạt động', value: stats.value.active ?? 0, icon: 'tabler-building-community', iconColor: 'success' },
+  { title: 'Ngừng hoạt động', value: stats.value.inactive ?? 0, icon: 'tabler-building-skyscraper', iconColor: 'warning' },
+])
+
+// ─── CRUD dialog ────────────────────────────────
 const isDialogVisible = ref(false)
 const editingOrganization = ref(null)
 
@@ -77,28 +122,153 @@ const openEditDialog = item => {
 
 const deleteOrganization = async id => {
   await $api(`/organizations/${id}`, { method: 'DELETE' })
+  const idx = selectedRows.value.indexOf(id)
+  if (idx !== -1) selectedRows.value.splice(idx, 1)
   fetchOrganizations()
+  fetchStats()
 }
 
 const onSaved = () => {
   fetchOrganizations()
+  fetchStats()
 }
 
-const resolveStatusVariant = status => {
-  if (status === 'active') return { color: 'success', text: 'Hoạt động' }
+// ─── Bulk Operations ────────────────────────────
+const bulkDeleteOrgs = async () => {
+  if (!selectedRows.value.length) return
+  try {
+    await $api('/organizations/bulk-delete', { method: 'POST', body: { ids: selectedRows.value } })
+    selectedRows.value = []
+    fetchOrganizations()
+    fetchStats()
+  }
+  catch (err) {
+    console.error('Bulk delete error:', err)
+  }
+}
 
-  return { color: 'error', text: 'Ngừng' }
+const bulkChangeStatus = async newStatus => {
+  if (!selectedRows.value.length) return
+  try {
+    await $api('/organizations/bulk-status', { method: 'PATCH', body: { ids: selectedRows.value, status: newStatus } })
+    selectedRows.value = []
+    fetchOrganizations()
+    fetchStats()
+  }
+  catch (err) {
+    console.error('Bulk status error:', err)
+  }
+}
+
+// ─── Export ─────────────────────────────────────
+const isExporting = ref(false)
+
+const handleExport = async () => {
+  isExporting.value = true
+  try {
+    const blob = await exportOrganizations({
+      search: searchQuery.value,
+      status: selectedStatus.value,
+      sort_by: sortBy.value,
+      sort_order: orderBy.value,
+    })
+
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = `organizations_${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+  catch (err) {
+    console.error('Export error:', err)
+  }
+  finally {
+    isExporting.value = false
+  }
+}
+
+// ─── Import ─────────────────────────────────────
+const isImportDialogVisible = ref(false)
+const importFile = ref(null)
+const isImporting = ref(false)
+
+const handleImport = async () => {
+  if (!importFile.value) return
+  isImporting.value = true
+  try {
+    await importOrganizations(importFile.value)
+    isImportDialogVisible.value = false
+    importFile.value = null
+    fetchOrganizations()
+    fetchStats()
+  }
+  catch (err) {
+    console.error('Import error:', err)
+  }
+  finally {
+    isImporting.value = false
+  }
 }
 </script>
 
 <template>
   <div>
+    <!-- 👉 Stats Widgets -->
+    <VRow class="mb-6">
+      <VCol
+        v-for="(data, id) in widgetData"
+        :key="id"
+        cols="12"
+        md="4"
+        sm="6"
+      >
+        <VCard>
+          <VCardText>
+            <div class="d-flex justify-space-between">
+              <div class="d-flex flex-column gap-y-1">
+                <div class="text-body-1 text-high-emphasis">
+                  {{ data.title }}
+                </div>
+                <h4 class="text-h4">
+                  {{ data.value }}
+                </h4>
+              </div>
+              <VAvatar
+                :color="data.iconColor"
+                variant="tonal"
+                rounded
+                size="42"
+              >
+                <VIcon
+                  :icon="data.icon"
+                  size="26"
+                />
+              </VAvatar>
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
+
     <VCard>
       <VCardText class="d-flex align-center flex-wrap gap-4">
         <h5 class="text-h5">
           Danh sách Tổ chức
         </h5>
         <VSpacer />
+
+        <!-- 👉 Status Filter -->
+        <AppSelect
+          v-model="selectedStatus"
+          placeholder="Trạng thái"
+          :items="statusOptions"
+          clearable
+          clear-icon="tabler-x"
+          style="max-inline-size: 180px;"
+        />
+
         <AppTextField
           v-model="searchQuery"
           placeholder="Tìm kiếm..."
@@ -112,6 +282,31 @@ const resolveStatusVariant = status => {
             />
           </template>
         </AppTextField>
+
+        <!-- 👉 Export -->
+        <VBtn
+          v-if="$can('export', 'Organization')"
+          variant="tonal"
+          color="secondary"
+          prepend-icon="tabler-upload"
+          :loading="isExporting"
+          @click="handleExport"
+        >
+          Xuất Excel
+        </VBtn>
+
+        <!-- 👉 Import -->
+        <VBtn
+          v-if="$can('import', 'Organization')"
+          variant="tonal"
+          color="info"
+          prepend-icon="tabler-download"
+          @click="isImportDialogVisible = true"
+        >
+          Nhập Excel
+        </VBtn>
+
+        <!-- 👉 Add -->
         <VBtn
           v-if="$can('create', 'Organization')"
           prepend-icon="tabler-plus"
@@ -120,16 +315,71 @@ const resolveStatusVariant = status => {
           Thêm mới
         </VBtn>
       </VCardText>
+
+      <!-- 👉 Bulk Action Bar -->
+      <template v-if="selectedRows.length > 0">
+        <VDivider />
+        <VCardText class="d-flex align-center gap-3">
+          <span class="text-body-1 font-weight-medium">
+            Đã chọn {{ selectedRows.length }} mục
+          </span>
+          <VSpacer />
+          <VBtn
+            v-if="$can('bulkDestroy', 'Organization')"
+            variant="tonal"
+            color="error"
+            size="small"
+            prepend-icon="tabler-trash"
+            @click="bulkDeleteOrgs"
+          >
+            Xóa hàng loạt
+          </VBtn>
+          <VMenu>
+            <template #activator="{ props }">
+              <VBtn
+                v-if="$can('bulkUpdateStatus', 'Organization')"
+                v-bind="props"
+                variant="tonal"
+                color="warning"
+                size="small"
+                prepend-icon="tabler-toggle-left"
+              >
+                Đổi trạng thái
+              </VBtn>
+            </template>
+            <VList>
+              <VListItem
+                v-for="s in statusOptions"
+                :key="s.value"
+                @click="bulkChangeStatus(s.value)"
+              >
+                <VListItemTitle>{{ s.title }}</VListItemTitle>
+              </VListItem>
+            </VList>
+          </VMenu>
+          <VBtn
+            variant="text"
+            size="small"
+            @click="selectedRows = []"
+          >
+            Bỏ chọn
+          </VBtn>
+        </VCardText>
+      </template>
+
       <VDivider />
 
       <VDataTableServer
         v-model:items-per-page="itemsPerPage"
+        v-model:model-value="selectedRows"
         v-model:page="page"
         :items="organizations"
         :items-length="totalOrganizations"
         :headers="headers"
         :loading="loading"
+        item-value="id"
         class="text-no-wrap"
+        show-select
         @update:options="updateOptions"
       >
         <template #item.name="{ item }">
@@ -156,7 +406,7 @@ const resolveStatusVariant = status => {
 
         <template #item.created_at="{ item }">
           <div class="text-body-2">
-            {{ item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : '—' }}
+            {{ item.created_at || '—' }}
           </div>
         </template>
 
@@ -190,5 +440,39 @@ const resolveStatusVariant = status => {
       :organization="editingOrganization"
       @saved="onSaved"
     />
+
+    <!-- 👉 Import Dialog -->
+    <VDialog
+      v-model="isImportDialogVisible"
+      max-width="500"
+    >
+      <VCard title="Nhập tổ chức từ Excel">
+        <VCardText>
+          <VFileInput
+            v-model="importFile"
+            label="Chọn file Excel"
+            accept=".xlsx,.xls,.csv"
+            prepend-icon="tabler-file-spreadsheet"
+          />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="tonal"
+            @click="isImportDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            color="primary"
+            :loading="isImporting"
+            :disabled="!importFile"
+            @click="handleImport"
+          >
+            Nhập
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>

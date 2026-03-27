@@ -33,6 +33,7 @@ const errors = ref({
 })
 
 const refVForm = ref()
+const refOrgForm = ref()
 
 const credentials = ref({
   email: 'admin@example.com',
@@ -41,48 +42,58 @@ const credentials = ref({
 
 const rememberMe = ref(false)
 
+// ── Các bước đăng nhập ──
+const step = ref(1) // 1: Đăng nhập, 2: Chọn tổ chức
+const isLoading = ref(false)
+
 // ── Chọn tổ chức ──
-const showOrgDialog = ref(false)
 const availableOrganizations = ref([])
 const selectedOrgId = ref(null)
-const isOrgLoading = ref(false)
 
 const login = async () => {
+  isLoading.value = true
+  errors.value = { email: undefined, password: undefined }
+  
   try {
     const data = await authLogin(credentials.value.email, credentials.value.password)
 
-    // Nếu BE trả current_organization_id = null → cần chọn tổ chức
-    if (!data.current_organization_id && data.available_organizations?.length > 1) {
+    // Nếu BE trả current_organization_id = null HOẶC user có nhiều orgs → chuyển qua bước chọn tổ chức
+    if (!data.current_organization_id && data.available_organizations && data.available_organizations.length > 0) {
       availableOrganizations.value = data.available_organizations
       selectedOrgId.value = null
-      showOrgDialog.value = true
+      step.value = 2 // Chuyển sang form chọn tổ chức nội tuyến
 
       return
     }
 
-    // Đã có org → redirect bình thường
+    // Đã có org (Admin vào thẳng hoặc User chỉ có 1 org) → redirect bình thường
     await nextTick(() => {
       router.replace(route.query.to ? String(route.query.to) : '/')
     })
   }
   catch (err) {
-    // ApiService trả về { errors, code, message } khi có lỗi
     if (err?.errors) {
-      errors.value = err.errors
+      errors.value = err.errors // Lỗi validation từ backend (VD: mảng errors={email:[]})
     }
     else {
-      console.error(err)
+      // Bắt lỗi 401, 403, 500 từ exception trả về message chung
+      const msg = err?.data?.message || err?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'
+
+      errors.value.email = msg
     }
+  }
+  finally {
+    isLoading.value = false
   }
 }
 
 const confirmOrganization = async () => {
   if (!selectedOrgId.value) return
 
-  isOrgLoading.value = true
+  isLoading.value = true
   try {
     await switchOrganization(selectedOrgId.value)
-    showOrgDialog.value = false
+    
     await nextTick(() => {
       router.replace(route.query.to ? String(route.query.to) : '/')
     })
@@ -91,14 +102,27 @@ const confirmOrganization = async () => {
     console.error('Switch organization failed:', err)
   }
   finally {
-    isOrgLoading.value = false
+    isLoading.value = false
   }
+}
+
+const cancelOrganization = () => {
+  // Đăng xuất / Quay lại bước 1
+  step.value = 1
+  credentials.value.password = ''
 }
 
 const onSubmit = () => {
   refVForm.value?.validate().then(({ valid: isValid }) => {
     if (isValid)
       login()
+  })
+}
+
+const onOrgSubmit = () => {
+  refOrgForm.value?.validate().then(({ valid: isValid }) => {
+    if (isValid)
+      confirmOrganization()
   })
 }
 </script>
@@ -152,155 +176,177 @@ const onSubmit = () => {
         flat
         :max-width="500"
         class="mt-12 mt-sm-0 pa-4"
+        width="100%"
       >
-        <VCardText>
-          <h4 class="text-h4 mb-1">
-            Welcome to <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
-          </h4>
-          <p class="mb-0">
-            Please sign-in to your account and start the adventure
-          </p>
-        </VCardText>
-        <VCardText>
-          <VAlert
-            color="primary"
-            variant="tonal"
-          >
-            <p class="text-sm mb-2">
-              Admin Email: <strong>admin@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
+        <!-- BƯỚC 1: ĐĂNG NHẬP -->
+        <template v-if="step === 1">
+          <VCardText>
+            <h4 class="text-h4 mb-1">
+              Welcome to <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
+            </h4>
+            <p class="mb-0">
+              Vui lòng đăng nhập vào tài khoản của bạn để quản lý hệ thống
             </p>
-            <p class="text-sm mb-0">
-              Basic Email: <strong>basic@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
-            </p>
-          </VAlert>
-        </VCardText>
-        <VCardText>
-          <VForm
-            ref="refVForm"
-            @submit.prevent="onSubmit"
-          >
-            <VRow>
-              <!-- email -->
-              <VCol cols="12">
-                <AppTextField
-                  v-model="credentials.email"
-                  label="Email"
-                  placeholder="johndoe@email.com"
-                  type="email"
-                  autofocus
-                  :rules="[requiredValidator, emailValidator]"
-                  :error-messages="errors.email"
-                />
-              </VCol>
-
-              <!-- password -->
-              <VCol cols="12">
-                <AppTextField
-                  v-model="credentials.password"
-                  label="Password"
-                  placeholder="············"
-                  :rules="[requiredValidator]"
-                  :type="isPasswordVisible ? 'text' : 'password'"
-                  autocomplete="password"
-                  :error-messages="errors.password"
-                  :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
-                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                />
-
-                <div class="d-flex align-center flex-wrap justify-space-between my-6">
-                  <VCheckbox
-                    v-model="rememberMe"
-                    label="Remember me"
+          </VCardText>
+          <VCardText>
+            <VAlert
+              color="primary"
+              variant="tonal"
+            >
+              <p class="text-sm mb-2">
+                Admin Email: <strong>admin@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
+              </p>
+              <p class="text-sm mb-0">
+                Basic Email: <strong>basic@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
+              </p>
+            </VAlert>
+          </VCardText>
+          <VCardText>
+            <VForm
+              ref="refVForm"
+              @submit.prevent="onSubmit"
+            >
+              <VRow>
+                <!-- email -->
+                <VCol cols="12">
+                  <AppTextField
+                    v-model="credentials.email"
+                    label="Tên đăng nhập hoặc Email"
+                    placeholder="johndoe@email.com"
+                    type="email"
+                    autofocus
+                    :rules="[requiredValidator, emailValidator]"
+                    :error-messages="errors.email"
                   />
-                  <RouterLink
-                    class="text-primary ms-2 mb-1"
-                    :to="{ name: 'forgot-password' }"
+                </VCol>
+
+                <!-- password -->
+                <VCol cols="12">
+                  <AppTextField
+                    v-model="credentials.password"
+                    label="Mật khẩu"
+                    placeholder="············"
+                    :rules="[requiredValidator]"
+                    :type="isPasswordVisible ? 'text' : 'password'"
+                    autocomplete="password"
+                    :error-messages="errors.password"
+                    :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
+                    @click:append-inner="isPasswordVisible = !isPasswordVisible"
+                  />
+
+                  <div class="d-flex align-center flex-wrap justify-space-between my-6">
+                    <VCheckbox
+                      v-model="rememberMe"
+                      label="Ghi nhớ đăng nhập"
+                    />
+                    <RouterLink
+                      class="text-primary ms-2 mb-1"
+                      :to="{ name: 'forgot-password' }"
+                    >
+                      Quên mật khẩu?
+                    </RouterLink>
+                  </div>
+
+                  <VBtn
+                    block
+                    type="submit"
+                    :loading="isLoading"
                   >
-                    Forgot Password?
+                    Đăng Nhập
+                  </VBtn>
+                </VCol>
+
+                <!-- create account -->
+                <VCol
+                  cols="12"
+                  class="text-center"
+                >
+                  <span>Có gì mới trên nền tảng không?</span>
+                  <RouterLink
+                    class="text-primary ms-1"
+                    :to="{ name: 'register' }"
+                  >
+                    Đăng ký tài khoản
                   </RouterLink>
-                </div>
-
-                <VBtn
-                  block
-                  type="submit"
+                </VCol>
+                <VCol
+                  cols="12"
+                  class="d-flex align-center"
                 >
-                  Login
-                </VBtn>
-              </VCol>
+                  <VDivider />
+                  <span class="mx-4">hoặc</span>
+                  <VDivider />
+                </VCol>
 
-              <!-- create account -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <span>New on our platform?</span>
-                <RouterLink
-                  class="text-primary ms-1"
-                  :to="{ name: 'register' }"
+                <!-- auth providers -->
+                <VCol
+                  cols="12"
+                  class="text-center"
                 >
-                  Create an account
-                </RouterLink>
-              </VCol>
-              <VCol
-                cols="12"
-                class="d-flex align-center"
-              >
-                <VDivider />
-                <span class="mx-4">or</span>
-                <VDivider />
-              </VCol>
+                  <AuthProvider />
+                </VCol>
+              </VRow>
+            </VForm>
+          </VCardText>
+        </template>
 
-              <!-- auth providers -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <AuthProvider />
-              </VCol>
-            </VRow>
-          </VForm>
-        </VCardText>
+        <!-- BƯỚC 2: CHỌN TỔ CHỨC LÀM VIỆC -->
+        <template v-else-if="step === 2">
+          <VCardText class="text-center mt-6">
+            <h4 class="text-h4 mb-2 text-primary">
+              CHỌN TỔ CHỨC LÀM VIỆC
+            </h4>
+            <p class="mb-6 text-body-1 text-medium-emphasis">
+              Tài khoản của bạn thuộc nhiều tổ chức. Vui lòng chọn một tổ chức để làm việc.
+            </p>
+          </VCardText>
+          <VCardText>
+            <VForm
+              ref="refOrgForm"
+              @submit.prevent="onOrgSubmit"
+            >
+              <VRow>
+                <VCol cols="12">
+                  <AppSelect
+                    v-model="selectedOrgId"
+                    :items="availableOrganizations"
+                    item-title="name"
+                    item-value="id"
+                    label="Chọn tổ chức làm việc"
+                    placeholder="-- Chọn tổ chức --"
+                    :rules="[requiredValidator]"
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  class="mt-4"
+                >
+                  <VBtn
+                    block
+                    color="primary"
+                    type="submit"
+                    :loading="isLoading"
+                    class="mb-3"
+                  >
+                    Tiếp Tục
+                  </VBtn>
+                  <VBtn
+                    block
+                    color="error"
+                    variant="tonal"
+                    :disabled="isLoading"
+                    @click="cancelOrganization"
+                  >
+                    Đăng Xuất
+                  </VBtn>
+                </VCol>
+              </VRow>
+            </VForm>
+          </VCardText>
+        </template>
       </VCard>
     </VCol>
   </VRow>
-
-  <!-- Dialog chọn tổ chức -->
-  <VDialog
-    v-model="showOrgDialog"
-    persistent
-    max-width="460"
-  >
-    <VCard>
-      <VCardTitle class="text-h5 pa-5">
-        Chọn tổ chức làm việc
-      </VCardTitle>
-      <VCardText>
-        <p class="text-body-1 mb-4">
-          Tài khoản của bạn thuộc nhiều tổ chức. Vui lòng chọn tổ chức để tiếp tục.
-        </p>
-        <VSelect
-          v-model="selectedOrgId"
-          :items="availableOrganizations"
-          item-title="name"
-          item-value="id"
-          label="Tổ chức"
-          variant="outlined"
-          :rules="[requiredValidator]"
-        />
-      </VCardText>
-      <VCardActions class="pa-5 pt-0">
-        <VSpacer />
-        <VBtn
-          color="primary"
-          :loading="isOrgLoading"
-          :disabled="!selectedOrgId"
-          @click="confirmOrganization"
-        >
-          Xác nhận
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>
 
 <style lang="scss">

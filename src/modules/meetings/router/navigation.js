@@ -1,13 +1,11 @@
 export const navigation = {
-  title: 'Quản lý cuộc họp',
+  title: 'Quản lý Cuộc họp',
   icon: { icon: 'tabler-calendar-event' },
   children: [
     { title: 'Danh sách Cuộc họp', to: 'meetings-list', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Biểu quyết', to: 'meetings-votes-list', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Tài liệu', to: 'meetings-documents-list', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Kết luận', to: 'meetings-conclusions-list', action: 'read', subject: 'Meeting' },
     {
       title: 'Danh mục',
+      icon: { icon: 'tabler-folders' },
       action: 'read',
       subject: 'Meeting',
       children: [

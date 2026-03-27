@@ -1,4 +1,5 @@
 {
+  "Quản lý Cuộc họp": "Quản lý Cuộc họp",
   "UI Elements": "Phần tử giao diện",
   "Forms & Tables": "Biểu mẫu & Bảng",
   "Pages": "Trang",
@@ -183,6 +184,7 @@
   "Vai trò & Quyền hạn": "Vai trò & Quyền hạn",
   "Vai trò": "Vai trò",
   "Quyền hạn": "Quyền hạn",
+  "Hồ sơ cá nhân": "Hồ sơ cá nhân",
   "Cấu hình hệ thống": "Cấu hình hệ thống",
   "Cấu hình chung": "Cấu hình chung",
   "Cấu hình thông báo": "Cấu hình thông báo",
@@ -198,6 +200,9 @@
       "ariaLabel": {
         "delimiter": "Dấu phân cách"
       }
+    },
+    "dataIterator": {
+      "loadingText": "Đang tải dữ liệu..."
     },
     "dataFooter": {
       "itemsPerPageText": "Số mục mỗi trang:",

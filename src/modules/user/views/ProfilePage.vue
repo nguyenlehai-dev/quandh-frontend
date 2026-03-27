@@ -130,7 +130,7 @@ const changePassword = async () => {
 const logsPage = ref(1)
 const logsPerPage = ref(10)
 
-const { data: logsData, isFetching: logsLoading } = await useApi(createUrl('/user/activity-logs', {
+const { data: logsData, isFetching: logsLoading } = await useApi(createUrl('/log-activities', {
   query: {
     limit: logsPerPage,
     page: logsPage,
@@ -232,6 +232,52 @@ const chartSeries = [
     data: [150, 420, 310, 680, 520, 890, 740],
   },
 ]
+
+// Notification preferences
+// eslint-disable-next-line camelcase
+const notifPrefs = ref({
+  notify_email: true,
+  notify_system: true,
+  notify_meeting_reminder: true,
+  notify_vote: true,
+  notify_document: false,
+})
+
+const notifLoading = ref(false)
+
+const loadNotifPrefs = async () => {
+  try {
+    const { data } = await useApi('/user/notification-preferences')
+    if (data.value?.data) {
+      notifPrefs.value = { ...data.value.data }
+    }
+  }
+  catch {}
+}
+
+loadNotifPrefs()
+
+let saveTimer = null
+
+const saveNotifPrefs = () => {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    notifLoading.value = true
+    try {
+      await useApi('/user/notification-preferences', {
+        method: 'PUT',
+        body: notifPrefs.value,
+      })
+      snackbar.value = { show: true, text: 'Đã cập nhật cấu hình thông báo.', color: 'success' }
+    }
+    catch {
+      snackbar.value = { show: true, text: 'Lỗi khi lưu cấu hình thông báo.', color: 'error' }
+    }
+    finally {
+      notifLoading.value = false
+    }
+  }, 500)
+}
 
 // Tab items
 const tabs = [
@@ -345,37 +391,6 @@ const tabs = [
               >
                 <!-- Info Card -->
                 <VCard>
-                  <VCardText class="text-center pt-8 pb-4">
-                    <VAvatar
-                      size="80"
-                      rounded
-                      :color="!user.avatar ? 'primary' : undefined"
-                      :variant="!user.avatar ? 'tonal' : undefined"
-                    >
-                      <VImg
-                        v-if="user.avatar"
-                        :src="user.avatar"
-                      />
-                      <span
-                        v-else
-                        class="text-2xl font-weight-bold"
-                      >
-                        {{ getInitials(user.name) }}
-                      </span>
-                    </VAvatar>
-                    <h5 class="text-h5 mt-3">
-                      {{ user.name }}
-                    </h5>
-                    <VChip
-                      size="small"
-                      color="primary"
-                      variant="tonal"
-                      class="mt-2"
-                    >
-                      {{ user.position || 'Nhân viên' }}
-                    </VChip>
-                  </VCardText>
-
                   <VDivider />
 
                   <VCardText>
@@ -738,8 +753,10 @@ const tabs = [
                     <VListItemSubtitle>Nhận thông báo khi có cuộc họp mới hoặc thay đổi lịch họp</VListItemSubtitle>
                     <template #append>
                       <VSwitch
-                        :model-value="true"
+                        v-model="notifPrefs.notify_email"
                         color="primary"
+                        :loading="notifLoading"
+                        @update:model-value="saveNotifPrefs"
                       />
                     </template>
                   </VListItem>
@@ -754,8 +771,10 @@ const tabs = [
                     <VListItemSubtitle>Nhận thông báo realtime trên giao diện</VListItemSubtitle>
                     <template #append>
                       <VSwitch
-                        :model-value="true"
+                        v-model="notifPrefs.notify_system"
                         color="primary"
+                        :loading="notifLoading"
+                        @update:model-value="saveNotifPrefs"
                       />
                     </template>
                   </VListItem>
@@ -770,8 +789,10 @@ const tabs = [
                     <VListItemSubtitle>Nhận thông báo trước 15 phút khi cuộc họp bắt đầu</VListItemSubtitle>
                     <template #append>
                       <VSwitch
-                        :model-value="true"
+                        v-model="notifPrefs.notify_meeting_reminder"
                         color="primary"
+                        :loading="notifLoading"
+                        @update:model-value="saveNotifPrefs"
                       />
                     </template>
                   </VListItem>
@@ -786,8 +807,10 @@ const tabs = [
                     <VListItemSubtitle>Nhận thông báo khi có yêu cầu biểu quyết mới</VListItemSubtitle>
                     <template #append>
                       <VSwitch
-                        :model-value="true"
+                        v-model="notifPrefs.notify_vote"
                         color="primary"
+                        :loading="notifLoading"
+                        @update:model-value="saveNotifPrefs"
                       />
                     </template>
                   </VListItem>
@@ -802,8 +825,10 @@ const tabs = [
                     <VListItemSubtitle>Nhận thông báo khi có tài liệu mới được chia sẻ</VListItemSubtitle>
                     <template #append>
                       <VSwitch
-                        :model-value="false"
+                        v-model="notifPrefs.notify_document"
                         color="primary"
+                        :loading="notifLoading"
+                        @update:model-value="saveNotifPrefs"
                       />
                     </template>
                   </VListItem>

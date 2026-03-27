@@ -1,76 +1,68 @@
 <script setup>
-import avatar3 from '@images/avatars/avatar-3.png'
-import avatar4 from '@images/avatars/avatar-4.png'
-import avatar5 from '@images/avatars/avatar-5.png'
-import paypal from '@images/cards/paypal-rounded.png'
+const notifications = ref([])
+const isLoading = ref(false)
 
-const notifications = ref([
-  {
-    id: 1,
-    img: avatar4,
-    title: 'Congratulation Flora! 🎉',
-    subtitle: 'Won the monthly best seller badge',
-    time: 'Today',
-    isSeen: true,
-  },
-  {
-    id: 2,
-    text: 'Tom Holland',
-    title: 'New user registered.',
-    subtitle: '5 hours ago',
-    time: 'Yesterday',
-    isSeen: false,
-  },
-  {
-    id: 3,
-    img: avatar5,
-    title: 'New message received 👋🏻',
-    subtitle: 'You have 10 unread messages',
-    time: '11 Aug',
-    isSeen: true,
-  },
-  {
-    id: 4,
-    img: paypal,
-    title: 'PayPal',
-    subtitle: 'Received Payment',
-    time: '25 May',
-    isSeen: false,
-    color: 'error',
-  },
-  {
-    id: 5,
-    img: avatar3,
-    title: 'Received Order 📦',
-    subtitle: 'New order received from john',
-    time: '19 Mar',
-    isSeen: true,
-  },
-])
+const fetchNotifications = async () => {
+  isLoading.value = true
+  try {
+    const res = await $api('/user/notifications')
 
-const removeNotification = notificationId => {
-  notifications.value.forEach((item, index) => {
-    if (notificationId === item.id)
-      notifications.value.splice(index, 1)
-  })
+    if (res?.data) {
+      notifications.value = res.data
+    }
+  }
+  catch (error) {
+    console.error('Failed to fetch notifications:', error)
+  }
+  finally {
+    isLoading.value = false
+  }
 }
 
-const markRead = notificationId => {
-  notifications.value.forEach(item => {
-    notificationId.forEach(id => {
-      if (id === item.id)
+// Load khi mount
+fetchNotifications()
+
+// Auto-refresh mỗi 30 giây
+const refreshInterval = setInterval(fetchNotifications, 30000)
+
+onBeforeUnmount(() => clearInterval(refreshInterval))
+
+const removeNotification = async notificationId => {
+  try {
+    await $api(`/user/notifications/${notificationId}`, { method: 'DELETE' })
+    notifications.value = notifications.value.filter(n => n.id !== notificationId)
+  }
+  catch {}
+}
+
+const markRead = async notificationIds => {
+  try {
+    await $api('/user/notifications/mark-read', {
+      method: 'POST',
+      body: { ids: notificationIds },
+    })
+
+    notifications.value.forEach(item => {
+      if (notificationIds.includes(item.id))
         item.isSeen = true
     })
-  })
+  }
+  catch {}
 }
 
-const markUnRead = notificationId => {
-  notifications.value.forEach(item => {
-    notificationId.forEach(id => {
-      if (id === item.id)
+const markUnRead = async notificationIds => {
+  try {
+    await $api('/user/notifications/mark-unread', {
+      method: 'POST',
+      body: { ids: notificationIds },
+    })
+
+    notifications.value.forEach(item => {
+      if (notificationIds.includes(item.id))
         item.isSeen = false
     })
-  })
+  }
+  catch {}
 }
 
 const handleNotificationClick = notification => {

@@ -21,7 +21,7 @@ const configStore = useConfigStore()
   <VLocaleProvider :rtl="configStore.isAppRTL">
     <!-- ℹ️ This is required to set the background color of active nav link based on currently active global theme's primary -->
     <VApp :style="`--v-global-theme-primary: ${hexToRgb(global.current.value.colors.primary)}`">
-      <RouterView />
+      <RouterView :key="useCookie('currentOrganizationId').value || 'default'" />
       <ScrollToTop />
     </VApp>
   </VLocaleProvider>
