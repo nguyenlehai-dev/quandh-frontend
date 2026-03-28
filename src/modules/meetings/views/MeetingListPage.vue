@@ -1,6 +1,5 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import MeetingFormModal from '@/modules/meetings/components/MeetingFormModal.vue'
 import { deleteMeeting } from '@/modules/meetings/services/meetingService'
 import { computed, ref } from 'vue'
 
@@ -31,7 +30,7 @@ const headers = [
   { title: 'Thao tác', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = await useApi(createUrl('/meetings', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -52,9 +51,20 @@ const activeCount = computed(() => items.value.filter(m => ['active', 'in_progre
 const completedCount = computed(() => items.value.filter(m => ['completed', 'cancelled'].includes(m.status)).length)
 
 const deleteItem = async id => {
-  if (confirm('Bạn có chắc chắn muốn xóa cuộc họp này?')) {
-    await deleteMeeting(id)
-    fetchItems()
+  console.log('deleteItem triggered with id:', id)
+  if (window.confirm('Bạn có chắc chắn muốn xóa cuộc họp này?')) {
+    try {
+      console.log('Calling deleteMeeting API...')
+      await deleteMeeting(id)
+      console.log('deleteMeeting successful, refetching...')
+      fetchItems()
+    } catch (error) {
+      console.error('Lỗi khi xóa cuộc họp:', error)
+
+      const msg = error?.response?.data?.message || error.message || 'Có lỗi xảy ra'
+      
+      window.alert('Không thể xóa: ' + msg)
+    }
   }
 }
 
@@ -76,19 +86,7 @@ const resetFilters = () => {
   statusFilter.value = ''
 }
 
-// Modal State
-const isMeetingModalVisible = ref(false)
-const activeMeetingId = ref(null)
-
-const openAddMeetingModal = () => {
-  activeMeetingId.value = null
-  isMeetingModalVisible.value = true
-}
-
-const openEditMeetingModal = id => {
-  activeMeetingId.value = id
-  isMeetingModalVisible.value = true
-}
+// No modal state needed anymore
 </script>
 
 <template>
@@ -257,7 +255,7 @@ const openEditMeetingModal = id => {
           v-if="$can('create', 'Meeting')"
           color="primary"
           prepend-icon="tabler-plus"
-          @click="openAddMeetingModal"
+          :to="{ name: 'meetings-edit' }"
         >
           Thêm Cuộc Họp
         </VBtn>
@@ -340,7 +338,7 @@ const openEditMeetingModal = id => {
 
             <IconBtn
               v-if="$can('update', 'Meeting')"
-              @click="openEditMeetingModal(item.id)"
+              :to="{ name: 'meetings-edit', params: { id: item.id } }"
             >
               <VIcon icon="tabler-pencil" />
               <VTooltip
@@ -392,13 +390,6 @@ const openEditMeetingModal = id => {
         </template>
       </VDataTableServer>
     </div>
-
-    <!-- Meeting Form Modal -->
-    <MeetingFormModal
-      v-model="isMeetingModalVisible"
-      v-model:meeting-id="activeMeetingId"
-      @saved="fetchItems"
-    />
   </section>
 </template>
 

@@ -43,40 +43,93 @@ const credentials = ref({
 const rememberMe = ref(false)
 
 // ── Các bước đăng nhập ──
-const step = ref(1) // 1: Đăng nhập, 2: Chọn tổ chức
+// 1: Đăng nhập, 2: Chọn tổ chức, 3: Chọn cuộc họp (nếu không phải admin)
+const step = ref(1)
 const isLoading = ref(false)
 
 // ── Chọn tổ chức ──
 const availableOrganizations = ref([])
 const selectedOrgId = ref(null)
 
-const login = async () => {
-  isLoading.value = true
-  errors.value = { email: undefined, password: undefined }
-  
+// ── Step 3: Chọn cuộc họp ──
+const userRoles = ref([])
+const myMeetings = ref([])
+const selectedMeetingId = ref(null)
+const isLoadingMeetings = ref(false)
+
+// Kiểm tra user có phải admin không
+const isAdmin = computed(() => {
+  const adminRoles = ['super-admin', 'admin', 'Super Admin', 'Admin']
+  return userRoles.value.some(r => adminRoles.includes(r))
+})
+
+// Lấy danh sách cuộc họp của user
+const loadMyMeetings = async () => {
+  isLoadingMeetings.value = true
   try {
-    const data = await authLogin(credentials.value.email, credentials.value.password)
+    const { fetchMyMeetings } = await import('@/modules/meetings/services/meetingService')
+    const res = await fetchMyMeetings({ limit: 50, sort_by: 'start_at', sort_order: 'desc' })
 
-    // Nếu BE trả current_organization_id = null HOẶC user có nhiều orgs → chuyển qua bước chọn tổ chức
-    if (!data.current_organization_id && data.available_organizations && data.available_organizations.length > 0) {
-      availableOrganizations.value = data.available_organizations
-      selectedOrgId.value = null
-      step.value = 2 // Chuyển sang form chọn tổ chức nội tuyến
+    const rawData = res.data?.data || res.data || []
 
-      return
-    }
+    myMeetings.value = rawData.map(m => ({
+      id: m.id,
+      title: m.title,
+      start_at: m.start_at || '',
+      location: m.location || '',
+      status: m.status || '',
+    }))
+  }
+  catch (err) {
+    console.error('Không thể tải danh sách cuộc họp:', err)
+    myMeetings.value = []
+  }
+  finally {
+    isLoadingMeetings.value = false
+  }
+}
 
-    // Đã có org (Admin vào thẳng hoặc User chỉ có 1 org) → redirect bình thường
+// Xử lý sau khi xác định xong tổ chức: admin vào thẳng, user vào step 3
+const handlePostOrgResolution = async roles => {
+  userRoles.value = roles || []
+
+  if (isAdmin.value) {
+    // Admin → vào thẳng dashboard
     await nextTick(() => {
       router.replace(route.query.to ? String(route.query.to) : '/')
     })
   }
+  else {
+    // Không phải admin → load cuộc họp → step 3
+    step.value = 3
+    await loadMyMeetings()
+  }
+}
+
+const login = async () => {
+  isLoading.value = true
+  errors.value = { email: undefined, password: undefined }
+
+  try {
+    const data = await authLogin(credentials.value.email, credentials.value.password)
+
+    // Nếu BE trả current_organization_id = null (nhiều org) → step 2
+    if (!data.current_organization_id && data.available_organizations && data.available_organizations.length > 0) {
+      availableOrganizations.value = data.available_organizations
+      selectedOrgId.value = null
+      step.value = 2
+
+      return
+    }
+
+    // Đã có org → kiểm tra admin hay user
+    await handlePostOrgResolution(data.roles)
+  }
   catch (err) {
     if (err?.errors) {
-      errors.value = err.errors // Lỗi validation từ backend (VD: mảng errors={email:[]})
+      errors.value = err.errors
     }
     else {
-      // Bắt lỗi 401, 403, 500 từ exception trả về message chung
       const msg = err?.data?.message || err?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'
 
       errors.value.email = msg
@@ -92,11 +145,10 @@ const confirmOrganization = async () => {
 
   isLoading.value = true
   try {
-    await switchOrganization(selectedOrgId.value)
-    
-    await nextTick(() => {
-      router.replace(route.query.to ? String(route.query.to) : '/')
-    })
+    const data = await switchOrganization(selectedOrgId.value)
+
+    // Sau khi chọn org → kiểm tra admin hay user
+    await handlePostOrgResolution(data.roles)
   }
   catch (err) {
     console.error('Switch organization failed:', err)
@@ -106,10 +158,35 @@ const confirmOrganization = async () => {
   }
 }
 
+const confirmMeeting = async () => {
+  if (!selectedMeetingId.value) return
+
+  await nextTick(() => {
+    router.replace(`/my-meetings/${selectedMeetingId.value}`)
+  })
+}
+
+const skipMeetingSelection = async () => {
+  // Bỏ qua → vào trang danh sách cuộc họp của tôi
+  await nextTick(() => {
+    router.replace('/my-meetings')
+  })
+}
+
 const cancelOrganization = () => {
-  // Đăng xuất / Quay lại bước 1
   step.value = 1
   credentials.value.password = ''
+}
+
+const backToOrgStep = () => {
+  // Quay lại bước chọn tổ chức nếu cần
+  if (availableOrganizations.value.length > 0) {
+    step.value = 2
+  }
+  else {
+    step.value = 1
+    credentials.value.password = ''
+  }
 }
 
 const onSubmit = () => {
@@ -124,6 +201,46 @@ const onOrgSubmit = () => {
     if (isValid)
       confirmOrganization()
   })
+}
+
+// Format thời gian cho hiển thị
+const formatDateTime = dateStr => {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr.replace(/(\d{2}:\d{2}:\d{2}) (\d{2})\/(\d{2})\/(\d{4})/, '$4-$3-$2T$1'))
+
+    return d.toLocaleDateString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
+  catch {
+    return dateStr
+  }
+}
+
+const getStatusColor = status => {
+  const map = {
+    draft: 'secondary',
+    scheduled: 'info',
+    active: 'success',
+    in_progress: 'warning',
+    completed: 'primary',
+  }
+
+  return map[status] || 'default'
+}
+
+const getStatusLabel = status => {
+  const map = {
+    draft: 'Bản nháp',
+    scheduled: 'Đã lên lịch',
+    active: 'Đang kích hoạt',
+    in_progress: 'Đang diễn ra',
+    completed: 'Đã kết thúc',
+  }
+
+  return map[status] || status
 }
 </script>
 
@@ -178,7 +295,9 @@ const onOrgSubmit = () => {
         class="mt-12 mt-sm-0 pa-4"
         width="100%"
       >
+        <!-- ══════════════════════════════════════════════ -->
         <!-- BƯỚC 1: ĐĂNG NHẬP -->
+        <!-- ══════════════════════════════════════════════ -->
         <template v-if="step === 1">
           <VCardText>
             <h4 class="text-h4 mb-1">
@@ -294,7 +413,9 @@ const onOrgSubmit = () => {
           </VCardText>
         </template>
 
+        <!-- ══════════════════════════════════════════════ -->
         <!-- BƯỚC 2: CHỌN TỔ CHỨC LÀM VIỆC -->
+        <!-- ══════════════════════════════════════════════ -->
         <template v-else-if="step === 2">
           <VCardText class="text-center mt-6">
             <h4 class="text-h4 mb-2 text-primary">
@@ -348,6 +469,180 @@ const onOrgSubmit = () => {
             </VForm>
           </VCardText>
         </template>
+
+        <!-- ══════════════════════════════════════════════ -->
+        <!-- BƯỚC 3: CHỌN CUỘC HỌP THAM DỰ -->
+        <!-- ══════════════════════════════════════════════ -->
+        <template v-else-if="step === 3">
+          <VCardText class="text-center mt-4">
+            <VAvatar
+              color="primary"
+              variant="tonal"
+              size="60"
+              class="mb-4"
+            >
+              <VIcon icon="tabler-calendar-event" size="32" />
+            </VAvatar>
+            <h4 class="text-h4 mb-2 text-primary">
+              CHỌN CUỘC HỌP THAM DỰ
+            </h4>
+            <p class="mb-2 text-body-1 text-medium-emphasis">
+              Chào mừng bạn! Hãy chọn cuộc họp bạn muốn tham gia.
+            </p>
+          </VCardText>
+
+          <VCardText>
+            <!-- Loading -->
+            <div
+              v-if="isLoadingMeetings"
+              class="d-flex flex-column align-center pa-8"
+            >
+              <VProgressCircular
+                indeterminate
+                color="primary"
+                size="40"
+                class="mb-3"
+              />
+              <span class="text-body-2 text-medium-emphasis">Đang tải cuộc họp...</span>
+            </div>
+
+            <!-- Danh sách cuộc họp -->
+            <template v-else-if="myMeetings.length > 0">
+              <div class="meeting-select-list">
+                <div
+                  v-for="meeting in myMeetings"
+                  :key="meeting.id"
+                  class="meeting-select-item"
+                  :class="{ 'meeting-select-item--active': selectedMeetingId === meeting.id }"
+                  @click="selectedMeetingId = meeting.id"
+                >
+                  <div class="d-flex align-center gap-3">
+                    <VAvatar
+                      :color="selectedMeetingId === meeting.id ? 'primary' : 'default'"
+                      :variant="selectedMeetingId === meeting.id ? 'flat' : 'tonal'"
+                      size="40"
+                      class="flex-shrink-0"
+                    >
+                      <VIcon
+                        icon="tabler-calendar-event"
+                        size="20"
+                        :color="selectedMeetingId === meeting.id ? 'white' : undefined"
+                      />
+                    </VAvatar>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                      <div class="text-body-1 font-weight-bold text-truncate" style="color: #334155;">
+                        {{ meeting.title }}
+                      </div>
+                      <div class="d-flex align-center gap-2 mt-1 flex-wrap">
+                        <VChip
+                          size="x-small"
+                          variant="flat"
+                          :color="getStatusColor(meeting.status)"
+                        >
+                          {{ getStatusLabel(meeting.status) }}
+                        </VChip>
+                        <span
+                          v-if="meeting.start_at"
+                          class="text-caption text-medium-emphasis"
+                        >
+                          <VIcon icon="tabler-clock" size="12" class="me-1" />
+                          {{ formatDateTime(meeting.start_at) }}
+                        </span>
+                      </div>
+                      <div
+                        v-if="meeting.location"
+                        class="text-caption text-medium-emphasis mt-1"
+                      >
+                        <VIcon icon="tabler-map-pin" size="12" class="me-1" />
+                        {{ meeting.location }}
+                      </div>
+                    </div>
+                    <VIcon
+                      v-if="selectedMeetingId === meeting.id"
+                      icon="tabler-circle-check-filled"
+                      color="primary"
+                      size="24"
+                      class="flex-shrink-0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <VBtn
+                  block
+                  color="primary"
+                  :disabled="!selectedMeetingId"
+                  class="mb-3"
+                  prepend-icon="tabler-door-enter"
+                  @click="confirmMeeting"
+                >
+                  Vào Cuộc Họp
+                </VBtn>
+                <VBtn
+                  block
+                  color="secondary"
+                  variant="tonal"
+                  prepend-icon="tabler-list"
+                  class="mb-3"
+                  @click="skipMeetingSelection"
+                >
+                  Xem Tất Cả Cuộc Họp
+                </VBtn>
+                <VBtn
+                  block
+                  color="error"
+                  variant="text"
+                  size="small"
+                  @click="backToOrgStep"
+                >
+                  <VIcon start icon="tabler-arrow-left" size="16" />
+                  Quay lại
+                </VBtn>
+              </div>
+            </template>
+
+            <!-- Không có cuộc họp -->
+            <template v-else>
+              <div class="d-flex flex-column align-center pa-8">
+                <VAvatar
+                  color="warning"
+                  variant="tonal"
+                  size="60"
+                  class="mb-4"
+                >
+                  <VIcon icon="tabler-calendar-off" size="30" />
+                </VAvatar>
+                <div class="text-body-1 font-weight-bold mb-2" style="color: #475569;">
+                  Không có cuộc họp nào
+                </div>
+                <div class="text-body-2 text-medium-emphasis text-center mb-6">
+                  Bạn chưa được mời tham dự cuộc họp nào. Vui lòng liên hệ quản trị viên.
+                </div>
+                <VBtn
+                  block
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="tabler-list"
+                  class="mb-3"
+                  @click="skipMeetingSelection"
+                >
+                  Vào Xem Danh Sách
+                </VBtn>
+                <VBtn
+                  block
+                  color="error"
+                  variant="text"
+                  size="small"
+                  @click="backToOrgStep"
+                >
+                  <VIcon start icon="tabler-arrow-left" size="16" />
+                  Quay lại
+                </VBtn>
+              </div>
+            </template>
+          </VCardText>
+        </template>
       </VCard>
     </VCol>
   </VRow>
@@ -357,3 +652,52 @@ const onOrgSubmit = () => {
 @use "@core/scss/template/pages/page-auth";
 </style>
 
+<style scoped>
+.meeting-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-block-size: 380px;
+  overflow-y: auto;
+  padding-inline-end: 4px;
+}
+
+.meeting-select-item {
+  padding: 14px 16px;
+  border: 2px solid #f1f5f9;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fff;
+}
+
+.meeting-select-item:hover {
+  border-color: #c7d2fe;
+  background-color: #f8fafc;
+}
+
+.meeting-select-item--active {
+  border-color: rgb(var(--v-theme-primary));
+  background-color: #eff6ff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+}
+
+/* Scrollbar */
+.meeting-select-list::-webkit-scrollbar {
+  inline-size: 6px;
+}
+
+.meeting-select-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.meeting-select-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.meeting-select-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+</style>

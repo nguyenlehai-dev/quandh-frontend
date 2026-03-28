@@ -216,110 +216,66 @@ const handleImport = async () => {
 
 <template>
   <div>
-    <!-- 👉 Stats Widgets -->
-    <VRow class="mb-6">
-      <VCol
-        v-for="(data, id) in widgetData"
-        :key="id"
-        cols="12"
-        md="4"
-        sm="6"
-      >
-        <VCard>
-          <VCardText>
-            <div class="d-flex justify-space-between">
-              <div class="d-flex flex-column gap-y-1">
-                <div class="text-body-1 text-high-emphasis">
-                  {{ data.title }}
-                </div>
-                <h4 class="text-h4">
-                  {{ data.value }}
-                </h4>
-              </div>
-              <VAvatar
-                :color="data.iconColor"
-                variant="tonal"
-                rounded
-                size="42"
-              >
-                <VIcon
-                  :icon="data.icon"
-                  size="26"
-                />
-              </VAvatar>
-            </div>
-          </VCardText>
-        </VCard>
-      </VCol>
-    </VRow>
-
     <VCard>
-      <VCardText class="d-flex align-center flex-wrap gap-4">
-        <h5 class="text-h5">
-          Danh sách Tổ chức
-        </h5>
-        <VSpacer />
+      <!-- 👉 Header with Filter Title & Actions -->
+      <VCardItem class="pb-4">
+        <template #prepend>
+          <div class="d-flex align-center">
+            <VIcon icon="tabler-filter" color="primary" size="24" class="me-2" />
+            <h5 class="text-h5 text-primary mb-0 font-weight-medium">Bộ lọc</h5>
+          </div>
+        </template>
+        
+        <template #append>
+          <div class="d-flex gap-4 align-center flex-wrap">
+            <VBtn
+              v-if="$can('create', 'Organization')"
+              variant="outlined"
+              color="info"
+              prepend-icon="tabler-cloud-upload"
+              @click="isImportDialogVisible = true"
+            >
+              Nhập Dữ Liệu
+            </VBtn>
+            
+            <VBtn
+              v-if="$can('read', 'Organization')"
+              variant="outlined"
+              color="info"
+              prepend-icon="tabler-file-export"
+              @click="handleExport"
+              :loading="isExporting"
+            >
+              Xuất Dữ Liệu
+            </VBtn>
 
-        <!-- 👉 Status Filter -->
-        <AppSelect
-          v-model="selectedStatus"
-          placeholder="Trạng thái"
-          :items="statusOptions"
-          clearable
-          clear-icon="tabler-x"
-          style="max-inline-size: 180px;"
-        />
+            <VBtn
+              v-if="$can('create', 'Organization')"
+              color="primary"
+              prepend-icon="tabler-plus"
+              @click="openAddDialog"
+            >
+              Thêm Mới
+            </VBtn>
+          </div>
+        </template>
+      </VCardItem>
 
+      <!-- 👉 Search Filter -->
+      <VCardText class="pb-6">
         <AppTextField
           v-model="searchQuery"
-          placeholder="Tìm kiếm..."
+          label="Tìm kiếm tổ chức"
+          placeholder="Nhập tên tổ chức"
           density="compact"
-          style="max-inline-size: 250px;"
-        >
-          <template #prepend-inner>
-            <VIcon
-              icon="tabler-search"
-              size="18"
-            />
-          </template>
-        </AppTextField>
-
-        <!-- 👉 Export -->
-        <VBtn
-          v-if="$can('export', 'Organization')"
-          variant="tonal"
-          color="secondary"
-          prepend-icon="tabler-upload"
-          :loading="isExporting"
-          @click="handleExport"
-        >
-          Xuất Excel
-        </VBtn>
-
-        <!-- 👉 Import -->
-        <VBtn
-          v-if="$can('import', 'Organization')"
-          variant="tonal"
-          color="info"
-          prepend-icon="tabler-download"
-          @click="isImportDialogVisible = true"
-        >
-          Nhập Excel
-        </VBtn>
-
-        <!-- 👉 Add -->
-        <VBtn
-          v-if="$can('create', 'Organization')"
-          prepend-icon="tabler-plus"
-          @click="openAddDialog"
-        >
-          Thêm mới
-        </VBtn>
+          class="w-100"
+        />
       </VCardText>
+
+      <VDivider />
 
       <!-- 👉 Bulk Action Bar -->
       <template v-if="selectedRows.length > 0">
-        <VDivider />
         <VCardText class="d-flex align-center gap-3">
           <span class="text-body-1 font-weight-medium">
             Đã chọn {{ selectedRows.length }} mục
@@ -381,6 +337,7 @@ const handleImport = async () => {
         item-value="id"
         class="text-no-wrap"
         show-select
+        hover
         @update:options="updateOptions"
       >
         <template #item.index="{ index }">
@@ -427,7 +384,7 @@ const handleImport = async () => {
               {{ item.editor?.name || 'Quản trị hệ thống' }}
             </span>
             <span class="text-caption text-disabled">
-              {{ item.updated_at ? new Date(item.updated_at).toLocaleString('vi-VN') : '—' }}
+              {{ item.updated_at || '—' }}
             </span>
           </div>
         </template>

@@ -12,19 +12,41 @@ const route = useRoute()
 const router = useRouter()
 const isEditMode = computed(() => !!route.params.id)
 
-const loading = ref(false)
+const activeTab = ref('general')
 
-const formData = ref({
+const loading = ref(false)
+const submittingAction = ref(null)
+
+const snackbar = ref({ show: false, message: '', color: 'success' })
+
+const showMessage = (message, color = 'success') => {
+  snackbar.value = { show: true, message, color }
+}
+
+const dateTimeConfig = {
+  enableTime: true,
+  dateFormat: 'Y-m-d H:i',
+}
+
+const timeConfig = {
+  enableTime: true,
+  noCalendar: true,
+  dateFormat: 'H:i',
+}
+
+const initialFormData = {
   title: '',
   description: '',
   room_name: '',
   location: '',
   start_at: '',
   end_at: '',
-  status: 'draft',
+  status: 'scheduled',
   agendas: [],
   attendees: [],
-})
+}
+
+const formData = ref(JSON.parse(JSON.stringify(initialFormData)))
 
 const fetchMeetingDetails = async () => {
   loading.value = true
@@ -39,7 +61,7 @@ const fetchMeetingDetails = async () => {
         const datePart = parts[1].split('/')
         if (datePart.length !== 3) return dateStr
 
-        return `${datePart[2]}-${datePart[1]}-${datePart[0]}T${timePart.slice(0, 5)}`
+        return `${datePart[2]}-${datePart[1]}-${datePart[0]} ${timePart.slice(0, 5)}`
       }
 
       formData.value = {
@@ -48,7 +70,7 @@ const fetchMeetingDetails = async () => {
         location: res.data.location || '',
         start_at: formatToInput(res.data.start_at),
         end_at: formatToInput(res.data.end_at),
-        status: res.data.status || 'draft',
+        status: res.data.status || 'scheduled',
         agendas: res.data.agendas || [],
         attendees: res.data.participants || [],
       }
@@ -56,6 +78,7 @@ const fetchMeetingDetails = async () => {
   }
   catch (err) {
     console.error('Lỗi khi tải dữ liệu cuộc họp', err)
+    showMessage('Có lỗi xảy ra khi tải cuộc họp', 'error')
   }
   finally {
     loading.value = false
@@ -72,7 +95,7 @@ const addAgendaItem = () => {
   formData.value.agendas.push({
     title: '',
     duration: 0,
-    presenter_id: null,
+    presenter_name: '',
     start_time: '',
     end_time: '',
   })
@@ -85,7 +108,7 @@ const removeAgendaItem = index => {
 const addAttendeeItem = () => {
   formData.value.attendees.push({
     name: '',
-    position: '',
+    position: 'member',
     type: 'internal',
   })
 }
@@ -94,12 +117,21 @@ const removeAttendeeItem = index => {
   formData.value.attendees.splice(index, 1)
 }
 
-const submitForm = async () => {
-  loading.value = true
+const submitForm = async actionType => {
+  // Validate required fields
+  if (!formData.value.title) {
+    showMessage('Vui lòng nhập tên cuộc họp', 'error')
+    activeTab.value = 'general'
+    return
+  }
+
+  submittingAction.value = actionType
   try {
     const formatToBackend = datetimeLocal => {
       if (!datetimeLocal) return ''
-
+      if (datetimeLocal.length === 16 && datetimeLocal.includes(' ')) {
+        return datetimeLocal + ':00'
+      }
       return datetimeLocal.replace('T', ' ') + ':00'
     }
 
@@ -107,461 +139,752 @@ const submitForm = async () => {
       ...formData.value,
       start_at: formatToBackend(formData.value.start_at),
       end_at: formatToBackend(formData.value.end_at),
+      participants: formData.value.attendees,
     }
+
+    let savedMeetingId = route.params.id
 
     if (isEditMode.value) {
       await updateMeeting(route.params.id, payload)
+      showMessage('Đã cập nhật cuộc họp thành công')
     }
     else {
-      await createMeeting(payload)
+      const resp = await createMeeting(payload)
+      savedMeetingId = resp.data?.id || resp.id
+      showMessage('Đã tạo cuộc họp thành công')
     }
-    router.push({ name: 'meetings-list' })
+
+    if (actionType === 'save-add') {
+      formData.value = JSON.parse(JSON.stringify(initialFormData))
+      router.replace({ name: 'meetings-edit' })
+    }
+    else if (actionType === 'save-edit') {
+      if (!isEditMode.value) {
+        router.replace({ name: 'meetings-edit', params: { id: savedMeetingId } })
+      } else {
+        fetchMeetingDetails()
+      }
+    }
+    else {
+      router.push({ name: 'meetings-list' })
+    }
   }
   catch (err) {
     console.error('Lỗi khi lưu cuộc họp', err)
+    showMessage('Lỗi khi lưu cuộc họp. Vui lòng kiểm tra lại thông tin.', 'error')
   }
   finally {
-    loading.value = false
+    submittingAction.value = null
   }
+}
+
+// Tab config with edit-only flags
+const tabsConfig = computed(() => [
+  { value: 'general', label: 'Thông tin & Lịch trình', icon: 'tabler-list-details', editOnly: false },
+  { value: 'documents', label: 'Tài liệu đính kèm', icon: 'tabler-file-text', editOnly: true },
+  { value: 'attendees', label: 'Thành phần tham dự', icon: 'tabler-users-group', editOnly: false },
+  { value: 'voting', label: 'Biểu quyết', icon: 'tabler-checkbox', editOnly: true },
+  { value: 'conclusions', label: 'Kết luận cuộc họp', icon: 'tabler-file-check', editOnly: true },
+])
+
+const isTabDisabled = tabValue => {
+  const tab = tabsConfig.value.find(t => t.value === tabValue)
+  return tab?.editOnly && !isEditMode.value
 }
 </script>
 
 <template>
-  <div>
-    <!-- Page Header -->
-    <div class="d-flex align-center justify-space-between flex-wrap gap-4 mb-6">
-      <div class="d-flex align-center gap-3">
-        <VBtn
-          icon
-          variant="text"
-          size="small"
-          :to="{ name: 'meetings-list' }"
-        >
-          <VIcon icon="tabler-arrow-left" />
-        </VBtn>
-        <h4 class="text-h4 font-weight-bold">
-          {{ isEditMode ? 'Chỉnh sửa cuộc họp' : 'Thêm mới cuộc họp' }}
-        </h4>
-      </div>
-      <div class="d-flex gap-3">
-        <VBtn
-          variant="outlined"
-          color="primary"
-          prepend-icon="tabler-plus"
-          :loading="loading"
-          @click="submitForm"
-        >
-          Lưu & Thêm
-        </VBtn>
-        <VBtn
-          variant="outlined"
-          color="warning"
-          prepend-icon="tabler-pencil"
-          :loading="loading"
-          @click="submitForm"
-        >
-          Lưu & Sửa
-        </VBtn>
-        <VBtn
-          color="success"
-          prepend-icon="tabler-check"
-          :loading="loading"
-          @click="submitForm"
-        >
-          Lưu & Thoát
-        </VBtn>
-      </div>
-    </div>
-
-    <VCardText
-      v-if="loading && isEditMode"
-      class="text-center pa-10"
+  <div class="h-100 d-flex flex-column surface-ground">
+    <VOverlay
+      :model-value="loading && isEditMode"
+      class="align-center justify-center"
     >
       <VProgressCircular
         indeterminate
         color="primary"
         size="48"
       />
-    </VCardText>
+    </VOverlay>
 
-    <VForm
-      v-else
-      @submit.prevent="submitForm"
-    >
-      <!-- Section 1: Thông tin chung + Địa điểm & Trạng thái -->
-      <VRow>
-        <VCol
-          cols="12"
-          lg="8"
+    <template v-if="!loading || !isEditMode">
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- Premium Header Card -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <div class="px-4 pt-4 mb-4">
+        <VCard
+          elevation="0"
+          style="border-radius: 12px; background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);"
         >
-          <div class="meeting-section-card mb-6">
-            <div class="meeting-section-header">
-              <div class="meeting-section-title">
-                <VIcon
-                  icon="tabler-info-circle"
-                  class="section-icon"
-                />
-                Thông tin chung
+          <div
+            class="d-flex align-center justify-space-between w-100 flex-wrap gap-4"
+            style="padding: 24px 32px;"
+          >
+            <!-- Left side Title -->
+            <div class="d-flex flex-column gap-2" style="max-width: 60%">
+              <div class="d-flex align-center gap-3">
+                <IconBtn
+                  variant="outlined"
+                  size="small"
+                  color="primary"
+                  style="background-color: white;"
+                  :to="{ name: 'meetings-list' }"
+                >
+                  <VIcon icon="tabler-arrow-left" size="20" />
+                </IconBtn>
+                <VChip
+                  size="small"
+                  variant="flat"
+                  color="white"
+                  style="color: #6366f1; border: 1px solid #c7d2fe; font-weight: 600;"
+                >
+                  <VIcon start size="16" color="#6366f1">
+                    tabler-calendar-plus
+                  </VIcon> {{ isEditMode ? 'Quản lý cuộc họp' : 'Khởi tạo cuộc họp' }}
+                </VChip>
+              </div>
+              <h2
+                class="text-h4 font-weight-black mb-0 text-uppercase"
+                style="color: #334155; line-height: 1.2;"
+              >
+                {{ isEditMode ? 'CHỈNH SỬA CUỘC HỌP' : 'THÊM MỚI CUỘC HỌP' }}
+              </h2>
+              <div
+                class="text-body-1 mt-1"
+                style="color: #475569; font-weight: 500;"
+              >
+                {{ isEditMode ? 'Cập nhật nội dung, lịch trình, tài liệu và danh sách đại biểu.' : 'Thiết lập thông tin chung, lịch trình ban đầu và thành phần tham dự.' }}
               </div>
             </div>
-            <div class="pa-5 text-body-2 text-disabled mb-n2">
-              Các thông tin cơ bản về cuộc họp
+
+            <!-- Right side Actions -->
+            <div class="d-flex gap-3 align-end flex-wrap">
+              <VBtn
+                variant="outlined"
+                color="primary"
+                prepend-icon="tabler-plus"
+                style="background-color: white; border-radius: 20px; font-weight: 600; padding: 0 20px; text-transform: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;"
+                :disabled="!!submittingAction && submittingAction !== 'save-add'"
+                :loading="submittingAction === 'save-add'"
+                @click="submitForm('save-add')"
+              >
+                Lưu & Thêm
+              </VBtn>
+              <VBtn
+                variant="outlined"
+                color="warning"
+                prepend-icon="tabler-pencil"
+                style="background-color: white; border-radius: 20px; font-weight: 600; padding: 0 20px; text-transform: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;"
+                :disabled="!!submittingAction && submittingAction !== 'save-edit'"
+                :loading="submittingAction === 'save-edit'"
+                @click="submitForm('save-edit')"
+              >
+                Lưu & Sửa
+              </VBtn>
+              <VBtn
+                color="success"
+                variant="flat"
+                prepend-icon="tabler-check"
+                style="border-radius: 20px; font-weight: 600; padding: 0 20px; text-transform: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;"
+                :disabled="!!submittingAction && submittingAction !== 'save-exit'"
+                :loading="submittingAction === 'save-exit'"
+                @click="submitForm('save-exit')"
+              >
+                Lưu & Thoát
+              </VBtn>
             </div>
-            <div class="pa-5">
+          </div>
+        </VCard>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- Tab Bar -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <VContainer fluid class="flex-grow-1 px-4 py-0" style="min-height: calc(100vh - 230px);">
+        <VCard
+          class="mb-4"
+          elevation="0"
+          style="border-radius: 12px; border: 1px solid #f1f1f4; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+        >
+          <VTabs
+            v-model="activeTab"
+            color="primary"
+            bg-color="white"
+            height="56"
+            show-arrows
+          >
+            <VTab
+              v-for="tab in tabsConfig"
+              :key="tab.value"
+              :value="tab.value"
+              :disabled="isTabDisabled(tab.value)"
+              class="text-subtitle-2 font-weight-bold text-none px-6"
+              style="letter-spacing: normal;"
+            >
+              <VIcon start size="20">{{ tab.icon }}</VIcon>
+              {{ tab.label }}
+              <VChip
+                v-if="tab.editOnly && !isEditMode"
+                size="x-small"
+                variant="flat"
+                style="background-color: #fef3c7; color: #d97706; font-weight: 600; margin-left: 6px;"
+              >
+                <VIcon start size="12">tabler-lock</VIcon>
+                Lưu trước
+              </VChip>
+            </VTab>
+          </VTabs>
+        </VCard>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- Tab Content -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <VWindow
+          v-model="activeTab"
+          class="pb-10"
+          style="overflow: visible;"
+          transition="none"
+          reverse-transition="none"
+        >
+          <!-- ────────────────────────────────────────────────── -->
+          <!-- TAB 1: Thông tin & Lịch trình -->
+          <!-- ────────────────────────────────────────────────── -->
+          <VWindowItem value="general" transition="none" reverse-transition="none">
+            <VForm @submit.prevent="submitForm('save-edit')">
+              <VRow>
+                <!-- Left Column: Thông tin chung + Chương trình cuộc họp -->
+                <VCol cols="12" lg="8">
+                  <!-- Card: Thông tin chung -->
+                  <VCard
+                    elevation="0"
+                    class="mb-6"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-info-circle" size="20" color="#6366f1" class="rounded" style="background-color: #e0e7ff; padding: 4px; box-sizing: content-box;" />
+                        Thông tin chung
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <VRow>
+                        <VCol cols="12">
+                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                            Tên cuộc họp <span class="text-error">*</span>
+                          </div>
+                          <AppTextField
+                            v-model="formData.title"
+                            placeholder="Nhập tên cuộc họp"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                            Thời gian bắt đầu <span class="text-error">*</span>
+                          </div>
+                          <AppDateTimePicker
+                            v-model="formData.start_at"
+                            placeholder="Chọn ngày giờ"
+                            :config="dateTimeConfig"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                            Thời gian kết thúc <span class="text-error">*</span>
+                          </div>
+                          <AppDateTimePicker
+                            v-model="formData.end_at"
+                            placeholder="Chọn ngày giờ"
+                            :config="dateTimeConfig"
+                          />
+                        </VCol>
+                        <VCol cols="12">
+                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                            Nội dung tóm tắt
+                          </div>
+                          <AppTextarea
+                            v-model="formData.description"
+                            rows="3"
+                            placeholder="Nội dung, mục đích chính của cuộc họp..."
+                          />
+                        </VCol>
+                      </VRow>
+                    </VCardText>
+                  </VCard>
+
+                  <!-- Card: Chương trình cuộc họp -->
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center justify-space-between flex-wrap gap-4">
+                        <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                          <VIcon icon="tabler-clipboard-list" size="20" color="#3b82f6" class="rounded" style="background-color: #dbeafe; padding: 4px; box-sizing: content-box;" />
+                          Chương trình cuộc họp
+                          <VChip
+                            v-if="formData.agendas.length > 0"
+                            size="small"
+                            variant="flat"
+                            style="background-color: #dbeafe; color: #3b82f6; font-weight: 600;"
+                            class="ml-2"
+                          >
+                            {{ formData.agendas.length }} nội dung
+                          </VChip>
+                        </div>
+                        <VBtn
+                          variant="flat"
+                          size="small"
+                          prepend-icon="tabler-plus"
+                          style="background-color: #e0e7ff; color: #6366f1; border-radius: 20px; font-weight: 600; text-transform: none;"
+                          @click="addAgendaItem"
+                        >
+                          Thêm Nội Dung
+                        </VBtn>
+                      </div>
+                    </VCardItem>
+
+                    <VCardText class="pa-5">
+                      <template v-if="formData.agendas.length > 0">
+                        <div
+                          v-for="(agenda, index) in formData.agendas"
+                          :key="index"
+                          class="agenda-edit-row"
+                        >
+                          <div class="agenda-edit-number">
+                            {{ index + 1 }}
+                          </div>
+                          <VRow class="flex-grow-1 mx-0" style="background: #f8fafc; border-radius: 8px; padding: 12px;">
+                            <VCol cols="12" md="3" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Bắt đầu</div>
+                              <AppDateTimePicker
+                                v-model="agenda.start_time"
+                                density="compact"
+                                placeholder="Giờ"
+                                :config="timeConfig"
+                              />
+                            </VCol>
+                            <VCol cols="12" md="3" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Kết thúc</div>
+                              <AppDateTimePicker
+                                v-model="agenda.end_time"
+                                density="compact"
+                                placeholder="Giờ"
+                                :config="timeConfig"
+                              />
+                            </VCol>
+                            <VCol cols="12" md="3" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Nội dung, bài trình bày</div>
+                              <AppTextField
+                                v-model="agenda.title"
+                                density="compact"
+                                placeholder="Nội dung..."
+                              />
+                            </VCol>
+                            <VCol cols="12" md="3" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Người phụ trách</div>
+                              <AppTextField
+                                v-model="agenda.presenter_name"
+                                density="compact"
+                                placeholder="Tên PT"
+                              />
+                            </VCol>
+                          </VRow>
+                          <IconBtn
+                            color="error"
+                            class="mt-4"
+                            variant="tonal"
+                            @click="removeAgendaItem(index)"
+                          >
+                            <VIcon icon="tabler-trash" size="20" />
+                          </IconBtn>
+                        </div>
+                      </template>
+
+                      <div v-else class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg" style="background-color: #f8fafc; border: 2px dashed #e2e8f0;">
+                        <VAvatar color="#e0e7ff" size="56" variant="flat" class="mb-4">
+                          <VIcon icon="tabler-clipboard-list" size="28" color="#6366f1" />
+                        </VAvatar>
+                        <div class="text-body-1 font-weight-bold mb-1" style="color: #475569;">Chưa có nội dung lịch trình</div>
+                        <div class="text-body-2 mb-4" style="color: #94a3b8;">Bấm nút bên dưới để bắt đầu xếp lịch cuộc họp</div>
+                        <VBtn
+                          variant="flat"
+                          size="small"
+                          prepend-icon="tabler-plus"
+                          style="background-color: #6366f1; color: white; border-radius: 20px; font-weight: 600; text-transform: none;"
+                          @click="addAgendaItem"
+                        >
+                          Thêm Nội Dung Đầu Tiên
+                        </VBtn>
+                      </div>
+                    </VCardText>
+                  </VCard>
+                </VCol>
+
+                <!-- Right Column: Địa điểm & Trạng thái + Tóm tắt -->
+                <VCol cols="12" lg="4">
+                  <!-- Địa điểm & Trạng thái -->
+                  <VCard
+                    elevation="0"
+                    class="mb-6"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-map-pin" size="20" color="#f97316" class="rounded" style="background-color: #ffedd5; padding: 4px; box-sizing: content-box;" />
+                        Địa điểm & Trạng thái
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                        Địa điểm họp <span class="text-error">*</span>
+                      </div>
+                      <AppTextField
+                        v-model="formData.location"
+                        placeholder="Ví dụ: Phòng họp 1"
+                        class="mb-6"
+                      />
+
+                      <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                        Trạng thái
+                      </div>
+                      <AppSelect
+                        v-model="formData.status"
+                        :items="[
+                          { title: 'Bản nháp (Draft)', value: 'draft' },
+                          { title: 'Đã lên lịch (Scheduled)', value: 'scheduled' },
+                          { title: 'Đang diễn ra (Active)', value: 'active' },
+                          { title: 'Đã kết thúc (Completed)', value: 'completed' },
+                        ]"
+                        placeholder="Chọn trạng thái"
+                      />
+                    </VCardText>
+                  </VCard>
+
+                  <!-- Hướng dẫn nhanh -->
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-info-square-rounded" size="20" color="#0ea5e9" class="rounded" style="background-color: #e0f2fe; padding: 4px; box-sizing: content-box;" />
+                        Hướng dẫn nhanh
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5 d-flex flex-column gap-4">
+                      <div class="d-flex align-start gap-3">
+                        <VAvatar color="#dcfce7" size="32" variant="flat" class="flex-shrink-0 mt-1">
+                          <span class="font-weight-bold text-caption" style="color: #16a34a;">1</span>
+                        </VAvatar>
+                        <div>
+                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Điền thông tin cơ bản</div>
+                          <div class="text-caption" style="color: #64748b;">Nhập tên, thời gian, địa điểm cuộc họp</div>
+                        </div>
+                      </div>
+                      <div class="d-flex align-start gap-3">
+                        <VAvatar color="#dbeafe" size="32" variant="flat" class="flex-shrink-0 mt-1">
+                          <span class="font-weight-bold text-caption" style="color: #3b82f6;">2</span>
+                        </VAvatar>
+                        <div>
+                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Xếp lịch trình</div>
+                          <div class="text-caption" style="color: #64748b;">Thêm các nội dung trình bày và thời lượng</div>
+                        </div>
+                      </div>
+                      <div class="d-flex align-start gap-3">
+                        <VAvatar color="#ede9fe" size="32" variant="flat" class="flex-shrink-0 mt-1">
+                          <span class="font-weight-bold text-caption" style="color: #8b5cf6;">3</span>
+                        </VAvatar>
+                        <div>
+                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Lưu & Bổ sung</div>
+                          <div class="text-caption" style="color: #64748b;">Sau khi lưu, bạn có thể thêm tài liệu, đại biểu, biểu quyết</div>
+                        </div>
+                      </div>
+                    </VCardText>
+                  </VCard>
+                </VCol>
+              </VRow>
+            </VForm>
+          </VWindowItem>
+
+          <!-- ────────────────────────────────────────────────── -->
+          <!-- TAB 2: Tài liệu đính kèm -->
+          <!-- ────────────────────────────────────────────────── -->
+          <VWindowItem value="documents" transition="none" reverse-transition="none">
+            <template v-if="isEditMode">
               <VRow>
                 <VCol cols="12">
-                  <div class="text-body-2 font-weight-medium mb-1">
-                    Tên cuộc họp (*)
-                  </div>
-                  <AppTextField
-                    v-model="formData.title"
-                    placeholder="Nhập tên cuộc họp"
-                  />
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-paperclip" size="20" color="#10b981" class="rounded" style="background-color: #d1fae5; padding: 4px; box-sizing: content-box;" />
+                        Quản lý Tài liệu cuộc họp
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <MeetingDocumentsTab :meeting-id="route.params.id" />
+                    </VCardText>
+                  </VCard>
                 </VCol>
-                <VCol
-                  cols="12"
-                  md="6"
+              </VRow>
+            </template>
+            <template v-else>
+              <EditModeRequired
+                icon="tabler-file-text"
+                title="Tài liệu đính kèm"
+                description="Vui lòng lưu cuộc họp trước để có thể đính kèm tài liệu. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."
+              />
+            </template>
+          </VWindowItem>
+
+          <!-- ────────────────────────────────────────────────── -->
+          <!-- TAB 3: Thành phần tham dự -->
+          <!-- ────────────────────────────────────────────────── -->
+          <VWindowItem value="attendees" transition="none" reverse-transition="none">
+            <VRow>
+              <VCol cols="12">
+                <VCard
+                  elevation="0"
+                  style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                 >
-                  <div class="text-body-2 font-weight-medium mb-1">
-                    Ngày bắt đầu (*)
-                  </div>
-                  <AppTextField
-                    v-model="formData.start_at"
-                    type="datetime-local"
-                    placeholder="Chọn ngày"
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="6"
-                >
-                  <div class="text-body-2 font-weight-medium mb-1">
-                    Ngày kết thúc (*)
-                  </div>
-                  <AppTextField
-                    v-model="formData.end_at"
-                    type="datetime-local"
-                    placeholder="Chọn ngày"
-                  />
-                </VCol>
+                  <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                    <div class="d-flex align-center justify-space-between flex-wrap gap-4">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-users-group" size="20" color="#8b5cf6" class="rounded" style="background-color: #ede9fe; padding: 4px; box-sizing: content-box;" />
+                        Thành phần tham dự
+                      </div>
+                      <VBtn
+                        v-if="!isEditMode"
+                        variant="flat"
+                        size="small"
+                        prepend-icon="tabler-plus"
+                        style="background-color: #ede9fe; color: #8b5cf6; border-radius: 20px; font-weight: 600; text-transform: none;"
+                        @click="addAttendeeItem"
+                      >
+                        Thêm Người Dự
+                      </VBtn>
+                    </div>
+                  </VCardItem>
+
+                  <VCardText class="pa-5">
+                    <!-- Edit mode: Sử dụng MeetingAttendeesTab -->
+                    <template v-if="isEditMode">
+                      <MeetingAttendeesTab :meeting-id="route.params.id" />
+                    </template>
+
+                    <!-- Create mode: Form inline -->
+                    <template v-else>
+                      <template v-if="formData.attendees.length > 0">
+                        <div
+                          v-for="(attendee, index) in formData.attendees"
+                          :key="index"
+                          class="agenda-edit-row"
+                        >
+                          <div class="agenda-edit-number" style="color: #8b5cf6; background: #ede9fe;">
+                            {{ index + 1 }}
+                          </div>
+                          <VRow class="flex-grow-1 mx-0" style="background: #f8fafc; border-radius: 8px; padding: 12px;">
+                            <VCol cols="12" md="4" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Họ và tên</div>
+                              <AppTextField
+                                v-model="attendee.name"
+                                density="compact"
+                                placeholder="Ví dụ: Nguyễn Văn A"
+                              />
+                            </VCol>
+                            <VCol cols="12" md="4" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Chức vụ / Vị trí họp</div>
+                              <AppSelect
+                                v-model="attendee.position"
+                                :items="[
+                                  { title: 'Chủ tọa (Chairperson)', value: 'chairperson' },
+                                  { title: 'Thư ký (Secretary)', value: 'secretary' },
+                                  { title: 'Đại biểu (Member)', value: 'member' },
+                                  { title: 'Khách mời (Guest)', value: 'guest' },
+                                ]"
+                                density="compact"
+                              />
+                            </VCol>
+                            <VCol cols="12" md="4" class="py-1">
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">Kiểu đại biểu</div>
+                              <AppSelect
+                                v-model="attendee.type"
+                                :items="[
+                                  { title: 'Thuộc ban ngành (Nội bộ)', value: 'internal' },
+                                  { title: 'Khách / Chuyên gia (Bên ngoài)', value: 'external' },
+                                ]"
+                                density="compact"
+                              />
+                            </VCol>
+                          </VRow>
+                          <IconBtn
+                            color="error"
+                            class="mt-4"
+                            variant="tonal"
+                            @click="removeAttendeeItem(index)"
+                          >
+                            <VIcon icon="tabler-trash" size="20" />
+                          </IconBtn>
+                        </div>
+                      </template>
+                      <div v-else class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg" style="background-color: #f8fafc; border: 2px dashed #e2e8f0;">
+                        <VAvatar color="#ede9fe" size="56" variant="flat" class="mb-4">
+                          <VIcon icon="tabler-users-group" size="28" color="#8b5cf6" />
+                        </VAvatar>
+                        <div class="text-body-1 font-weight-bold mb-1" style="color: #475569;">Chưa có thành phần tham dự</div>
+                        <div class="text-body-2 mb-4" style="color: #94a3b8;">Bấm nút bên dưới để bổ sung đại biểu</div>
+                        <VBtn
+                          variant="flat"
+                          size="small"
+                          prepend-icon="tabler-plus"
+                          style="background-color: #8b5cf6; color: white; border-radius: 20px; font-weight: 600; text-transform: none;"
+                          @click="addAttendeeItem"
+                        >
+                          Thêm Đại Biểu Đầu Tiên
+                        </VBtn>
+                      </div>
+                    </template>
+                  </VCardText>
+                </VCard>
+              </VCol>
+            </VRow>
+          </VWindowItem>
+
+          <!-- ────────────────────────────────────────────────── -->
+          <!-- TAB 4: Biểu quyết -->
+          <!-- ────────────────────────────────────────────────── -->
+          <VWindowItem value="voting" transition="none" reverse-transition="none">
+            <template v-if="isEditMode">
+              <VRow>
                 <VCol cols="12">
-                  <div class="text-body-2 font-weight-medium mb-1">
-                    Nội dung tóm tắt
-                  </div>
-                  <AppTextarea
-                    v-model="formData.description"
-                    rows="4"
-                    placeholder="Nhập nội dung tóm tắt..."
-                  />
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-checkbox" size="20" color="#f59e0b" class="rounded" style="background-color: #fef3c7; padding: 4px; box-sizing: content-box;" />
+                        Quản lý Biểu Quyết
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <MeetingVotesTab :meeting-id="route.params.id" />
+                    </VCardText>
+                  </VCard>
                 </VCol>
               </VRow>
-            </div>
-          </div>
-        </VCol>
-
-        <VCol
-          cols="12"
-          lg="4"
-        >
-          <div class="meeting-section-card mb-6">
-            <div class="meeting-section-header">
-              <div class="meeting-section-title">
-                <VIcon
-                  icon="tabler-map-pin"
-                  class="section-icon"
-                  style="color: #f97316;"
-                />
-                Địa điểm & Trạng thái
-              </div>
-            </div>
-            <div class="pa-5">
-              <div class="text-body-2 font-weight-medium mb-1">
-                Địa điểm (*)
-              </div>
-              <AppTextField
-                v-model="formData.location"
-                placeholder="Phòng họp giao ban"
-                class="mb-5"
+            </template>
+            <template v-else>
+              <EditModeRequired
+                icon="tabler-checkbox"
+                title="Biểu quyết"
+                description="Vui lòng lưu cuộc họp trước để có thể tạo biểu quyết. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."
               />
-              <div class="text-body-2 font-weight-medium mb-1">
-                Trạng thái
-              </div>
-              <AppSelect
-                v-model="formData.status"
-                :items="[
-                  { title: 'Bản nháp', value: 'draft' },
-                  { title: 'Đã lên lịch', value: 'scheduled' },
-                  { title: 'Đang diễn ra', value: 'active' },
-                  { title: 'Đã kết thúc', value: 'completed' },
-                ]"
-                placeholder="Đang diễn ra"
+            </template>
+          </VWindowItem>
+
+          <!-- ────────────────────────────────────────────────── -->
+          <!-- TAB 5: Kết luận cuộc họp -->
+          <!-- ────────────────────────────────────────────────── -->
+          <VWindowItem value="conclusions" transition="none" reverse-transition="none">
+            <template v-if="isEditMode">
+              <VRow>
+                <VCol cols="12">
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
+                        <VIcon icon="tabler-file-check" size="20" color="#14b8a6" class="rounded" style="background-color: #ccfbf1; padding: 4px; box-sizing: content-box;" />
+                        Quản lý Kết Luận
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <MeetingConclusionsTab :meeting-id="route.params.id" />
+                    </VCardText>
+                  </VCard>
+                </VCol>
+              </VRow>
+            </template>
+            <template v-else>
+              <EditModeRequired
+                icon="tabler-file-check"
+                title="Kết luận cuộc họp"
+                description="Vui lòng lưu cuộc họp trước để có thể ghi nhận kết luận. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."
               />
-            </div>
-          </div>
-        </VCol>
-      </VRow>
+            </template>
+          </VWindowItem>
+        </VWindow>
+      </VContainer>
+    </template>
 
-      <!-- Section 2: Tài liệu đính kèm (Edit mode only) -->
-      <div
-        v-if="isEditMode"
-        class="meeting-section-card mb-6"
-      >
-        <div class="meeting-section-header">
-          <div class="meeting-section-title">
-            <VIcon
-              icon="tabler-paperclip"
-              class="section-icon"
-              style="color: #10b981;"
-            />
-            Tài liệu đính kèm
-          </div>
-          <VBtn
-            size="small"
-            variant="outlined"
-            prepend-icon="tabler-plus"
-          >
-            Thêm
-          </VBtn>
-        </div>
-        <div class="pa-5">
-          <MeetingDocumentsTab :meeting-id="route.params.id" />
-        </div>
-      </div>
-
-      <!-- Section 3: Chương trình cuộc họp -->
-      <div class="meeting-section-card mb-6">
-        <div class="meeting-section-header">
-          <div class="meeting-section-title">
-            <VIcon
-              icon="tabler-list-details"
-              class="section-icon"
-              style="color: #3b82f6;"
-            />
-            Chương trình cuộc họp
-          </div>
-          <div class="text-body-2 text-disabled">
-            Nội dung chi tiết agenda
-          </div>
-        </div>
-        <div class="pa-5">
-          <VBtn
-            class="mb-4"
-            variant="outlined"
-            size="small"
-            prepend-icon="tabler-plus"
-            @click="addAgendaItem"
-          >
-            Thêm Chương Trình
-          </VBtn>
-
-          <template v-if="formData.agendas.length > 0">
-            <div
-              v-for="(agenda, index) in formData.agendas"
-              :key="index"
-              class="agenda-edit-row"
-            >
-              <div class="agenda-edit-number">
-                {{ index + 1 }}
-              </div>
-              <VRow class="flex-grow-1">
-                <VCol
-                  cols="12"
-                  md="3"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Bắt đầu
-                  </div>
-                  <AppTextField
-                    v-model="agenda.start_time"
-                    type="time"
-                    density="compact"
-                    placeholder="Chọn giờ"
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="3"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Kết thúc
-                  </div>
-                  <AppTextField
-                    v-model="agenda.end_time"
-                    type="time"
-                    density="compact"
-                    placeholder="Chọn giờ"
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="3"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Nội dung
-                  </div>
-                  <AppTextField
-                    v-model="agenda.title"
-                    density="compact"
-                    placeholder="Nhập nội dung..."
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="3"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Người phụ trách
-                  </div>
-                  <AppTextField
-                    v-model="agenda.presenter_name"
-                    density="compact"
-                    placeholder="Tên người PT"
-                  />
-                </VCol>
-              </VRow>
-              <IconBtn
-                color="error"
-                @click="removeAgendaItem(index)"
-              >
-                <VIcon icon="tabler-trash" />
-              </IconBtn>
-            </div>
-          </template>
-
-          <VAlert
-            v-else
-            type="info"
-            variant="tonal"
-          >
-            Chưa có chương trình họp. Nhấn "Thêm Chương Trình" để bắt đầu.
-          </VAlert>
-        </div>
-      </div>
-
-      <!-- Section 4: Thành phần tham dự -->
-      <div class="meeting-section-card mb-6">
-        <div class="meeting-section-header">
-          <div class="meeting-section-title">
-            <VIcon
-              icon="tabler-users-group"
-              class="section-icon"
-              style="color: #8b5cf6;"
-            />
-            Thành phần tham dự
-          </div>
-          <div class="text-body-2 text-disabled">
-            Nhập danh sách đại biểu tham dự
-          </div>
-        </div>
-
-        <div
-          v-if="isEditMode"
-          class="pa-5"
-        >
-          <MeetingAttendeesTab :meeting-id="route.params.id" />
-        </div>
-
-        <div
-          v-else
-          class="pa-5"
-        >
-          <VBtn
-            class="mb-4"
-            variant="outlined"
-            size="small"
-            prepend-icon="tabler-plus"
-            @click="addAttendeeItem"
-          >
-            Thêm Người
-          </VBtn>
-
-          <template v-if="formData.attendees.length > 0">
-            <div
-              v-for="(attendee, index) in formData.attendees"
-              :key="index"
-              class="agenda-edit-row"
-            >
-              <div class="agenda-edit-number">
-                {{ index + 1 }}
-              </div>
-              <VRow class="flex-grow-1">
-                <VCol
-                  cols="12"
-                  md="4"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Họ và tên
-                  </div>
-                  <AppTextField
-                    v-model="attendee.name"
-                    density="compact"
-                    placeholder="Ví dụ: Nguyễn Văn A"
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="4"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Chức vụ / Vị trí
-                  </div>
-                  <AppSelect
-                    v-model="attendee.position"
-                    :items="[
-                      { title: 'Chủ tọa', value: 'chairperson' },
-                      { title: 'Thư ký', value: 'secretary' },
-                      { title: 'Đại biểu', value: 'member' },
-                      { title: 'Khách mời', value: 'guest' },
-                    ]"
-                    density="compact"
-                  />
-                </VCol>
-                <VCol
-                  cols="12"
-                  md="4"
-                >
-                  <div class="text-caption text-disabled mb-1">
-                    Kiểu đại biểu
-                  </div>
-                  <AppSelect
-                    v-model="attendee.type"
-                    :items="[
-                      { title: 'Nội bộ', value: 'internal' },
-                      { title: 'Khách mời', value: 'external' },
-                    ]"
-                    density="compact"
-                  />
-                </VCol>
-              </VRow>
-              <IconBtn
-                color="error"
-                @click="removeAttendeeItem(index)"
-              >
-                <VIcon icon="tabler-trash" />
-              </IconBtn>
-            </div>
-          </template>
-
-          <VAlert
-            v-else
-            type="info"
-            variant="tonal"
-          >
-            Chưa có thành phần tham dự. Nhấn "Thêm Người" để bắt đầu.
-          </VAlert>
-        </div>
-      </div>
-    </VForm>
+    <!-- Snackbar -->
+    <VSnackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      timeout="3000"
+      location="top right"
+    >
+      {{ snackbar.message }}
+      <template #actions>
+        <VBtn
+          variant="text"
+          icon="tabler-x"
+          @click="snackbar.show = false"
+        />
+      </template>
+    </VSnackbar>
   </div>
 </template>
 
+<!-- Inline functional component: Edit-only state -->
+<script>
+const EditModeRequired = {
+  props: {
+    icon: { type: String, default: 'tabler-lock' },
+    title: { type: String, default: '' },
+    description: { type: String, default: '' },
+  },
+  template: `
+    <VCard
+      elevation="0"
+      style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+    >
+      <VCardText class="pa-10">
+        <div class="d-flex flex-column align-center justify-center text-center" style="min-height: 280px;">
+          <VAvatar color="#fef3c7" size="72" variant="flat" class="mb-5">
+            <VIcon :icon="icon" size="36" color="#d97706" />
+          </VAvatar>
+          <div class="text-h6 font-weight-bold mb-2" style="color: #334155;">
+            {{ title }}
+          </div>
+          <div class="text-body-1 mb-6" style="color: #64748b; max-width: 420px;">
+            {{ description }}
+          </div>
+          <VChip variant="flat" style="background-color: #fef3c7; color: #92400e; font-weight: 600;">
+            <VIcon start size="16">tabler-info-circle</VIcon>
+            Tính năng này cần cuộc họp đã được lưu
+          </VChip>
+        </div>
+      </VCardText>
+    </VCard>
+  `,
+}
+</script>
+
 <style scoped>
+.surface-ground {
+  background-color: rgb(var(--v-theme-background));
+}
+
 .agenda-edit-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
   padding: 12px 0;
-  border-block-end: 1px solid #f3f4f6;
+  border-block-end: 1px dashed #e2e8f0;
 }
 
 .agenda-edit-row:last-child {
@@ -572,14 +895,15 @@ const submitForm = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  inline-size: 28px;
-  block-size: 28px;
+  inline-size: 32px;
+  block-size: 32px;
   border-radius: 50%;
-  background: #f3f0ff;
-  color: #7c3aed;
+  background: #e0e7ff;
+  color: #6366f1;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
-  margin-block-start: 26px;
+  margin-block-start: 18px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 </style>

@@ -21,8 +21,7 @@ import { VerticalNavLayout } from '@layouts'
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div
-        class="d-flex h-100 align-center"
-        style="gap: 4px;"
+        class="d-flex h-100 align-center w-100 gap-4"
       >
         <IconBtn
           id="vertical-nav-toggle-btn"
@@ -35,16 +34,22 @@ import { VerticalNavLayout } from '@layouts'
           />
         </IconBtn>
 
-        <OrgSwitcher />
+        <NavSearchBar class="ms-0" />
 
-        <NavBarI18n
-          v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
-          :languages="themeConfig.app.i18n.langConfig"
-        />
-        <NavbarThemeSwitcher />
-        <NavbarShortcuts />
-        <NavBarNotifications class="me-1" />
-        <UserProfile />
+        <VSpacer />
+
+        <div class="d-flex h-100 align-center" style="gap: 4px;">
+          <OrgSwitcher />
+
+          <NavBarI18n
+            v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
+            :languages="themeConfig.app.i18n.langConfig"
+          />
+          <NavbarThemeSwitcher />
+          <NavbarShortcuts />
+          <NavBarNotifications class="me-1" />
+          <UserProfile />
+        </div>
       </div>
     </template>
 
@@ -66,6 +71,7 @@ import { VerticalNavLayout } from '@layouts'
 .layout-wrapper.layout-nav-type-vertical {
   .layout-navbar {
     margin-block-start: 0 !important;
+    max-inline-size: 100% !important;
 
     &.navbar-blur::after {
       display: none !important;
@@ -78,6 +84,10 @@ import { VerticalNavLayout } from '@layouts'
       border-block-end: 1px solid rgba(0, 0, 0, 0.06) !important;
       max-inline-size: 100% !important;
     }
+  }
+
+  .layout-footer {
+    max-inline-size: 100% !important;
   }
 }
 </style>

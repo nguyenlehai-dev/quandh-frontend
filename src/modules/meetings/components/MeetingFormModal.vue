@@ -31,7 +31,18 @@ const isEditMode = computed(() => !!props.meetingId)
 
 const activeTab = ref('general')
 const loading = ref(false)
-const isSubmitting = ref(false)
+const submittingAction = ref(null)
+
+const dateTimeConfig = {
+  enableTime: true,
+  dateFormat: 'Y-m-d H:i',
+}
+
+const timeConfig = {
+  enableTime: true,
+  noCalendar: true,
+  dateFormat: 'H:i',
+}
 
 const initialFormData = {
   title: '',
@@ -66,7 +77,7 @@ const fetchMeetingDetails = async () => {
         const datePart = parts[1].split('/')
         if (datePart.length !== 3) return dateStr
 
-        return `${datePart[2]}-${datePart[1]}-${datePart[0]}T${timePart.slice(0, 5)}`
+        return `${datePart[2]}-${datePart[1]}-${datePart[0]} ${timePart.slice(0, 5)}`
       }
 
       formData.value = {
@@ -127,7 +138,7 @@ const removeAttendeeItem = index => {
 }
 
 const submitForm = async actionType => {
-  isSubmitting.value = true
+  submittingAction.value = actionType
   try {
     const formatToBackend = datetimeLocal => {
       if (!datetimeLocal) return ''
@@ -165,8 +176,15 @@ const submitForm = async actionType => {
     }
   } catch (err) {
     console.error('Lỗi lưu', err)
+    if (err.response && err.response._data) {
+      alert('Lỗi lưu: ' + (typeof err.response._data.message === 'string' ? err.response._data.message : JSON.stringify(err.response._data)))
+    } else if (err.response && err.response.data) {
+      alert('Lỗi lưu: ' + (typeof err.response.data.message === 'string' ? err.response.data.message : JSON.stringify(err.response.data)))
+    } else {
+      alert('Lỗi lưu: ' + err.message)
+    }
   } finally {
-    isSubmitting.value = false
+    submittingAction.value = null
   }
 }
 </script>
@@ -284,10 +302,10 @@ const submitForm = async actionType => {
                         <div class="text-body-2 font-weight-medium mb-1">
                           Ngày bắt đầu (*)
                         </div>
-                        <AppTextField
+                        <AppDateTimePicker
                           v-model="formData.start_at"
-                          type="datetime-local"
-                          placeholder="Chọn ngày"
+                          placeholder="Chọn ngày giờ"
+                          :config="dateTimeConfig"
                         />
                       </VCol>
                       <VCol
@@ -297,10 +315,10 @@ const submitForm = async actionType => {
                         <div class="text-body-2 font-weight-medium mb-1">
                           Ngày kết thúc (*)
                         </div>
-                        <AppTextField
+                        <AppDateTimePicker
                           v-model="formData.end_at"
-                          type="datetime-local"
-                          placeholder="Chọn ngày"
+                          placeholder="Chọn ngày giờ"
+                          :config="dateTimeConfig"
                         />
                       </VCol>
                       <VCol cols="12">
@@ -349,8 +367,8 @@ const submitForm = async actionType => {
                       v-model="formData.status"
                       :items="[
                         { title: 'Bản nháp', value: 'draft' },
-                        { title: 'Đã lên lịch', value: 'scheduled' },
-                        { title: 'Đang diễn ra', value: 'active' },
+                        { title: 'Kích hoạt', value: 'active' },
+                        { title: 'Đang diễn ra', value: 'in_progress' },
                         { title: 'Đã kết thúc', value: 'completed' },
                       ]"
                       placeholder="Đang diễn ra"
@@ -402,11 +420,11 @@ const submitForm = async actionType => {
                         <div class="text-caption text-disabled mb-1">
                           Bắt đầu
                         </div>
-                        <AppTextField
+                        <AppDateTimePicker
                           v-model="agenda.start_time"
-                          type="time"
                           density="compact"
                           placeholder="Chọn giờ"
+                          :config="timeConfig"
                         />
                       </VCol>
                       <VCol
@@ -416,11 +434,11 @@ const submitForm = async actionType => {
                         <div class="text-caption text-disabled mb-1">
                           Kết thúc
                         </div>
-                        <AppTextField
+                        <AppDateTimePicker
                           v-model="agenda.end_time"
-                          type="time"
                           density="compact"
                           placeholder="Chọn giờ"
+                          :config="timeConfig"
                         />
                       </VCol>
                       <VCol
@@ -619,7 +637,7 @@ const submitForm = async actionType => {
         <VBtn
           variant="tonal"
           color="secondary"
-          :disabled="isSubmitting"
+          :disabled="!!submittingAction"
           @click="isDialogVisible = false"
         >
           Hủy
@@ -628,7 +646,8 @@ const submitForm = async actionType => {
           variant="outlined"
           color="primary"
           prepend-icon="tabler-plus"
-          :loading="isSubmitting"
+          :disabled="!!submittingAction && submittingAction !== 'save-add'"
+          :loading="submittingAction === 'save-add'"
           @click="submitForm('save-add')"
         >
           Lưu & Thêm
@@ -637,7 +656,8 @@ const submitForm = async actionType => {
           variant="outlined"
           color="warning"
           prepend-icon="tabler-pencil"
-          :loading="isSubmitting"
+          :disabled="!!submittingAction && submittingAction !== 'save-edit'"
+          :loading="submittingAction === 'save-edit'"
           @click="submitForm('save-edit')"
         >
           Lưu & Sửa
@@ -645,7 +665,8 @@ const submitForm = async actionType => {
         <VBtn
           color="success"
           prepend-icon="tabler-check"
-          :loading="isSubmitting"
+          :disabled="!!submittingAction && submittingAction !== 'save-exit'"
+          :loading="submittingAction === 'save-exit'"
           @click="submitForm('save-exit')"
         >
           Lưu & Thoát

@@ -44,6 +44,17 @@ const editPermission = value => {
   isRoleDialogVisible.value = true
   roleDetail.value = value
 }
+
+const deleteRole = async id => {
+  if (confirm('Bạn có chắc chắn muốn xóa vai trò này?')) {
+    try {
+      await $api(`/roles/${id}`, { method: 'DELETE' })
+      fetchRoles()
+    } catch (err) {
+      console.error('Delete role error:', err)
+    }
+  }
+}
 </script>
 
 <template>
@@ -107,12 +118,20 @@ const editPermission = value => {
                 </a>
               </div>
             </div>
-            <IconBtn>
-              <VIcon
-                icon="tabler-copy"
-                class="text-high-emphasis"
-              />
-            </IconBtn>
+            <div class="d-flex">
+              <IconBtn @click="deleteRole(item.details.id)">
+                <VIcon
+                  icon="tabler-trash"
+                  class="text-high-emphasis"
+                />
+              </IconBtn>
+              <IconBtn>
+                <VIcon
+                  icon="tabler-copy"
+                  class="text-high-emphasis"
+                />
+              </IconBtn>
+            </div>
           </div>
         </VCardText>
       </VCard>

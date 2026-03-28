@@ -32,7 +32,7 @@ const parentOptions = ref([])
 const fetchParentOptions = async () => {
   try {
     const res = await $api('/organizations', {
-      params: { limit: -1, status: 'active' }, // get all active
+      params: { limit: 100, status: 'active' }, // get all active
     })
     
     // Convert to flat list with indented names for the dropdown

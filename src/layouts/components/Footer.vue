@@ -1,68 +1,42 @@
 <template>
-  <div class="meeting-system-footer">
-    <div class="footer-left">
-      <div class="footer-title">
-        HỆ THỐNG PHÒNG HỌP KHÔNG GIẤY
-      </div>
-      <div class="footer-copy">
-        Bản quyền thuộc về UBND phường Hòa Cường &middot; &copy; {{ new Date().getFullYear() }}
-      </div>
-      <div class="footer-dev">
-        Phát triển bởi <a
-          href="#"
-          class="footer-link"
-        >Danatec</a>
-      </div>
+  <div class="system-footer">
+    <div class="footer-text">
+      &copy; {{ new Date().getFullYear() }} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng
     </div>
-    <span class="d-md-flex gap-x-5 d-none footer-links">
-      <a href="#">Điều khoản</a>
-      <span class="text-disabled">&middot;</span>
-      <a href="#">Bảo mật</a>
-      <span class="text-disabled">&middot;</span>
+    <div class="d-md-flex gap-x-6 d-none footer-links">
+      <a href="#">Bản quyền</a>
+      <a href="#">Chính sách</a>
+      <a href="#">Tài liệu</a>
       <a href="#">Hỗ trợ</a>
-    </span>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.meeting-system-footer {
+.system-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
+  background: #fff;
+  padding-block: 16px;
+  padding-inline: 24px;
 }
 
-.footer-title {
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: rgba(var(--v-theme-on-surface), 0.87);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.footer-copy {
-  font-size: 0.75rem;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-}
-
-.footer-dev {
-  font-size: 0.72rem;
-  color: rgba(var(--v-theme-on-surface), 0.4);
-}
-
-.footer-link {
-  color: rgb(var(--v-theme-primary));
-  text-decoration: none;
+.footer-text {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .footer-links a {
-  font-size: 0.8rem;
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  color: #0ea5e9;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
-  transition: color 0.2s;
+  transition: opacity 0.2s ease;
 }
 
 .footer-links a:hover {
-  color: rgb(var(--v-theme-primary));
+  opacity: 0.8;
 }
 </style>
