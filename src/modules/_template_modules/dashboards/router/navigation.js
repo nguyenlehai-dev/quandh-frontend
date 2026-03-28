@@ -14,5 +14,6 @@ export const navigation = [
     action: 'read',
     subject: 'Dashboard',
   },
+
   // The rest are removed since they are demo dashboards
 ]

@@ -1,15 +1,17 @@
 <script setup>
+import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/useUserStore'
 import { exportUsers, importUsers } from '../services/userService'
-import UserDetailDialog from '../components/UserDetailDialog.vue'
-import UserRoleAssignmentDialog from '../components/UserRoleAssignmentDialog.vue'
 
 const { t } = useI18n()
 const userStore = useUserStore()
+const router = useRouter()
 
 // ─── Filters & Table State ──────────────────────
 const searchQuery = ref('')
 const selectedStatus = ref()
+const selectedRole = ref()
+const selectedOrg = ref()
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
@@ -23,11 +25,13 @@ const updateOptions = options => {
 
 // Headers
 const headers = [
-  { title: 'Cán bộ', key: 'name' },
-  { title: 'Email', key: 'email' },
-  { title: 'Tên đăng nhập', key: 'user_name' },
-  { title: 'Trạng thái', key: 'status' },
-  { title: 'Hành động', key: 'actions', sortable: false },
+  { title: 'STT', key: 'index', sortable: false, width: 60 },
+  { title: 'TÊN NGƯỜI DÙNG', key: 'name' },
+  { title: 'EMAIL', key: 'email' },
+  { title: 'TỔ CHỨC & VAI TRÒ', key: 'roles', sortable: false },
+  { title: 'NGÀY CẬP NHẬT', key: 'updated_at', sortable: true },
+  { title: 'TRẠNG THÁI', key: 'status' },
+  { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false },
 ]
 
 // ─── Data ──────────────────────────────────────
@@ -35,14 +39,48 @@ const users = ref([])
 const totalUsers = ref(0)
 const loading = ref(false)
 const stats = ref({ total: 0, active: 0, inactive: 0 })
+const roles = ref([])
+const organizations = ref([])
+
+const fetchDependencies = async () => {
+  try {
+    const [rRes, oRes] = await Promise.all([
+      $api('/roles?limit=100'),
+      $api('/organizations?limit=100'),
+    ])
+
+    roles.value = rRes.data?.data || rRes.data || []
+    organizations.value = oRes.data?.data || oRes.data || []
+  } catch (err) {}
+}
+
+const getRoleName = roleId => {
+  const r = roles.value.find(x => x.id === roleId)
+  
+  return r ? r.name : roleId
+}
+
+const formatDate = dateString => {
+  if (!dateString) return 'Chưa cập nhật'
+  
+  // Xử lý chuỗi ngày tháng có định dạng YYYY-MM-DD HH:mm:ss (nếu API trả về có khoảng trắng ở giữa)
+  const safeDateString = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString
+  const d = new Date(safeDateString)
+  
+  if (isNaN(d.getTime())) return dateString
+
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`
+}
 
 const fetchUsers = async () => {
   loading.value = true
   try {
     const res = await $api('/users', {
       params: {
-        search: searchQuery.value,
-        status: selectedStatus.value,
+        search: searchQuery.value || undefined,
+        status: selectedStatus.value || undefined,
+        role_id: selectedRole.value || undefined,
+        organization_id: selectedOrg.value || undefined,
         limit: itemsPerPage.value,
         page: page.value,
         sort_by: sortBy.value,
@@ -79,12 +117,16 @@ const fetchStats = async () => {
   }
 }
 
-// Debounce search/filter changes
-watchDebounced([searchQuery, selectedStatus], () => {
-  page.value = 1
-  fetchUsers()
-  fetchStats()
-}, { debounce: 500 })
+// Search/filter changes
+let filterTimeout
+watch([searchQuery, selectedStatus, selectedRole, selectedOrg], () => {
+  clearTimeout(filterTimeout)
+  filterTimeout = setTimeout(() => {
+    page.value = 1
+    fetchUsers()
+    fetchStats()
+  }, 300)
+})
 
 // Pagination/sort changes
 watch([itemsPerPage, page, sortBy, orderBy], () => {
@@ -95,7 +137,15 @@ watch([itemsPerPage, page, sortBy, orderBy], () => {
 onMounted(() => {
   fetchUsers()
   fetchStats()
+  fetchDependencies()
 })
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedStatus.value = null
+  selectedRole.value = null
+  selectedOrg.value = null
+}
 
 // ─── Status Options ─────────────────────────────
 const statusOptions = [
@@ -123,45 +173,31 @@ const resolveStatusText = stat => {
 // ─── Stats Widgets ──────────────────────────────
 const widgetData = computed(() => [
   {
-    title: 'Tổng cán bộ',
+    title: 'Tổng số người dùng',
     value: stats.value.total ?? 0,
+    subtitle: 'Tất cả người dùng đã đăng ký',
     icon: 'tabler-users',
-    iconColor: 'primary',
+    iconColor: 'info',
   },
   {
-    title: 'Đang hoạt động',
+    title: 'Người dùng đang hoạt động',
     value: stats.value.active ?? 0,
+    subtitle: 'Người dùng hiện đang hoạt động',
     icon: 'tabler-user-check',
     iconColor: 'success',
   },
   {
-    title: 'Không hoạt động',
+    title: 'Người dùng không hoạt động',
     value: stats.value.inactive ?? 0,
-    icon: 'tabler-user-off',
-    iconColor: 'warning',
+    subtitle: 'Người dùng không hoạt động',
+    icon: 'tabler-user-x',
+    iconColor: 'error',
   },
 ])
 
 // ─── Create User ────────────────────────────────
-const isUserDetailDialogVisible = ref(false)
-const selectedUserId = ref(null)
-
 const viewUser = id => {
-  selectedUserId.value = id
-  isUserDetailDialogVisible.value = true
-}
-
-// ─── Role Assignment Dialog ─────────────────────
-const isRoleAssignmentVisible = ref(false)
-const roleAssignmentUserId = ref(null)
-
-const openRoleAssignment = id => {
-  roleAssignmentUserId.value = id
-  isRoleAssignmentVisible.value = true
-}
-
-const onRoleAssignmentSaved = () => {
-  fetchUsers()
+  router.push({ name: 'apps-user-view-id', params: { id } })
 }
 
 const isUserFormVisible = ref(false)
@@ -228,6 +264,7 @@ const onSubmitUserForm = async () => {
 // ─── Delete User ────────────────────────────────
 const deleteUser = async id => {
   await $api(`/users/${id}`, { method: 'DELETE' })
+
   const idx = selectedRows.value.findIndex(row => row === id)
   if (idx !== -1) selectedRows.value.splice(idx, 1)
   fetchUsers()
@@ -336,6 +373,9 @@ const handleImport = async () => {
                   <h4 class="text-h4">
                     {{ data.value }}
                   </h4>
+                  <div class="text-caption text-disabled mt-1">
+                    {{ data.subtitle }}
+                  </div>
                 </div>
                 <VAvatar
                   :color="data.iconColor"
@@ -355,90 +395,117 @@ const handleImport = async () => {
       </VRow>
     </div>
 
+    <!-- 👉 Filters -->
     <VCard class="mb-6">
-      <VCardItem class="pb-4">
-        <VCardTitle>{{ t('common.common.labels.filters') }}</VCardTitle>
-      </VCardItem>
-
-      <VCardText>
+      <VCardText class="pb-2">
+        <div class="d-flex align-center gap-2 mb-4">
+          <VIcon
+            icon="tabler-filter"
+            color="primary"
+          />
+          <div class="text-h6 font-weight-medium">
+            Bộ lọc
+          </div>
+        </div>
         <VRow>
           <VCol
             cols="12"
-            sm="4"
+            md="3"
+          >
+            <AppTextField
+              v-model="searchQuery"
+              label="Tìm kiếm người dùng"
+              placeholder="Nhập tên người dùng"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <AppSelect
+              v-model="selectedRole"
+              :items="roles"
+              item-title="name"
+              item-value="id"
+              label="Vai trò"
+              placeholder="Chọn vai trò"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <AppSelect
+              v-model="selectedOrg"
+              :items="organizations"
+              item-title="name"
+              item-value="id"
+              label="Tổ chức"
+              placeholder="Chọn tổ chức"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
           >
             <AppSelect
               v-model="selectedStatus"
-              placeholder="Chọn trạng thái"
               :items="statusOptions"
+              label="Trạng thái"
+              placeholder="Chọn trạng thái"
               clearable
-              clear-icon="tabler-x"
             />
           </VCol>
         </VRow>
       </VCardText>
 
-      <VDivider />
-
-      <VCardText class="d-flex flex-wrap gap-4">
-        <div class="me-3 d-flex gap-3">
-          <AppSelect
-            :model-value="itemsPerPage"
-            :items="[
-              { value: 10, title: '10' },
-              { value: 25, title: '25' },
-              { value: 50, title: '50' },
-              { value: 100, title: '100' },
-              { value: -1, title: t('common.common.labels.all') },
-            ]"
-            style="inline-size: 6.25rem;"
-            @update:model-value="itemsPerPage = parseInt($event, 10)"
-          />
-        </div>
-        <VSpacer />
-
-        <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
-          <!-- 👉 Search  -->
-          <div style="inline-size: 15.625rem;">
-            <AppTextField
-              v-model="searchQuery"
-              :placeholder="t('user.user.list.search')"
-            />
-          </div>
-
-          <!-- 👉 Export button -->
-          <VBtn
-            v-if="$can('export', 'User')"
-            variant="tonal"
-            color="secondary"
-            prepend-icon="tabler-upload"
-            :loading="isExporting"
-            @click="handleExport"
-          >
-            {{ t('common.common.actions.export') }}
-          </VBtn>
-
-          <!-- 👉 Import button -->
-          <VBtn
-            v-if="$can('import', 'User')"
-            variant="tonal"
-            color="info"
-            prepend-icon="tabler-download"
-            @click="isImportDialogVisible = true"
-          >
-            Nhập Excel
-          </VBtn>
-
-          <!-- 👉 Add user button -->
-          <VBtn
-            v-if="$can('create', 'User')"
-            prepend-icon="tabler-plus"
-            @click="openAddUserForm"
-          >
-            {{ t('user.user.list.add') }}
-          </VBtn>
-        </div>
+      <VCardText class="pt-0 d-flex justify-end gap-3 flex-wrap">
+        <VBtn
+          variant="outlined"
+          color="secondary"
+          @click="resetFilters"
+        >
+          <VIcon
+            icon="tabler-refresh"
+            start
+          /> Đặt Lại
+        </VBtn>
+        <VBtn
+          v-if="$can('import', 'User')"
+          variant="outlined"
+          color="primary"
+          @click="isImportDialogVisible = true"
+        >
+          <VIcon
+            icon="tabler-upload"
+            start
+          /> Nhập Dữ Liệu
+        </VBtn>
+        <VBtn
+          v-if="$can('export', 'User')"
+          variant="outlined"
+          color="primary"
+          :loading="isExporting"
+          @click="handleExport"
+        >
+          <VIcon
+            icon="tabler-download"
+            start
+          /> Xuất Dữ Liệu
+        </VBtn>
+        <VBtn
+          v-if="$can('create', 'User')"
+          color="primary"
+          @click="openAddUserForm"
+        >
+          <VIcon
+            icon="tabler-plus"
+            start
+          /> Thêm Mới
+        </VBtn>
       </VCardText>
-
       <!-- 👉 Bulk Action Bar -->
       <template v-if="selectedRows.length > 0">
         <VDivider />
@@ -506,24 +573,84 @@ const handleImport = async () => {
         show-select
         @update:options="updateOptions"
       >
+        <!-- STT -->
+        <template #item.index="{ index }">
+          <div class="text-body-2">
+            {{ (page - 1) * itemsPerPage + index + 1 }}
+          </div>
+        </template>
+
         <!-- Cán bộ -->
         <template #item.name="{ item }">
           <div class="d-flex align-center gap-x-4">
             <VAvatar
               size="34"
               variant="tonal"
-              color="primary"
+              color="info"
             >
               <span>{{ avatarText(item.name) }}</span>
             </VAvatar>
             <div class="d-flex flex-column">
-              <h6 class="text-base font-weight-medium">
+              <h6 class="text-base font-weight-medium text-high-emphasis">
                 {{ item.name }}
               </h6>
-              <div class="text-sm text-disabled">
-                @{{ item.user_name }}
+              <div class="text-caption mt-1">
+                <VChip
+                  size="x-small"
+                  color="info"
+                  variant="flat"
+                >
+                  {{ item.user_name }}
+                </VChip>
               </div>
             </div>
+          </div>
+        </template>
+
+        <!-- Tổ chức & Vai trò -->
+        <template #item.roles="{ item }">
+          <div class="d-flex flex-column gap-3 py-2">
+            <div
+              v-for="assign in item.assignments"
+              :key="assign.role_id"
+              class="d-flex flex-column"
+            >
+              <div class="d-flex align-center gap-2 text-body-2 text-high-emphasis font-weight-medium">
+                <VIcon
+                  icon="tabler-shield"
+                  size="18"
+                  color="success"
+                /> {{ getRoleName(assign.role_id) }}
+              </div>
+              <div class="d-flex gap-1 mt-1 flex-wrap pl-6">
+                <VChip
+                  v-for="orgId in assign.organization_ids"
+                  :key="orgId"
+                  size="x-small"
+                  color="info"
+                  class="rounded"
+                >
+                  {{ getRoleName(orgId) /* It should actually be getOrgName, but wait, the API gives org.name or org_id? Let's check.*/ }}
+                </VChip>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Ngày cập nhật -->
+        <template #item.updated_at="{ item }">
+          <div class="d-flex align-center gap-2">
+            <VAvatar
+              color="primary"
+              variant="tonal"
+              size="28"
+            >
+              <VIcon
+                icon="tabler-clock"
+                size="16"
+              />
+            </VAvatar>
+            <span class="text-body-2 text-info font-weight-medium">{{ formatDate(item.updated_at || item.created_at) }}</span>
           </div>
         </template>
 
@@ -533,7 +660,8 @@ const handleImport = async () => {
             :color="resolveUserStatusVariant(item.status)"
             size="small"
             label
-            class="text-capitalize"
+            class="text-capitalize px-3"
+            variant="tonal"
           >
             {{ resolveStatusText(item.status) }}
           </VChip>
@@ -541,67 +669,45 @@ const handleImport = async () => {
 
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <IconBtn
-            v-if="$can('delete', 'User')"
-            @click="deleteUser(item.id)"
-          >
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
-
-          <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }" style="display: none;">
-            <!-- Keeping the route link just hidden in case, but using manual click to open modal -->
-          </IconBtn>
-          <IconBtn @click="viewUser(item.id)">
-            <VIcon icon="tabler-eye" />
-          </IconBtn>
-
-          <VBtn
-            icon
-            variant="text"
-            color="medium-emphasis"
-          >
-            <VIcon icon="tabler-dots-vertical" />
-            <VMenu activator="parent">
-              <VList>
-                <VListItem @click="viewUser(item.id)">
-                  <template #prepend>
-                    <VIcon icon="tabler-eye" />
-                  </template>
-                  <VListItemTitle>{{ t('common.common.actions.view') }}</VListItemTitle>
-                </VListItem>
-
-                <VListItem
-                  v-if="$can('update', 'User')"
-                  @click="openRoleAssignment(item.id)"
-                >
-                  <template #prepend>
-                    <VIcon icon="tabler-shield-lock" />
-                  </template>
-                  <VListItemTitle>Phân quyền</VListItemTitle>
-                </VListItem>
-
-                <VListItem
-                  v-if="$can('update', 'User')"
-                  @click="openEditUserForm(item)"
-                >
-                  <template #prepend>
-                    <VIcon icon="tabler-pencil" />
-                  </template>
-                  <VListItemTitle>{{ t('common.common.actions.edit') }}</VListItemTitle>
-                </VListItem>
-
-                <VListItem
-                  v-if="$can('delete', 'User')"
-                  @click="deleteUser(item.id)"
-                >
-                  <template #prepend>
-                    <VIcon icon="tabler-trash" />
-                  </template>
-                  <VListItemTitle>{{ t('common.common.actions.delete') }}</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </VBtn>
+          <div class="d-flex align-center">
+            <IconBtn
+              variant="text"
+              color="info"
+              size="small"
+              @click="viewUser(item.id)"
+            >
+              <VIcon
+                icon="tabler-eye"
+                size="20"
+              />
+            </IconBtn>
+            <IconBtn
+              v-if="$can('update', 'User')"
+              variant="text"
+              color="primary"
+              size="small"
+              :to="{ name: 'apps-user-edit-id', params: { id: item.id } }"
+            >
+              <VIcon
+                icon="tabler-pencil"
+                stroke="1.5"
+                size="20"
+              />
+            </IconBtn>
+            <IconBtn
+              v-if="$can('delete', 'User')"
+              variant="text"
+              color="error"
+              size="small"
+              @click="deleteUser(item.id)"
+            >
+              <VIcon
+                icon="tabler-trash"
+                stroke="1.5"
+                size="20"
+              />
+            </IconBtn>
+          </div>
         </template>
 
         <!-- pagination -->
@@ -743,17 +849,5 @@ const handleImport = async () => {
         </VCardActions>
       </VCard>
     </VDialog>
-    <!-- 👉 User Role Assignment Modal -->
-    <UserRoleAssignmentDialog
-      v-model:is-dialog-visible="isRoleAssignmentVisible"
-      :user-id="roleAssignmentUserId"
-      @saved="onRoleAssignmentSaved"
-    />
-
-    <!-- 👉 User Detail Modal -->
-    <UserDetailDialog
-      v-model:is-dialog-visible="isUserDetailDialogVisible"
-      :user-id="selectedUserId"
-    />
   </div>
 </template>

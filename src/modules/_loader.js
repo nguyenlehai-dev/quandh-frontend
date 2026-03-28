@@ -59,12 +59,7 @@ function getModNav(name) {
  * 4. Quản lý hệ thống (từ các system modules)
  */
 export function getModuleNavigation() {
-  // 1. Hồ sơ cá nhân
-  const profileItem = {
-    title: 'Hồ sơ cá nhân',
-    icon: { icon: 'tabler-user-circle' },
-    to: { name: 'user-profile' },
-  }
+  // 1. Hồ sơ cá nhân (đã gỡ bỏ theo yêu cầu)
 
   // 2. Bảng điều khiển
   const dashboardGroup = {
@@ -102,7 +97,6 @@ export function getModuleNavigation() {
   }
 
   return [
-    profileItem,
     dashboardGroup,
     meetingsNav,
     systemGroup,

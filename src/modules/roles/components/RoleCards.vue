@@ -12,6 +12,7 @@ const fetchRoles = async () => {
     roles.value = (res.data ?? res ?? []).map(role => ({
       id: role.id,
       role: role.name,
+      scope: role.scope ?? 'admin',
       totalUsers: role.users_count ?? 0,
       permissions: role.permissions ?? [],
     }))
@@ -36,6 +37,7 @@ const editPermission = item => {
   roleDetail.value = {
     id: item.id,
     name: item.role,
+    scope: item.scope,
     permissions: item.permissions,
   }
 }
@@ -46,108 +48,123 @@ const onRoleSaved = () => {
 </script>
 
 <template>
-  <VRow>
-    <!-- Loading -->
-    <VCol
-      v-if="loading"
-      cols="12"
-      class="text-center"
-    >
-      <VProgressCircular indeterminate />
-    </VCol>
-
-    <!-- 👉 Roles -->
-    <VCol
-      v-for="item in roles"
-      :key="item.role"
-      cols="12"
-      sm="6"
-      lg="4"
-    >
-      <VCard>
-        <VCardText class="d-flex align-center pb-4">
-          <div class="text-body-1">
-            Tổng {{ item.totalUsers }} người dùng
-          </div>
-
-          <VSpacer />
-        </VCardText>
-
-        <VCardText>
-          <div class="d-flex justify-space-between align-center">
-            <div>
-              <h5 class="text-h5">
-                {{ item.role }}
-              </h5>
-              <div class="d-flex align-center">
-                <a
-                  href="javascript:void(0)"
-                  @click="editPermission(item)"
-                >
-                  Chỉnh sửa vai trò
-                </a>
-              </div>
-            </div>
-            <IconBtn>
-              <VIcon
-                icon="tabler-copy"
-                class="text-high-emphasis"
-              />
-            </IconBtn>
-          </div>
-        </VCardText>
-      </VCard>
-    </VCol>
-
-    <!-- 👉 Add New Role -->
-    <VCol
-      cols="12"
-      sm="6"
-      lg="4"
-    >
-      <VCard
-        class="h-100"
-        :ripple="false"
+  <div>
+    <VRow>
+      <!-- Loading -->
+      <VCol
+        v-if="loading"
+        cols="12"
+        class="text-center"
       >
-        <VRow
-          no-gutters
-          class="h-100"
-        >
-          <VCol
-            cols="5"
-            class="d-flex flex-column justify-end align-center mt-5"
-          >
-            <img
-              width="85"
-              :src="girlUsingMobile"
-            >
-          </VCol>
+        <VProgressCircular indeterminate />
+      </VCol>
 
-          <VCol cols="7">
-            <VCardText class="d-flex flex-column align-end justify-end gap-4">
+      <!-- 👉 Roles -->
+      <VCol
+        v-for="item in roles"
+        :key="item.role"
+        cols="12"
+        sm="6"
+        lg="4"
+      >
+        <VCard class="h-100">
+          <VCardText class="pb-3">
+            <div class="d-flex justify-space-between align-start mb-2">
+              <span class="text-body-2 text-disabled">Tổng cộng {{ item.totalUsers }} người dùng</span>
+              <IconBtn
+                size="small"
+                variant="text"
+                color="secondary"
+              >
+                <VIcon
+                  icon="tabler-copy"
+                  size="20"
+                />
+              </IconBtn>
+            </div>
+            <h4 class="text-h4 mb-4 font-weight-bold">
+              {{ item.role }}
+            </h4>
+            <div class="d-flex align-center gap-2">
+              <a
+                href="javascript:void(0)"
+                class="text-info font-weight-medium text-body-2 text-decoration-none"
+                @click="editPermission(item)"
+              >
+                Chỉnh sửa vai trò
+              </a>
+              <IconBtn
+                size="small"
+                variant="text"
+                color="error"
+              >
+                <VIcon
+                  icon="tabler-trash"
+                  size="18"
+                />
+              </IconBtn>
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
+
+      <!-- 👉 Add New Role -->
+      <VCol
+        cols="12"
+        sm="6"
+        lg="4"
+      >
+        <VCard
+          class="h-100"
+          :ripple="false"
+        >
+          <VRow
+            no-gutters
+            class="h-100"
+          >
+            <VCol
+              cols="4"
+              class="d-flex flex-column justify-end align-center mt-3"
+            >
+              <img
+                width="85"
+                :src="girlUsingMobile"
+              >
+            </VCol>
+
+            <VCol
+              cols="8"
+              class="d-flex flex-column align-end justify-center pe-5"
+            >
               <VBtn
                 size="small"
+                variant="outlined"
+                color="info"
+                class="mb-2"
                 @click="isAddRoleDialogVisible = true"
               >
-                Thêm vai trò
+                + Tạo Mới Vai Trò
               </VBtn>
-              <div class="text-end">
-                Thêm vai trò mới,<br> nếu chưa tồn tại.
-              </div>
-            </VCardText>
-          </VCol>
-        </VRow>
-      </VCard>
-      <AddEditRoleDialog
-        v-model:is-dialog-visible="isAddRoleDialogVisible"
-        @saved="onRoleSaved"
-      />
-    </VCol>
-  </VRow>
+              <span
+                class="text-caption text-end text-disabled"
+                style="line-height: 1.2; max-inline-size: 150px;"
+              >
+                Tạo mới vai trò, chưa có trong hệ thống.
+              </span>
+            </VCol>
+          </VRow>
+        </VCard>
+        <AddEditRoleDialog
+          v-model:is-dialog-visible="isAddRoleDialogVisible"
+          @saved="onRoleSaved"
+        />
+      </VCol>
+    </VRow>
 
-  <AddEditRoleDialog
-    v-model:is-dialog-visible="isRoleDialogVisible"
-    v-model:role-permissions="roleDetail"
-    @saved="onRoleSaved"
-  />
+    <AddEditRoleDialog
+      v-model:is-dialog-visible="isRoleDialogVisible"
+      v-model:role-permissions="roleDetail"
+      @saved="onRoleSaved"
+    />
+  </div>
 </template>

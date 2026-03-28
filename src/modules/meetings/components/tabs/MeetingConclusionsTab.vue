@@ -14,6 +14,7 @@ const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const selectedItemId = ref(null)
 const isSubmitting = ref(false)
+
 const formData = ref({
   title: '',
   content: '',
@@ -36,6 +37,7 @@ const loadData = async () => {
   isLoading.value = true
   try {
     const res = await fetchMeetingConclusions(props.meetingId)
+
     items.value = res.data || []
   } catch (error) {
     console.error(error)
@@ -61,6 +63,7 @@ const submitAdd = async () => {
   isSubmitting.value = true
   try {
     const { createMeetingConclusion } = await import('@/modules/meetings/services/meetingService')
+
     await createMeetingConclusion(props.meetingId, formData.value)
     
     isAddDialogVisible.value = false
@@ -85,6 +88,7 @@ const submitEdit = async () => {
   isSubmitting.value = true
   try {
     const { updateMeetingConclusion } = await import('@/modules/meetings/services/meetingService')
+
     await updateMeetingConclusion(props.meetingId, selectedItemId.value, formData.value)
     
     isEditDialogVisible.value = false

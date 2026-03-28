@@ -14,11 +14,12 @@ export const echo = new Echo({
   enabledTransports: ['ws', 'wss'],
 
   // Custom authorizer để gửi kèm Bearer Token và X-Organization-Id xác thực private channel
-  authorizer: (channel) => {
+  authorizer: channel => {
     return {
       authorize: (socketId, callback) => {
         const cookies = document.cookie.split('; ').reduce((acc, current) => {
           const [key, value] = current.split('=')
+
           acc[key] = value
 
           return acc

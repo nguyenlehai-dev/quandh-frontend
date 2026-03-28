@@ -68,6 +68,7 @@ export const useRoleStore = defineStore('role', {
     // ─── Create ────────────────────────────────
     async addRole(data) {
       const response = await createRole(data)
+
       await this.fetchList()
 
       return response
@@ -76,6 +77,7 @@ export const useRoleStore = defineStore('role', {
     // ─── Update ────────────────────────────────
     async editRole(id, data) {
       const response = await updateRole(id, data)
+
       await this.fetchList()
 
       return response
@@ -110,6 +112,7 @@ export const useRoleStore = defineStore('role', {
     // ─── Import ─────────────────────────────────
     async importData(file) {
       const response = await importRoles(file)
+
       await this.fetchList()
 
       return response

@@ -71,6 +71,7 @@ const startCountdown = () => {
     const h = String(Math.floor(diff / 3600000)).padStart(2, '0')
     const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0')
     const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')
+
     countdownDisplay.value = `${h}:${m}:${s}`
   }, 1000)
 }
@@ -97,6 +98,7 @@ watch(() => meeting.value, newMeeting => {
         user_id: p.user_id,
         name: p.user?.name || 'Đại biểu vô danh',
         role: roleLabel,
+
         // Dùng attendance_status tạm làm online/offline (chưa có presence channel)
         status: p.attendance_status === 'present' ? 'online' : 'offline',
         isSpeaking: false,
@@ -403,7 +405,11 @@ const resolveStatusBadgeClass = status => {
         <div class="meeting-info-item">
           <div>
             <div class="info-label">
-              <VIcon icon="tabler-clock" size="12" class="me-1" /> Thời gian
+              <VIcon
+                icon="tabler-clock"
+                size="12"
+                class="me-1"
+              /> Thời gian
             </div>
             <div class="info-value">
               {{ meeting.start_at || 'Chưa xác định' }}
@@ -413,7 +419,11 @@ const resolveStatusBadgeClass = status => {
         <div class="meeting-info-item">
           <div>
             <div class="info-label">
-              <VIcon icon="tabler-map-pin" size="12" class="me-1" /> Địa điểm
+              <VIcon
+                icon="tabler-map-pin"
+                size="12"
+                class="me-1"
+              /> Địa điểm
             </div>
             <div class="info-value">
               {{ meeting.location || 'Phòng họp trực tuyến' }}
@@ -423,7 +433,11 @@ const resolveStatusBadgeClass = status => {
         <div class="meeting-info-item">
           <div>
             <div class="info-label">
-              <VIcon icon="tabler-wifi" size="12" class="me-1" /> Trạng thái đồng bộ
+              <VIcon
+                icon="tabler-wifi"
+                size="12"
+                class="me-1"
+              /> Trạng thái đồng bộ
             </div>
             <div class="info-value d-flex align-center gap-1">
               <VIcon
@@ -448,7 +462,10 @@ const resolveStatusBadgeClass = status => {
         <div class="meeting-section-card">
           <div class="meeting-section-header">
             <div class="meeting-section-title">
-              <VIcon icon="tabler-dashboard" class="section-icon" />
+              <VIcon
+                icon="tabler-dashboard"
+                class="section-icon"
+              />
               Bảng điều khiển cuộc họp
             </div>
           </div>
@@ -491,7 +508,10 @@ const resolveStatusBadgeClass = status => {
                 />
               </div>
               <div class="flex-grow-1">
-                <div class="text-overline mb-0" style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;">
+                <div
+                  class="text-overline mb-0"
+                  style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;"
+                >
                   NỘI DUNG ĐANG BÀN LUẬN
                 </div>
                 <div class="time-text">
@@ -499,7 +519,10 @@ const resolveStatusBadgeClass = status => {
                 </div>
                 <div class="d-flex align-center gap-4 mt-1">
                   <span class="text-body-2 text-disabled d-flex align-center gap-1">
-                    <VIcon icon="tabler-clock" size="14" />
+                    <VIcon
+                      icon="tabler-clock"
+                      size="14"
+                    />
                     {{ meeting.agendas?.[activeAgendaIndex]?.duration || 0 }} phút
                   </span>
                 </div>
@@ -548,7 +571,10 @@ const resolveStatusBadgeClass = status => {
             <VDivider />
             <div class="px-5 pt-4 pb-2">
               <div class="meeting-section-title mb-3">
-                <VIcon icon="tabler-list-details" class="section-icon" />
+                <VIcon
+                  icon="tabler-list-details"
+                  class="section-icon"
+                />
                 Chương trình họp
               </div>
             </div>
@@ -559,8 +585,8 @@ const resolveStatusBadgeClass = status => {
               <div
                 v-for="(agenda, i) in meeting.agendas"
                 :key="i"
-                class="agenda-item"
-                :class="{ 'cursor-pointer': true }"
+                class="agenda-item cursor-pointer"
+                
                 @click="setActiveAgenda(meeting.id, agenda.id).then(() => { activeAgendaIndex = i }).catch(() => {})"
               >
                 <div
@@ -595,10 +621,17 @@ const resolveStatusBadgeClass = status => {
         <div class="stats-card mb-4">
           <div class="stats-header">
             <div class="stats-title d-flex align-center gap-2">
-              <VIcon icon="tabler-users" size="18" color="primary" />
+              <VIcon
+                icon="tabler-users"
+                size="18"
+                color="primary"
+              />
               Đại biểu tham dự
             </div>
-            <VChip size="small" color="primary">
+            <VChip
+              size="small"
+              color="primary"
+            >
               {{ attendanceStats.present }}/{{ attendanceStats.total }}
             </VChip>
           </div>
@@ -630,7 +663,10 @@ const resolveStatusBadgeClass = status => {
         <div class="meeting-section-card mb-4">
           <div class="meeting-section-header">
             <div class="meeting-section-title">
-              <VIcon icon="tabler-users-group" class="section-icon" />
+              <VIcon
+                icon="tabler-users-group"
+                class="section-icon"
+              />
               Danh sách đại biểu
             </div>
           </div>
@@ -670,7 +706,10 @@ const resolveStatusBadgeClass = status => {
                     v-if="attendee.requestSpeak"
                     class="text-warning ms-2"
                   >
-                    <VIcon icon="tabler-hand-raise" size="12" /> Xin phát biểu
+                    <VIcon
+                      icon="tabler-hand-raise"
+                      size="12"
+                    /> Xin phát biểu
                   </span>
                 </VListItemSubtitle>
 
@@ -705,10 +744,16 @@ const resolveStatusBadgeClass = status => {
         >
           <div class="meeting-section-header">
             <div class="meeting-section-title">
-              <VIcon icon="tabler-hand-stop" class="section-icon" />
+              <VIcon
+                icon="tabler-hand-stop"
+                class="section-icon"
+              />
               Yêu cầu phát biểu
             </div>
-            <VChip size="small" color="warning">
+            <VChip
+              size="small"
+              color="warning"
+            >
               {{ speechRequests.length }}
             </VChip>
           </div>
@@ -727,14 +772,20 @@ const resolveStatusBadgeClass = status => {
                     color="success"
                     @click="handleApproveSpeech(req.id)"
                   >
-                    <VIcon icon="tabler-check" size="16" />
+                    <VIcon
+                      icon="tabler-check"
+                      size="16"
+                    />
                   </IconBtn>
                   <IconBtn
                     size="small"
                     color="error"
                     @click="handleRejectSpeech(req.id)"
                   >
-                    <VIcon icon="tabler-x" size="16" />
+                    <VIcon
+                      icon="tabler-x"
+                      size="16"
+                    />
                   </IconBtn>
                 </div>
               </template>

@@ -1,929 +1,434 @@
 <script setup>
-/**
- * Trang Hồ sơ cá nhân
- * Hiển thị thông tin người dùng đang đăng nhập với 4 tab:
- * 1. Thông tin cá nhân - Xem/sửa thông tin cá nhân
- * 2. Xu hướng hoạt động - Biểu đồ thống kê hoạt động
- * 3. Nhật ký hoạt động - Lịch sử hành động
- * 4. Thông báo - Cấu hình & xem thông báo
- */
+import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watchEffect } from 'vue'
 
-import { useTheme } from 'vuetify'
+const router = useRouter()
 
-const vuetifyTheme = useTheme()
-
-const activeTab = ref('info')
-const isEditMode = ref(false)
-const isPasswordDialogOpen = ref(false)
-const snackbar = ref({ show: false, text: '', color: 'success' })
+const isLoading = ref(true)
+const isSaving = ref(false)
 
 // Lấy user từ cookie auth
 const userCookie = useCookie('userData')
+const snackbar = ref({ show: false, text: '', color: 'success' })
 
-const user = ref({
+// Data refs
+const userDetail = ref({
   name: '',
+  user_name: '',
   email: '',
-  phone: '',
-  position: '',
-  department: '',
-  avatar: null,
+  status: 'active',
 })
+
+const password = ref('')
+const password_confirmation = ref('')
+
+const roles = ref([])
+const organizations = ref([])
+
+// Map structural assignment: key = role_id, value = arr of org_ids
+const roleAssignments = ref({})
+
+// Array of checked role IDs
+const selectedRoles = ref([])
 
 // Load từ cookie
 watchEffect(() => {
-  if (userCookie.value) {
-    user.value = {
+  if (userCookie.value && !isSaving.value) {
+    userDetail.value = {
       name: userCookie.value.fullName || userCookie.value.name || '',
+      user_name: userCookie.value.user_name || '',
       email: userCookie.value.email || '',
-      phone: userCookie.value.phone || '',
-      position: userCookie.value.position || userCookie.value.role || '',
-      department: userCookie.value.department || '',
-      avatar: userCookie.value.avatar || null,
+      status: userCookie.value.status || 'active',
     }
   }
 })
 
-// Thông tin form chỉnh sửa
-const editForm = ref({ ...user.value })
-
-const startEdit = () => {
-  editForm.value = { ...user.value }
-  isEditMode.value = true
-}
-
-const cancelEdit = () => {
-  isEditMode.value = false
-}
-
-const saveProfile = async () => {
+const fetchInitialData = async () => {
+  isLoading.value = true
   try {
-    const { data } = await useApi('/user/profile', {
+    const [rolesRes, orgsRes, profileRes] = await Promise.all([
+      useApi('/roles?limit=100'),
+      useApi('/organizations?limit=100'),
+      useApi('/user/profile', { method: 'GET' }), // Get fresh profile if needed
+    ])
+
+    organizations.value = orgsRes.data.value?.data || orgsRes.data.value || []
+    roles.value = rolesRes.data.value?.data || rolesRes.data.value || []
+
+    // If profile endpoint returns assignments
+    const user = profileRes.data.value?.data || profileRes.data.value || userCookie.value || {}
+
+    // Populate role assignments based on user.assignments
+    if (user.assignments && Array.isArray(user.assignments)) {
+      user.assignments.forEach(a => {
+        if (!selectedRoles.value.includes(a.role_id)) {
+          selectedRoles.value.push(a.role_id)
+        }
+        roleAssignments.value[a.role_id] = a.organizations ? a.organizations.map(o => o.id) : []
+      })
+    }
+  } catch (err) {
+    console.error('Fetch user detail error:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchInitialData()
+})
+
+const onRoleToggle = roleId => {
+  const isSelected = selectedRoles.value.includes(roleId)
+  if (isSelected) {
+    if (!roleAssignments.value[roleId]) {
+      const r = roles.value.find(x => x.id === roleId)
+      if (r && r.organization_id) {
+        roleAssignments.value[roleId] = [r.organization_id]
+      } else {
+        roleAssignments.value[roleId] = []
+      }
+    }
+  } else {
+    roleAssignments.value[roleId] = []
+  }
+}
+
+const saveUser = async (goBack = false) => {
+  isSaving.value = true
+  try {
+    const assignmentsList = selectedRoles.value.map(roleId => ({
+      role_id: roleId,
+      organization_ids: roleAssignments.value[roleId] || [],
+    }))
+
+    // Save profile details
+    const { data: profileSaveRes } = await useApi('/user/profile', {
       method: 'PUT',
       body: {
-        name: editForm.value.name,
-        email: editForm.value.email,
-        phone: editForm.value.phone,
-        position: editForm.value.position,
-        department: editForm.value.department,
+        name: userDetail.value.name,
+        email: userDetail.value.email,
+        status: userDetail.value.status,
+        assignments: assignmentsList,
       },
     })
 
-    if (data.value) {
-      user.value = { ...editForm.value }
-
-      // Update cookie
+    // Update cookie
+    if (profileSaveRes.value) {
       const currentCookie = userCookie.value || {}
 
       userCookie.value = {
         ...currentCookie,
-        fullName: editForm.value.name,
-        name: editForm.value.name,
-        email: editForm.value.email,
-        phone: editForm.value.phone,
-        position: editForm.value.position,
-        department: editForm.value.department,
+        fullName: userDetail.value.name,
+        name: userDetail.value.name,
+        email: userDetail.value.email,
+        status: userDetail.value.status,
       }
-
-      isEditMode.value = false
-      snackbar.value = { show: true, text: 'Cập nhật hồ sơ thành công!', color: 'success' }
     }
-  }
-  catch {
-    snackbar.value = { show: true, text: 'Có lỗi xảy ra khi cập nhật.', color: 'error' }
-  }
-}
 
-// Đổi mật khẩu
-const passwordForm = ref({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: '',
-})
-
-const changePassword = async () => {
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    snackbar.value = { show: true, text: 'Mật khẩu mới không khớp!', color: 'error' }
-
-    return
-  }
-
-  try {
-    await useApi('/user/change-password', {
-      method: 'PUT',
-      body: {
-        current_password: passwordForm.value.currentPassword,
-        password: passwordForm.value.newPassword,
-        password_confirmation: passwordForm.value.confirmPassword,
-      },
-    })
-
-    isPasswordDialogOpen.value = false
-    passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
-    snackbar.value = { show: true, text: 'Đổi mật khẩu thành công!', color: 'success' }
-  }
-  catch {
-    snackbar.value = { show: true, text: 'Có lỗi xảy ra khi đổi mật khẩu.', color: 'error' }
-  }
-}
-
-// Activity logs
-const logsPage = ref(1)
-const logsPerPage = ref(10)
-
-const { data: logsData, isFetching: logsLoading } = await useApi(createUrl('/log-activities', {
-  query: {
-    limit: logsPerPage,
-    page: logsPage,
-  },
-}))
-
-const logItems = computed(() => logsData.value?.data ?? [])
-const totalLogs = computed(() => logsData.value?.meta?.total ?? 0)
-
-// Chữ viết tắt từ tên
-const getInitials = name => {
-  if (!name) return '?'
-
-  return name.split(' ').map(s => s[0]).join('').toUpperCase().slice(0, 2)
-}
-
-// Dữ liệu thống kê thao tác (mock - hiển thị thống kê tổng quan)
-const activityStats = [
-  {
-    title: 'Số lượt thao tác xem',
-    value: '41,660',
-    subtitle: 'Tổng số lượt thao tác xem',
-    icon: 'tabler-eye',
-    color: 'info',
-  },
-  {
-    title: 'Số lượt thao tác tạo',
-    value: '2,113',
-    subtitle: 'Tổng số lượt thao tác tạo dữ liệu',
-    icon: 'tabler-circle-plus',
-    color: 'success',
-  },
-  {
-    title: 'Số lượt thao tác cập nhật',
-    value: '151',
-    subtitle: 'Tổng số lượt cập nhật dữ liệu',
-    icon: 'tabler-edit',
-    color: 'warning',
-  },
-  {
-    title: 'Số lượt thao tác xoá',
-    value: '28',
-    subtitle: 'Tổng số lượt xoá dữ liệu',
-    icon: 'tabler-trash',
-    color: 'error',
-  },
-]
-
-// Cấu hình biểu đồ xu hướng (mock)
-const chartOptions = computed(() => {
-  const currentTheme = vuetifyTheme.current.value.colors
-  const variableTheme = vuetifyTheme.current.value.variables
-
-  return {
-    chart: {
-      parentHeightOffset: 0,
-      toolbar: { show: false },
-    },
-    tooltip: { shared: true, intersect: false },
-    dataLabels: { enabled: false },
-    stroke: {
-      curve: 'smooth',
-      width: 3,
-    },
-    fill: {
-      type: 'gradient',
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.4,
-        opacityTo: 0.1,
-        stops: [0, 100],
-      },
-    },
-    colors: [currentTheme.primary],
-    xaxis: {
-      categories: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        style: { colors: `rgba(${variableTheme['on-background']}, ${variableTheme['high-emphasis-opacity']})` },
-      },
-    },
-    yaxis: {
-      labels: {
-        style: { colors: `rgba(${variableTheme['on-background']}, ${variableTheme['high-emphasis-opacity']})` },
-      },
-    },
-    grid: {
-      borderColor: `rgba(${variableTheme['border-color']}, ${variableTheme['border-opacity']})`,
-      strokeDashArray: 4,
-      padding: { top: -20, bottom: -10, left: 20, right: 0 },
-    },
-  }
-})
-
-const chartSeries = [
-  {
-    name: 'Lượt thao tác',
-    data: [150, 420, 310, 680, 520, 890, 740],
-  },
-]
-
-// Notification preferences
-// eslint-disable-next-line camelcase
-const notifPrefs = ref({
-  notify_email: true,
-  notify_system: true,
-  notify_meeting_reminder: true,
-  notify_vote: true,
-  notify_document: false,
-})
-
-const notifLoading = ref(false)
-
-const loadNotifPrefs = async () => {
-  try {
-    const { data } = await useApi('/user/notification-preferences')
-    if (data.value?.data) {
-      notifPrefs.value = { ...data.value.data }
-    }
-  }
-  catch {}
-}
-
-loadNotifPrefs()
-
-let saveTimer = null
-
-const saveNotifPrefs = () => {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => {
-    notifLoading.value = true
-    try {
-      await useApi('/user/notification-preferences', {
+    // Save password optionally
+    if (password.value) {
+      await useApi('/user/change-password', {
         method: 'PUT',
-        body: notifPrefs.value,
+        body: {
+          password: password.value,
+          password_confirmation: password_confirmation.value,
+        },
       })
-      snackbar.value = { show: true, text: 'Đã cập nhật cấu hình thông báo.', color: 'success' }
     }
-    catch {
-      snackbar.value = { show: true, text: 'Lỗi khi lưu cấu hình thông báo.', color: 'error' }
+
+    // Reset password fields after save
+    password.value = ''
+    password_confirmation.value = ''
+
+    snackbar.value = { show: true, text: 'Cập nhật hồ sơ thành công!', color: 'success' }
+
+    if (goBack) {
+      router.push('/')
     }
-    finally {
-      notifLoading.value = false
-    }
-  }, 500)
+  } catch (err) {
+    console.error('Save error', err)
+    snackbar.value = { show: true, text: 'Có lỗi xảy ra khi lưu!', color: 'error' }
+  } finally {
+    isSaving.value = false
+  }
 }
 
-// Tab items
-const tabs = [
-  { value: 'info', title: 'Thông tin cá nhân', icon: 'tabler-user' },
-  { value: 'activity', title: 'Xu hướng hoạt động', icon: 'tabler-chart-line' },
-  { value: 'logs', title: 'Nhật ký hoạt động', icon: 'tabler-history' },
-  { value: 'notifications', title: 'Thông báo', icon: 'tabler-bell' },
-]
+const goBack = () => {
+  router.back()
+}
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <VRow>
-      <VCol cols="12">
-        <VCard class="profile-header-card">
-          <div class="profile-header-bg" />
-          <VCardText class="profile-header-content">
-            <div class="d-flex flex-wrap align-end gap-4">
-              <VAvatar
-                size="100"
-                rounded
-                :color="!user.avatar ? 'primary' : undefined"
-                :variant="!user.avatar ? 'tonal' : undefined"
-                class="profile-avatar"
-              >
-                <VImg
-                  v-if="user.avatar"
-                  :src="user.avatar"
-                />
-                <span
-                  v-else
-                  class="text-3xl font-weight-bold"
-                >
-                  {{ getInitials(user.name) }}
-                </span>
-              </VAvatar>
-              <div class="pb-2">
-                <h4 class="text-h4 font-weight-bold">
-                  {{ user.name || 'Chưa cập nhật' }}
-                </h4>
-                <div class="d-flex align-center gap-3 mt-1">
-                  <VChip
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                  >
-                    <VIcon
-                      start
-                      icon="tabler-badge"
-                      size="14"
-                    />
-                    {{ user.position || 'Nhân viên' }}
-                  </VChip>
-                  <span class="text-body-2 text-disabled">
-                    <VIcon
-                      icon="tabler-mail"
-                      size="14"
-                    />
-                    {{ user.email }}
-                  </span>
-                </div>
-              </div>
-              <VSpacer />
-              <VBtn
-                v-if="!isEditMode && activeTab === 'info'"
-                prepend-icon="tabler-pencil"
-                @click="startEdit"
-              >
-                Chỉnh sửa
-              </VBtn>
-            </div>
-          </VCardText>
-        </VCard>
-      </VCol>
-    </VRow>
-
-    <!-- Tabs -->
-    <VRow>
-      <VCol cols="12">
-        <VTabs
-          v-model="activeTab"
-          class="v-tabs-pill"
-        >
-          <VTab
-            v-for="tab in tabs"
-            :key="tab.value"
-            :value="tab.value"
-          >
-            <VIcon
-              :icon="tab.icon"
-              class="me-2"
-              size="20"
-            />
-            {{ tab.title }}
-          </VTab>
-        </VTabs>
-      </VCol>
-    </VRow>
-
-    <!-- Tab Content -->
-    <VRow>
-      <VCol cols="12">
-        <VTabsWindow v-model="activeTab">
-          <!-- Tab 1: Thông tin cá nhân -->
-          <VTabsWindowItem value="info">
-            <VRow>
-              <VCol
-                cols="12"
-                md="4"
-              >
-                <!-- Info Card -->
-                <VCard>
-                  <VDivider />
-
-                  <VCardText>
-                    <VList class="card-list">
-                      <VListItem>
-                        <template #prepend>
-                          <VIcon
-                            icon="tabler-mail"
-                            class="me-2"
-                          />
-                        </template>
-                        <VListItemTitle class="text-body-2">
-                          {{ user.email || 'Chưa cập nhật' }}
-                        </VListItemTitle>
-                        <VListItemSubtitle class="text-caption">
-                          Email
-                        </VListItemSubtitle>
-                      </VListItem>
-                      <VListItem>
-                        <template #prepend>
-                          <VIcon
-                            icon="tabler-phone"
-                            class="me-2"
-                          />
-                        </template>
-                        <VListItemTitle class="text-body-2">
-                          {{ user.phone || 'Chưa cập nhật' }}
-                        </VListItemTitle>
-                        <VListItemSubtitle class="text-caption">
-                          Số điện thoại
-                        </VListItemSubtitle>
-                      </VListItem>
-                      <VListItem>
-                        <template #prepend>
-                          <VIcon
-                            icon="tabler-building"
-                            class="me-2"
-                          />
-                        </template>
-                        <VListItemTitle class="text-body-2">
-                          {{ user.department || 'Chưa cập nhật' }}
-                        </VListItemTitle>
-                        <VListItemSubtitle class="text-caption">
-                          Phòng ban
-                        </VListItemSubtitle>
-                      </VListItem>
-                    </VList>
-                  </VCardText>
-
-                  <VDivider />
-
-                  <VCardText class="text-center">
-                    <VBtn
-                      variant="tonal"
-                      color="primary"
-                      size="small"
-                      prepend-icon="tabler-lock"
-                      @click="isPasswordDialogOpen = true"
-                    >
-                      Đổi mật khẩu
-                    </VBtn>
-                  </VCardText>
-                </VCard>
-              </VCol>
-
-              <VCol
-                cols="12"
-                md="8"
-              >
-                <!-- Edit Form / View -->
-                <VCard>
-                  <VCardText>
-                    <h5 class="text-h5 mb-4">
-                      <VIcon
-                        icon="tabler-id"
-                        class="me-2"
-                      />
-                      {{ isEditMode ? 'Chỉnh sửa thông tin' : 'Thông tin chi tiết' }}
-                    </h5>
-
-                    <VDivider class="mb-4" />
-
-                    <template v-if="isEditMode">
-                      <VRow>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <AppTextField
-                            v-model="editForm.name"
-                            label="Họ và tên"
-                            placeholder="Nhập họ và tên"
-                          />
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <AppTextField
-                            v-model="editForm.email"
-                            label="Email"
-                            placeholder="Nhập email"
-                            type="email"
-                          />
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <AppTextField
-                            v-model="editForm.phone"
-                            label="Số điện thoại"
-                            placeholder="Nhập số điện thoại"
-                          />
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <AppTextField
-                            v-model="editForm.position"
-                            label="Chức vụ"
-                            placeholder="Nhập chức vụ"
-                          />
-                        </VCol>
-                        <VCol cols="12">
-                          <AppTextField
-                            v-model="editForm.department"
-                            label="Phòng ban"
-                            placeholder="Nhập phòng ban"
-                          />
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          class="d-flex gap-3"
-                        >
-                          <VBtn
-                            color="primary"
-                            prepend-icon="tabler-check"
-                            @click="saveProfile"
-                          >
-                            Lưu thay đổi
-                          </VBtn>
-                          <VBtn
-                            variant="tonal"
-                            color="secondary"
-                            @click="cancelEdit"
-                          >
-                            Hủy
-                          </VBtn>
-                        </VCol>
-                      </VRow>
-                    </template>
-
-                    <template v-else>
-                      <VRow>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <div class="mb-4">
-                            <div class="text-caption text-disabled mb-1">
-                              Họ và tên
-                            </div>
-                            <div class="text-body-1 font-weight-medium">
-                              {{ user.name || 'Chưa cập nhật' }}
-                            </div>
-                          </div>
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <div class="mb-4">
-                            <div class="text-caption text-disabled mb-1">
-                              Email
-                            </div>
-                            <div class="text-body-1 font-weight-medium">
-                              {{ user.email || 'Chưa cập nhật' }}
-                            </div>
-                          </div>
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <div class="mb-4">
-                            <div class="text-caption text-disabled mb-1">
-                              Số điện thoại
-                            </div>
-                            <div class="text-body-1 font-weight-medium">
-                              {{ user.phone || 'Chưa cập nhật' }}
-                            </div>
-                          </div>
-                        </VCol>
-                        <VCol
-                          cols="12"
-                          md="6"
-                        >
-                          <div class="mb-4">
-                            <div class="text-caption text-disabled mb-1">
-                              Chức vụ
-                            </div>
-                            <div class="text-body-1 font-weight-medium">
-                              {{ user.position || 'Chưa cập nhật' }}
-                            </div>
-                          </div>
-                        </VCol>
-                        <VCol cols="12">
-                          <div class="mb-4">
-                            <div class="text-caption text-disabled mb-1">
-                              Phòng ban
-                            </div>
-                            <div class="text-body-1 font-weight-medium">
-                              {{ user.department || 'Chưa cập nhật' }}
-                            </div>
-                          </div>
-                        </VCol>
-                      </VRow>
-                    </template>
-                  </VCardText>
-                </VCard>
-              </VCol>
-            </VRow>
-          </VTabsWindowItem>
-
-          <!-- Tab 2: Xu hướng hoạt động -->
-          <VTabsWindowItem value="activity">
-            <!-- Thống kê thẻ -->
-            <VRow class="match-height mb-1">
-              <VCol
-                v-for="stat in activityStats"
-                :key="stat.title"
-                cols="12"
-                sm="6"
-                md="3"
-              >
-                <VCard>
-                  <VCardText class="pb-2">
-                    <div class="d-flex align-center justify-space-between mb-4">
-                      <div class="text-caption text-disabled">
-                        {{ stat.title }}
-                      </div>
-                      <VAvatar
-                        :color="stat.color"
-                        variant="tonal"
-                        size="34"
-                        rounded
-                      >
-                        <VIcon
-                          :icon="stat.icon"
-                          size="22"
-                        />
-                      </VAvatar>
-                    </div>
-                    <div class="text-h4 font-weight-bold mb-1">
-                      {{ stat.value }}
-                    </div>
-                  </VCardText>
-                  <VCardText class="pt-0 text-caption text-disabled">
-                    {{ stat.subtitle }}
-                  </VCardText>
-                </VCard>
-              </VCol>
-            </VRow>
-
-            <!-- Biểu đồ xu hướng -->
-            <VRow>
-              <VCol cols="12">
-                <VCard>
-                  <VCardItem class="pb-0">
-                    <VCardTitle>Biểu đồ hoạt động gần đây</VCardTitle>
-                    <VCardSubtitle>Thống kê số lượng thao tác hệ thống trong 7 ngày qua</VCardSubtitle>
-                  </VCardItem>
-                  <VCardText>
-                    <VueApexCharts
-                      type="area"
-                      height="300"
-                      :options="chartOptions"
-                      :series="chartSeries"
-                    />
-                  </VCardText>
-                </VCard>
-              </VCol>
-            </VRow>
-          </VTabsWindowItem>
-
-          <!-- Tab 3: Nhật ký hoạt động -->
-          <VTabsWindowItem value="logs">
-            <VCard>
-              <VCardText>
-                <h5 class="text-h5 mb-4">
-                  <VIcon
-                    icon="tabler-history"
-                    class="me-2"
-                  />
-                  Nhật ký hoạt động cá nhân
-                </h5>
-              </VCardText>
-              <VDivider />
-              <VDataTableServer
-                v-model:items-per-page="logsPerPage"
-                v-model:page="logsPage"
-                :items="logItems"
-                :items-length="totalLogs"
-                :headers="[
-                  { title: 'STT', key: 'index', sortable: false, width: 60 },
-                  { title: 'Hành động', key: 'description' },
-                  { title: 'Đối tượng', key: 'subject_type' },
-                  { title: 'Thời gian', key: 'created_at' },
-                ]"
-                :loading="logsLoading"
-                class="text-no-wrap"
-              >
-                <template #item.index="{ index }">
-                  {{ (logsPage - 1) * logsPerPage + index + 1 }}
-                </template>
-
-                <template #no-data>
-                  <div class="text-center pa-4 text-disabled">
-                    <VIcon
-                      icon="tabler-history-off"
-                      size="48"
-                      class="mb-2"
-                    />
-                    <div>Chưa có nhật ký hoạt động nào</div>
-                  </div>
-                </template>
-
-                <template #bottom>
-                  <TablePagination
-                    v-model:page="logsPage"
-                    :items-per-page="logsPerPage"
-                    :total-items="totalLogs"
-                  />
-                </template>
-              </VDataTableServer>
-            </VCard>
-          </VTabsWindowItem>
-
-          <!-- Tab 4: Thông báo -->
-          <VTabsWindowItem value="notifications">
-            <VCard>
-              <VCardText>
-                <h5 class="text-h5 mb-4">
-                  <VIcon
-                    icon="tabler-bell"
-                    class="me-2"
-                  />
-                  Cài đặt thông báo
-                </h5>
-                <VDivider class="mb-4" />
-
-                <VList>
-                  <VListItem>
-                    <template #prepend>
-                      <VIcon icon="tabler-mail" />
-                    </template>
-                    <VListItemTitle>Thông báo qua email</VListItemTitle>
-                    <VListItemSubtitle>Nhận thông báo khi có cuộc họp mới hoặc thay đổi lịch họp</VListItemSubtitle>
-                    <template #append>
-                      <VSwitch
-                        v-model="notifPrefs.notify_email"
-                        color="primary"
-                        :loading="notifLoading"
-                        @update:model-value="saveNotifPrefs"
-                      />
-                    </template>
-                  </VListItem>
-
-                  <VDivider class="my-2" />
-
-                  <VListItem>
-                    <template #prepend>
-                      <VIcon icon="tabler-bell-ringing" />
-                    </template>
-                    <VListItemTitle>Thông báo trên hệ thống</VListItemTitle>
-                    <VListItemSubtitle>Nhận thông báo realtime trên giao diện</VListItemSubtitle>
-                    <template #append>
-                      <VSwitch
-                        v-model="notifPrefs.notify_system"
-                        color="primary"
-                        :loading="notifLoading"
-                        @update:model-value="saveNotifPrefs"
-                      />
-                    </template>
-                  </VListItem>
-
-                  <VDivider class="my-2" />
-
-                  <VListItem>
-                    <template #prepend>
-                      <VIcon icon="tabler-calendar-event" />
-                    </template>
-                    <VListItemTitle>Nhắc nhở cuộc họp</VListItemTitle>
-                    <VListItemSubtitle>Nhận thông báo trước 15 phút khi cuộc họp bắt đầu</VListItemSubtitle>
-                    <template #append>
-                      <VSwitch
-                        v-model="notifPrefs.notify_meeting_reminder"
-                        color="primary"
-                        :loading="notifLoading"
-                        @update:model-value="saveNotifPrefs"
-                      />
-                    </template>
-                  </VListItem>
-
-                  <VDivider class="my-2" />
-
-                  <VListItem>
-                    <template #prepend>
-                      <VIcon icon="tabler-checkbox" />
-                    </template>
-                    <VListItemTitle>Thông báo biểu quyết</VListItemTitle>
-                    <VListItemSubtitle>Nhận thông báo khi có yêu cầu biểu quyết mới</VListItemSubtitle>
-                    <template #append>
-                      <VSwitch
-                        v-model="notifPrefs.notify_vote"
-                        color="primary"
-                        :loading="notifLoading"
-                        @update:model-value="saveNotifPrefs"
-                      />
-                    </template>
-                  </VListItem>
-
-                  <VDivider class="my-2" />
-
-                  <VListItem>
-                    <template #prepend>
-                      <VIcon icon="tabler-file-text" />
-                    </template>
-                    <VListItemTitle>Thông báo tài liệu</VListItemTitle>
-                    <VListItemSubtitle>Nhận thông báo khi có tài liệu mới được chia sẻ</VListItemSubtitle>
-                    <template #append>
-                      <VSwitch
-                        v-model="notifPrefs.notify_document"
-                        color="primary"
-                        :loading="notifLoading"
-                        @update:model-value="saveNotifPrefs"
-                      />
-                    </template>
-                  </VListItem>
-                </VList>
-              </VCardText>
-            </VCard>
-          </VTabsWindowItem>
-        </VTabsWindow>
-      </VCol>
-    </VRow>
-
-    <!-- Dialog đổi mật khẩu -->
-    <VDialog
-      v-model="isPasswordDialogOpen"
-      max-width="500"
-    >
-      <VCard title="Đổi mật khẩu">
-        <VCardText>
-          <VRow>
-            <VCol cols="12">
-              <AppTextField
-                v-model="passwordForm.currentPassword"
-                label="Mật khẩu hiện tại"
-                type="password"
-                placeholder="Nhập mật khẩu hiện tại"
-              />
-            </VCol>
-            <VCol cols="12">
-              <AppTextField
-                v-model="passwordForm.newPassword"
-                label="Mật khẩu mới"
-                type="password"
-                placeholder="Nhập mật khẩu mới"
-              />
-            </VCol>
-            <VCol cols="12">
-              <AppTextField
-                v-model="passwordForm.confirmPassword"
-                label="Xác nhận mật khẩu mới"
-                type="password"
-                placeholder="Nhập lại mật khẩu mới"
-              />
-            </VCol>
-          </VRow>
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn
-            variant="tonal"
-            @click="isPasswordDialogOpen = false"
-          >
-            Hủy
-          </VBtn>
-          <VBtn
-            color="primary"
-            @click="changePassword"
-          >
-            Đổi mật khẩu
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
-
-    <!-- Snackbar -->
+    <!-- Snackbar messages -->
     <VSnackbar
       v-model="snackbar.show"
       :color="snackbar.color"
-      location="top end"
+      location="top right"
     >
       {{ snackbar.text }}
     </VSnackbar>
+
+    <div v-if="!isLoading">
+      <!-- Header -->
+      <div class="d-flex align-center mb-6 gap-2">
+        <IconBtn
+          class="me-1"
+          @click="goBack"
+        >
+          <VIcon
+            icon="tabler-arrow-left"
+            size="24"
+          />
+        </IconBtn>
+        <h3 class="text-h4 font-weight-medium mb-0">
+          Thông tin cá nhân
+        </h3>
+      </div>
+
+      <!-- Main Content -->
+      <VRow>
+        <!-- Left Column: User Info -->
+        <VCol
+          cols="12"
+          md="4"
+        >
+          <VCard class="h-100 pb-4">
+            <VCardItem class="pb-2 pt-6">
+              <template #prepend>
+                <div class="d-flex align-center text-primary gap-2">
+                  <VIcon
+                    icon="tabler-user"
+                    size="26"
+                  />
+                  <div>
+                    <VCardTitle class="text-h6 font-weight-medium">
+                      Thông tin người dùng
+                    </VCardTitle>
+                    <VCardSubtitle class="text-body-2">
+                      Cập nhật thông tin người dùng
+                    </VCardSubtitle>
+                  </div>
+                </div>
+              </template>
+            </VCardItem>
+
+            <VCardText class="pt-6">
+              <VForm>
+                <VRow>
+                  <VCol cols="12">
+                    <AppTextField
+                      v-model="userDetail.name"
+                      label="Tên người dùng"
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <AppTextField
+                      v-model="userDetail.user_name"
+                      label="Tên đăng nhập"
+                      disabled
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <AppTextField
+                      v-model="userDetail.email"
+                      label="Email"
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <AppTextField
+                      v-model="password"
+                      label="Mật khẩu mới"
+                      type="password"
+                      placeholder="••••••••"
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <AppTextField
+                      v-model="password_confirmation"
+                      label="Xác nhận mật khẩu mới"
+                      type="password"
+                      placeholder="••••••••"
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <div class="text-body-2 font-weight-medium text-high-emphasis mb-2">
+                      Trạng thái
+                    </div>
+                    <VRadioGroup
+                      v-model="userDetail.status"
+                      inline
+                    >
+                      <VRadio
+                        label="Hoạt động"
+                        value="active"
+                      />
+                      <VRadio
+                        label="Không hoạt động"
+                        value="inactive"
+                      />
+                    </VRadioGroup>
+                  </VCol>
+                </VRow>
+              </VForm>
+            </VCardText>
+          </VCard>
+        </VCol>
+
+        <!-- Right Column: Roles & Organizations -->
+        <VCol
+          cols="12"
+          md="8"
+        >
+          <VCard class="h-100 d-flex flex-column">
+            <VCardItem class="pb-2 pt-6">
+              <template #prepend>
+                <div class="d-flex align-center text-primary gap-2">
+                  <VIcon
+                    icon="tabler-users-group"
+                    size="26"
+                  />
+                  <div>
+                    <VCardTitle class="text-h6 font-weight-medium">
+                      Vai trò & Tổ chức
+                    </VCardTitle>
+                    <VCardSubtitle class="text-body-2">
+                      Chọn vai trò và tổ chức
+                    </VCardSubtitle>
+                  </div>
+                </div>
+              </template>
+            </VCardItem>
+
+            <VCardText class="pt-6 pb-0 flex-grow-1">
+              <VTable
+                class="text-no-wrap mb-4"
+                density="comfortable"
+              >
+                <thead>
+                  <tr>
+                    <th
+                      class="text-uppercase text-caption font-weight-bold"
+                      style="width: 35%;"
+                    >
+                      Tên vai trò
+                    </th>
+                    <th class="text-uppercase text-caption font-weight-bold">
+                      Tổ chức/Đơn vị
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="role in roles"
+                    :key="role.id"
+                    class="border-b"
+                    style="border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));"
+                  >
+                    <td class="px-0 py-2">
+                      <VCheckbox
+                        v-model="selectedRoles"
+                        :value="role.id"
+                        :label="role.name"
+                        class="text-body-1"
+                        hide-details
+                        @change="onRoleToggle(role.id)"
+                      />
+                    </td>
+                    <td class="px-0 py-2">
+                      <template v-if="selectedRoles.includes(role.id)">
+                        <AppSelect
+                          v-if="!role.organization_id"
+                          v-model="roleAssignments[role.id]"
+                          :items="organizations"
+                          item-title="name"
+                          item-value="id"
+                          multiple
+                          chips
+                          closable-chips
+                          placeholder="Chọn tổ chức (hoặc Tất cả)"
+                          density="compact"
+                          hide-details
+                        />
+                        <AppSelect
+                          v-else
+                          v-model="roleAssignments[role.id]"
+                          :items="organizations.filter(o => o.id === role.organization_id)"
+                          item-title="name"
+                          item-value="id"
+                          multiple
+                          chips
+                          disabled
+                          density="compact"
+                          hide-details
+                        />
+                      </template>
+                      <span
+                        v-else
+                        class="text-disabled text-body-2 ps-3"
+                      >Vui lòng chọn vai trò</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </VTable>
+            </VCardText>
+
+            <div class="mt-auto">
+              <VDivider />
+              <VCardActions class="px-6 py-4 justify-end gap-3">
+                <VBtn
+                  variant="tonal"
+                  color="primary"
+                  :loading="isSaving"
+                  @click="saveUser(false)"
+                >
+                  <VIcon
+                    icon="tabler-device-floppy"
+                    start
+                  /> Lưu & Sửa
+                </VBtn>
+                <VBtn
+                  variant="elevated"
+                  color="primary"
+                  :loading="isSaving"
+                  @click="saveUser(true)"
+                >
+                  <VIcon
+                    icon="tabler-check"
+                    start
+                  /> Lưu & Thoát
+                </VBtn>
+              </VCardActions>
+            </div>
+          </VCard>
+        </VCol>
+      </VRow>
+    </div>
+    
+    <div
+      v-else
+      class="d-flex justify-center align-center h-100 py-12"
+    >
+      <VProgressCircular
+        indeterminate
+        color="primary"
+        size="40"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
-.profile-header-card {
-  overflow: hidden;
+.text-caption {
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-
-.profile-header-bg {
-  block-size: 120px;
-  background: linear-gradient(135deg, #00695c 0%, #00897b 40%, #26a69a 100%);
+.gap-2 {
+  gap: 8px;
 }
-
-.profile-header-content {
-  position: relative;
-  margin-block-start: -50px;
-}
-
-.profile-avatar {
-  border: 4px solid rgb(var(--v-theme-surface));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.card-list {
-  --v-card-list-gap: 0.25rem;
+.h-100 {
+  height: 100%;
 }
 </style>

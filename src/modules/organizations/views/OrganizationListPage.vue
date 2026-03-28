@@ -1,5 +1,5 @@
 <script setup>
-import AddEditOrganizationDialog from '@/components/dialogs/AddEditOrganizationDialog.vue'
+import AddEditOrganizationDrawer from '@/components/dialogs/AddEditOrganizationDrawer.vue'
 import { exportOrganizations, importOrganizations } from '../services/organizationService'
 
 const searchQuery = ref('')
@@ -16,11 +16,11 @@ const updateOptions = options => {
 }
 
 const headers = [
-  { title: 'Tên tổ chức', key: 'name' },
-  { title: 'Mô tả', key: 'description' },
-  { title: 'Trạng thái', key: 'status' },
-  { title: 'Ngày tạo', key: 'created_at' },
-  { title: 'Hành động', key: 'actions', sortable: false },
+  { title: 'STT', key: 'index', sortable: false, width: '70px' },
+  { title: 'TÊN TỔ CHỨC', key: 'name' },
+  { title: 'TỔ CHỨC CẤP CAO', key: 'parent' },
+  { title: 'CẬP NHẬT', key: 'updated_at' },
+  { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center', width: '120px' },
 ]
 
 // ─── Data ──────────────────────────────────────
@@ -122,6 +122,7 @@ const openEditDialog = item => {
 
 const deleteOrganization = async id => {
   await $api(`/organizations/${id}`, { method: 'DELETE' })
+
   const idx = selectedRows.value.indexOf(id)
   if (idx !== -1) selectedRows.value.splice(idx, 1)
   fetchOrganizations()
@@ -382,47 +383,72 @@ const handleImport = async () => {
         show-select
         @update:options="updateOptions"
       >
+        <template #item.index="{ index }">
+          {{ (page - 1) * itemsPerPage + index + 1 }}
+        </template>
+
         <template #item.name="{ item }">
-          <div class="text-body-1 text-high-emphasis">
-            {{ item.name }}
+          <div class="d-flex align-center">
+            <template v-if="item.parent_id">
+              <VIcon
+                icon="tabler-arrow-back-up"
+                size="16"
+                class="me-2 text-disabled"
+                style="transform: scaleX(-1);"
+              />
+            </template>
+            <div class="d-flex flex-column gap-y-1">
+              <span class="text-body-1 text-high-emphasis font-weight-medium">
+                {{ item.name }}
+              </span>
+              <span
+                v-if="!item.parent_id"
+                class="text-caption text-disabled"
+              >
+                Cây tổ chức gốc trong hệ thống
+              </span>
+            </div>
           </div>
         </template>
 
-        <template #item.description="{ item }">
+        <template #item.parent="{ item }">
           <div class="text-body-2">
-            {{ item.description || '—' }}
+            {{ item.parent?.name || '—' }}
           </div>
         </template>
 
-        <template #item.status="{ item }">
-          <VChip
-            :color="resolveStatusVariant(item.status).color"
-            size="small"
-            label
-          >
-            {{ resolveStatusVariant(item.status).text }}
-          </VChip>
-        </template>
-
-        <template #item.created_at="{ item }">
-          <div class="text-body-2">
-            {{ item.created_at || '—' }}
+        <template #item.updated_at="{ item }">
+          <div class="d-flex flex-column gap-y-1">
+            <span class="text-body-2 font-weight-medium text-primary">
+              <VAvatar color="primary" size="24" class="me-1">
+                <VIcon size="14" icon="tabler-shield-check" v-if="item.editor?.role === 'Quản trị hệ thống'" />
+                <VIcon size="14" icon="tabler-user" v-else />
+              </VAvatar>
+              {{ item.editor?.name || 'Quản trị hệ thống' }}
+            </span>
+            <span class="text-caption text-disabled">
+              {{ item.updated_at ? new Date(item.updated_at).toLocaleString('vi-VN') : '—' }}
+            </span>
           </div>
         </template>
 
         <template #item.actions="{ item }">
-          <IconBtn
-            v-if="$can('update', 'Organization')"
-            @click="openEditDialog(item)"
-          >
-            <VIcon icon="tabler-edit" />
-          </IconBtn>
-          <IconBtn
-            v-if="$can('delete', 'Organization')"
-            @click="deleteOrganization(item.id)"
-          >
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
+          <div class="d-flex justify-center gap-2">
+            <IconBtn
+              v-if="$can('update', 'Organization')"
+              @click="openEditDialog(item)"
+              color="info"
+            >
+              <VIcon icon="tabler-pencil" size="20" />
+            </IconBtn>
+            <IconBtn
+              v-if="$can('delete', 'Organization')"
+              @click="deleteOrganization(item.id)"
+              color="error"
+            >
+              <VIcon icon="tabler-trash" size="20" />
+            </IconBtn>
+          </div>
         </template>
 
         <template #bottom>
@@ -435,8 +461,8 @@ const handleImport = async () => {
       </VDataTableServer>
     </VCard>
 
-    <AddEditOrganizationDialog
-      v-model:is-dialog-visible="isDialogVisible"
+    <AddEditOrganizationDrawer
+      v-model:is-drawer-open="isDialogVisible"
       :organization="editingOrganization"
       @saved="onSaved"
     />

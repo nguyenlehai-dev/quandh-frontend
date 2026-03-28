@@ -13,6 +13,7 @@ const router = useRouter()
 const isEditMode = computed(() => !!route.params.id)
 
 const loading = ref(false)
+
 const formData = ref({
   title: '',
   description: '',
@@ -147,8 +148,8 @@ const submitForm = async () => {
           variant="outlined"
           color="primary"
           prepend-icon="tabler-plus"
-          @click="submitForm"
           :loading="loading"
+          @click="submitForm"
         >
           Lưu & Thêm
         </VBtn>
@@ -156,16 +157,16 @@ const submitForm = async () => {
           variant="outlined"
           color="warning"
           prepend-icon="tabler-pencil"
-          @click="submitForm"
           :loading="loading"
+          @click="submitForm"
         >
           Lưu & Sửa
         </VBtn>
         <VBtn
           color="success"
           prepend-icon="tabler-check"
-          @click="submitForm"
           :loading="loading"
+          @click="submitForm"
         >
           Lưu & Thoát
         </VBtn>
@@ -323,7 +324,7 @@ const submitForm = async () => {
           </VBtn>
         </div>
         <div class="pa-5">
-          <MeetingDocumentsTab :meetingId="route.params.id" />
+          <MeetingDocumentsTab :meeting-id="route.params.id" />
         </div>
       </div>
 
@@ -457,7 +458,7 @@ const submitForm = async () => {
           v-if="isEditMode"
           class="pa-5"
         >
-          <MeetingAttendeesTab :meetingId="route.params.id" />
+          <MeetingAttendeesTab :meeting-id="route.params.id" />
         </div>
 
         <div

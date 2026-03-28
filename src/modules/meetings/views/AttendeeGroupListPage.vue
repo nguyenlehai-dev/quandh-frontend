@@ -49,6 +49,7 @@ const openEditDialog = item => {
 const submitForm = async () => {
   if (!formData.value.name) {
     alert('Vui lòng nhập tên nhóm')
+    
     return
   }
   isSubmitting.value = true
@@ -82,13 +83,19 @@ const deleteItem = async id => {
     <div class="meeting-section-card mb-6">
       <div class="meeting-section-header">
         <div class="meeting-section-title">
-          <VIcon icon="tabler-users-group" class="section-icon" />
+          <VIcon
+            icon="tabler-users-group"
+            class="section-icon"
+          />
           Nhóm người dự họp
         </div>
       </div>
       <div class="pa-5">
         <VRow>
-          <VCol cols="12" md="6">
+          <VCol
+            cols="12"
+            md="6"
+          >
             <div class="text-body-2 font-weight-medium mb-1">
               Tìm kiếm
             </div>
@@ -149,7 +156,10 @@ const deleteItem = async id => {
         </template>
         
         <template #item.status="{ item }">
-          <VChip size="small" :color="item.status === 'active' ? 'success' : 'secondary'">
+          <VChip
+            size="small"
+            :color="item.status === 'active' ? 'success' : 'secondary'"
+          >
             {{ item.status === 'active' ? 'Hoạt động' : 'Tạm khóa' }}
           </VChip>
         </template>
@@ -158,11 +168,24 @@ const deleteItem = async id => {
           <div class="d-flex gap-1">
             <IconBtn @click="openEditDialog(item)">
               <VIcon icon="tabler-pencil" />
-              <VTooltip activator="parent" location="top">Sửa</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Sửa
+              </VTooltip>
             </IconBtn>
             <IconBtn @click="deleteItem(item.id)">
-              <VIcon icon="tabler-trash" color="error" />
-              <VTooltip activator="parent" location="top">Xóa</VTooltip>
+              <VIcon
+                icon="tabler-trash"
+                color="error"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Xóa
+              </VTooltip>
             </IconBtn>
           </div>
         </template>
@@ -183,47 +206,103 @@ const deleteItem = async id => {
     </div>
 
     <!-- Dialog Thêm mới -->
-    <VDialog v-model="isAddDialogVisible" max-width="500">
+    <VDialog
+      v-model="isAddDialogVisible"
+      max-width="500"
+    >
       <VCard title="Thêm Nhóm người dự họp">
         <VCardText>
           <VRow>
             <VCol cols="12">
-              <AppTextField v-model="formData.name" label="Tên nhóm" required />
+              <AppTextField
+                v-model="formData.name"
+                label="Tên nhóm"
+                required
+              />
             </VCol>
             <VCol cols="12">
-              <AppTextarea v-model="formData.description" label="Mô tả" rows="3" />
+              <AppTextarea
+                v-model="formData.description"
+                label="Mô tả"
+                rows="3"
+              />
             </VCol>
             <VCol cols="12">
-              <VSwitch color="primary" v-model="formData.status" true-value="active" false-value="inactive" :label="formData.status === 'active' ? 'Hoạt động' : 'Tạm khóa'" />
+              <VSwitch
+                v-model="formData.status"
+                color="primary"
+                true-value="active"
+                false-value="inactive"
+                :label="formData.status === 'active' ? 'Hoạt động' : 'Tạm khóa'"
+              />
             </VCol>
           </VRow>
         </VCardText>
         <VCardText class="d-flex justify-end gap-3 flex-wrap">
-          <VBtn color="secondary" variant="tonal" @click="isAddDialogVisible = false">Hủy</VBtn>
-          <VBtn :loading="isSubmitting" @click="submitForm">Lưu</VBtn>
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isAddDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            @click="submitForm"
+          >
+            Lưu
+          </VBtn>
         </VCardText>
       </VCard>
     </VDialog>
 
     <!-- Dialog Cập nhật -->
-    <VDialog v-model="isEditDialogVisible" max-width="500">
+    <VDialog
+      v-model="isEditDialogVisible"
+      max-width="500"
+    >
       <VCard title="Cập nhật Nhóm người dự họp">
         <VCardText>
           <VRow>
             <VCol cols="12">
-              <AppTextField v-model="formData.name" label="Tên nhóm" required />
+              <AppTextField
+                v-model="formData.name"
+                label="Tên nhóm"
+                required
+              />
             </VCol>
             <VCol cols="12">
-              <AppTextarea v-model="formData.description" label="Mô tả" rows="3" />
+              <AppTextarea
+                v-model="formData.description"
+                label="Mô tả"
+                rows="3"
+              />
             </VCol>
             <VCol cols="12">
-              <VSwitch color="primary" v-model="formData.status" true-value="active" false-value="inactive" :label="formData.status === 'active' ? 'Hoạt động' : 'Tạm khóa'" />
+              <VSwitch
+                v-model="formData.status"
+                color="primary"
+                true-value="active"
+                false-value="inactive"
+                :label="formData.status === 'active' ? 'Hoạt động' : 'Tạm khóa'"
+              />
             </VCol>
           </VRow>
         </VCardText>
         <VCardText class="d-flex justify-end gap-3 flex-wrap">
-          <VBtn color="secondary" variant="tonal" @click="isEditDialogVisible = false">Hủy</VBtn>
-          <VBtn :loading="isSubmitting" @click="submitForm">Cập nhật</VBtn>
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isEditDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            @click="submitForm"
+          >
+            Cập nhật
+          </VBtn>
         </VCardText>
       </VCard>
     </VDialog>

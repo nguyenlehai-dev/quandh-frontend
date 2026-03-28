@@ -16,4 +16,10 @@ export const routes = [
     component: () => import('../views/UserViewPage.vue'),
     meta: { action: 'read', subject: 'User' },
   },
+  {
+    path: '/apps/user/edit/:id',
+    name: 'apps-user-edit-id',
+    component: () => import('../views/UserEditPage.vue'),
+    meta: { action: 'update', subject: 'User' },
+  },
 ]

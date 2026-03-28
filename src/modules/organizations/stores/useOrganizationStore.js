@@ -76,6 +76,7 @@ export const useOrganizationStore = defineStore('organization', {
     // ─── Create ────────────────────────────────
     async addOrganization(data) {
       const response = await createOrganization(data)
+
       await this.fetchList()
 
       return response
@@ -84,6 +85,7 @@ export const useOrganizationStore = defineStore('organization', {
     // ─── Update ────────────────────────────────
     async editOrganization(id, data) {
       const response = await updateOrganization(id, data)
+
       await this.fetchList()
 
       return response
@@ -141,6 +143,7 @@ export const useOrganizationStore = defineStore('organization', {
     // ─── Import ─────────────────────────────────
     async importData(file) {
       const response = await importOrganizations(file)
+
       await this.fetchList()
 
       return response

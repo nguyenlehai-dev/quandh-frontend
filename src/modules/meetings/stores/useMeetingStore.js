@@ -43,10 +43,10 @@ export const useMeetingStore = defineStore('meeting', {
       this.unsubscribeFromMeeting()
       
       this.echoSubscription = echo.private(`meeting.${meetingId}`)
-        .listen('.meeting.status.changed', (e) => {
+        .listen('.meeting.status.changed', e => {
           this.handleEchoBroadcast(e)
         })
-        .listen('.agenda.changed', (e) => {
+        .listen('.agenda.changed', e => {
           this.activeAgendaId = e.agenda_id
         })
         

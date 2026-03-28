@@ -42,6 +42,7 @@ const startCountdown = () => {
 
       return
     }
+
     // Parse end_at (format: "HH:mm:ss DD/MM/YYYY" or ISO)
     let endTime
     const raw = meeting.value.end_at
@@ -60,6 +61,7 @@ const startCountdown = () => {
     const h = String(Math.floor(diff / 3600000)).padStart(2, '0')
     const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0')
     const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')
+
     countdownDisplay.value = `${h}:${m}:${s}`
   }, 1000)
 }
@@ -505,7 +507,10 @@ const getSecretary = () => {
                   />
                 </div>
                 <div>
-                  <div class="text-overline text-uppercase mb-0" style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;">
+                  <div
+                    class="text-overline text-uppercase mb-0"
+                    style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;"
+                  >
                     THỜI GIAN CUỘC HỌP
                   </div>
                   <div class="time-text">
@@ -519,17 +524,28 @@ const getSecretary = () => {
                 <div class="meeting-info-item">
                   <div>
                     <div class="info-label">
-                      <VIcon icon="tabler-map-pin" size="12" class="me-1" /> Địa điểm
+                      <VIcon
+                        icon="tabler-map-pin"
+                        size="12"
+                        class="me-1"
+                      /> Địa điểm
                     </div>
                     <div class="info-value">
                       {{ meeting.location || 'Phòng họp trực tuyến' }}
                     </div>
                   </div>
                 </div>
-                <div v-if="getChairperson()" class="meeting-info-item">
+                <div
+                  v-if="getChairperson()"
+                  class="meeting-info-item"
+                >
                   <div>
                     <div class="info-label">
-                      <VIcon icon="tabler-crown" size="12" class="me-1" /> Chủ trì
+                      <VIcon
+                        icon="tabler-crown"
+                        size="12"
+                        class="me-1"
+                      /> Chủ trì
                     </div>
                     <div class="info-value">
                       {{ getChairperson()?.user?.name || 'N/A' }}
@@ -543,7 +559,10 @@ const getSecretary = () => {
               <!-- Section: Nội dung chi tiết -->
               <div class="px-5 pt-3 pb-1">
                 <div class="meeting-section-title mb-3">
-                  <VIcon icon="tabler-notes" class="section-icon" />
+                  <VIcon
+                    icon="tabler-notes"
+                    class="section-icon"
+                  />
                   Nội dung chi tiết
                 </div>
               </div>

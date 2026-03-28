@@ -72,6 +72,7 @@ const roles = ref([])
 onMounted(async () => {
   try {
     const res = await $api('/roles', { query: { limit: -1 } })
+
     roles.value = (res.data ?? []).map(r => ({
       title: r.name,
       value: r.name,

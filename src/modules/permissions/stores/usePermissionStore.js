@@ -73,6 +73,7 @@ export const usePermissionStore = defineStore('permission', {
     // ─── Create ────────────────────────────────
     async addPermission(data) {
       const response = await createPermission(data)
+
       await this.fetchList()
 
       return response
@@ -81,6 +82,7 @@ export const usePermissionStore = defineStore('permission', {
     // ─── Update ────────────────────────────────
     async editPermission(id, data) {
       const response = await updatePermission(id, data)
+
       await this.fetchList()
 
       return response
@@ -124,6 +126,7 @@ export const usePermissionStore = defineStore('permission', {
     // ─── Import ─────────────────────────────────
     async importData(file) {
       const response = await importPermissions(file)
+
       await this.fetchList()
 
       return response

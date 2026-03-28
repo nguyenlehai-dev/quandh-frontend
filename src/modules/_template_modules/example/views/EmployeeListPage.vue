@@ -74,7 +74,10 @@ const handleSubmitted = () => {
           @update:model-value="store.updateFilters({ search: $event })"
         >
           <template #prepend-inner>
-            <VIcon icon="tabler-search" size="18" />
+            <VIcon
+              icon="tabler-search"
+              size="18"
+            />
           </template>
         </VTextField>
 

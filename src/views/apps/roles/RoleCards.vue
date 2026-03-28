@@ -16,6 +16,7 @@ const roles = ref([])
 const fetchRoles = async () => {
   try {
     const res = await $api('/roles', { query: { limit: -1 } })
+
     roles.value = (res.data ?? []).map(r => ({
       role: r.name,
       users: [],
@@ -23,8 +24,8 @@ const fetchRoles = async () => {
       details: {
         id: r.id,
         name: r.name,
-        permissions: r.permissions || []
-      }
+        permissions: r.permissions || [],
+      },
     }))
   } catch (err) {
     console.error('Fetch roles error:', err)
@@ -156,7 +157,10 @@ const editPermission = value => {
           </VCol>
         </VRow>
       </VCard>
-      <AddEditRoleDialog v-model:is-dialog-visible="isAddRoleDialogVisible" @saved="fetchRoles" />
+      <AddEditRoleDialog
+        v-model:is-dialog-visible="isAddRoleDialogVisible"
+        @saved="fetchRoles"
+      />
     </VCol>
   </VRow>
 

@@ -24,6 +24,7 @@ const formData = ref({
 const isEditDialogVisible = ref(false)
 const isSubmittingEdit = ref(false)
 const selectedParticipantId = ref(null)
+
 const editFormData = ref({
   user_name: '',
   position: '',
@@ -48,6 +49,7 @@ const loadData = async () => {
   isLoading.value = true
   try {
     const res = await fetchMeetingParticipants(props.meetingId)
+
     items.value = res.data || []
   } catch (error) {
     console.error(error)
@@ -71,6 +73,7 @@ const loadUsers = async () => {
   try {
     const { fetchUsers } = await import('@/modules/user/services/userService')
     const res = await fetchUsers({ limit: 100 })
+
     usersList.value = res.data?.data || res.data || []
   } catch (error) {
     console.error('Failed to load users for dropdown', error)
@@ -83,6 +86,7 @@ const submitAdd = async () => {
   isSubmitting.value = true
   try {
     const { createMeetingParticipant } = await import('@/modules/meetings/services/meetingService')
+
     await createMeetingParticipant(props.meetingId, formData.value)
     
     isAddDialogVisible.value = false
@@ -109,6 +113,7 @@ const submitEdit = async () => {
   isSubmittingEdit.value = true
   try {
     const { updateMeetingParticipant } = await import('@/modules/meetings/services/meetingService')
+
     await updateMeetingParticipant(props.meetingId, selectedParticipantId.value, {
       position: editFormData.value.position,
       meeting_role: editFormData.value.meeting_role,
@@ -150,12 +155,18 @@ onMounted(() => {
         class="text-no-wrap"
       >
         <template #item.meeting_role="{ item }">
-          <VChip size="small" :color="['chairperson', 'chair'].includes(item.meeting_role) ? 'primary' : 'secondary'">
+          <VChip
+            size="small"
+            :color="['chairperson', 'chair'].includes(item.meeting_role) ? 'primary' : 'secondary'"
+          >
             {{ ['chairperson', 'chair'].includes(item.meeting_role) ? 'Chủ tọa' : (item.meeting_role === 'secretary' ? 'Thư ký' : 'Đại biểu') }}
           </VChip>
         </template>
         <template #item.attendance_status="{ item }">
-          <VChip size="small" :color="item.attendance_status === 'present' ? 'success' : 'error'">
+          <VChip
+            size="small"
+            :color="item.attendance_status === 'present' ? 'success' : 'error'"
+          >
             {{ item.attendance_status === 'present' ? 'Có mặt' : 'Vắng mặt' }}
           </VChip>
         </template>
@@ -194,7 +205,10 @@ onMounted(() => {
               />
             </VCol>
             
-            <VCol cols="12" md="6">
+            <VCol
+              cols="12"
+              md="6"
+            >
               <AppTextField
                 v-model="formData.position"
                 label="Chức vụ"
@@ -202,7 +216,10 @@ onMounted(() => {
               />
             </VCol>
 
-            <VCol cols="12" md="6">
+            <VCol
+              cols="12"
+              md="6"
+            >
               <AppSelect
                 v-model="formData.meeting_role"
                 :items="[
@@ -250,7 +267,10 @@ onMounted(() => {
               />
             </VCol>
             
-            <VCol cols="12" md="6">
+            <VCol
+              cols="12"
+              md="6"
+            >
               <AppTextField
                 v-model="editFormData.position"
                 label="Chức vụ"
@@ -258,7 +278,10 @@ onMounted(() => {
               />
             </VCol>
 
-            <VCol cols="12" md="6">
+            <VCol
+              cols="12"
+              md="6"
+            >
               <AppSelect
                 v-model="editFormData.meeting_role"
                 :items="[

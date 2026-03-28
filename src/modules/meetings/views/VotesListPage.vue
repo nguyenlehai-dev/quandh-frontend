@@ -41,13 +41,19 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
     <div class="meeting-section-card mb-6">
       <div class="meeting-section-header">
         <div class="meeting-section-title">
-          <VIcon icon="tabler-checkbox" class="section-icon" />
+          <VIcon
+            icon="tabler-checkbox"
+            class="section-icon"
+          />
           Danh sách Biểu quyết
         </div>
       </div>
       <div class="pa-5">
         <VRow>
-          <VCol cols="12" md="6">
+          <VCol
+            cols="12"
+            md="6"
+          >
             <div class="text-body-2 font-weight-medium mb-1">
               Tìm kiếm
             </div>
@@ -121,15 +127,33 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
           <div class="d-flex gap-1">
             <IconBtn>
               <VIcon icon="tabler-eye" />
-              <VTooltip activator="parent" location="top">Xem chi tiết</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Xem chi tiết
+              </VTooltip>
             </IconBtn>
             <IconBtn>
               <VIcon icon="tabler-pencil" />
-              <VTooltip activator="parent" location="top">Sửa</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Sửa
+              </VTooltip>
             </IconBtn>
             <IconBtn>
-              <VIcon icon="tabler-trash" color="error" />
-              <VTooltip activator="parent" location="top">Xóa</VTooltip>
+              <VIcon
+                icon="tabler-trash"
+                color="error"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Xóa
+              </VTooltip>
             </IconBtn>
           </div>
         </template>

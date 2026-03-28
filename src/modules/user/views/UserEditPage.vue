@@ -7,6 +7,8 @@ const router = useRouter()
 const userId = computed(() => route.params.id)
 
 const isLoading = ref(true)
+const isSavingDraft = ref(false)
+const isSavingExit = ref(false)
 
 // Data refs
 const userDetail = ref({
@@ -15,6 +17,9 @@ const userDetail = ref({
   email: '',
   status: 'active',
 })
+
+const password = ref('')
+const password_confirmation = ref('')
 
 const roles = ref([])
 const organizations = ref([])
@@ -66,6 +71,65 @@ onMounted(() => {
   fetchInitialData()
 })
 
+const onRoleToggle = roleId => {
+  const isSelected = selectedRoles.value.includes(roleId)
+  if (isSelected) {
+    if (!roleAssignments.value[roleId]) {
+      const r = roles.value.find(x => x.id === roleId)
+      if (r && r.organization_id) {
+        roleAssignments.value[roleId] = [r.organization_id]
+      } else {
+        roleAssignments.value[roleId] = []
+      }
+    }
+  } else {
+    roleAssignments.value[roleId] = []
+  }
+}
+
+const saveUser = async (goBack = false) => {
+  if (goBack) isSavingExit.value = true
+  else isSavingDraft.value = true
+  
+  try {
+    const assignmentsList = selectedRoles.value.map(roleId => ({
+      role_id: roleId,
+      organization_ids: roleAssignments.value[roleId] || [],
+    }))
+
+    const payload = {
+      name: userDetail.value.name,
+      user_name: userDetail.value.user_name,
+      email: userDetail.value.email,
+      status: userDetail.value.status,
+      assignments: assignmentsList,
+    }
+
+    if (password.value) {
+      payload.password = password.value
+      payload.password_confirmation = password_confirmation.value
+    }
+
+    await $api(`/users/${userId.value}`, {
+      method: 'PUT',
+      body: payload,
+    })
+
+    // Reset password fields after save
+    password.value = ''
+    password_confirmation.value = ''
+
+    if (goBack) {
+      router.push({ name: 'apps-user-list' })
+    }
+  } catch (err) {
+    console.error('Save error', err)
+  } finally {
+    isSavingDraft.value = false
+    isSavingExit.value = false
+  }
+}
+
 const goBack = () => {
   router.push({ name: 'apps-user-list' })
 }
@@ -85,7 +149,7 @@ const goBack = () => {
         />
       </IconBtn>
       <h3 class="text-h4 font-weight-medium mb-0">
-        Chi tiết hồ sơ người dùng
+        Thông tin người dùng
       </h3>
     </div>
 
@@ -106,10 +170,10 @@ const goBack = () => {
                 />
                 <div>
                   <VCardTitle class="text-h6 font-weight-medium">
-                    Thông tin cá nhân
+                    Thông tin người dùng
                   </VCardTitle>
                   <VCardSubtitle class="text-body-2">
-                    Xem hồ sơ người dùng
+                    Cập nhật thông tin người dùng
                   </VCardSubtitle>
                 </div>
               </div>
@@ -123,21 +187,35 @@ const goBack = () => {
                   <AppTextField
                     v-model="userDetail.name"
                     label="Tên người dùng"
-                    readonly
                   />
                 </VCol>
                 <VCol cols="12">
                   <AppTextField
                     v-model="userDetail.user_name"
                     label="Tên đăng nhập"
-                    readonly
+                    disabled
                   />
                 </VCol>
                 <VCol cols="12">
                   <AppTextField
                     v-model="userDetail.email"
                     label="Email"
-                    readonly
+                  />
+                </VCol>
+                <VCol cols="12">
+                  <AppTextField
+                    v-model="password"
+                    label="Mật khẩu"
+                    type="password"
+                    placeholder="••••••••"
+                  />
+                </VCol>
+                <VCol cols="12">
+                  <AppTextField
+                    v-model="password_confirmation"
+                    label="Xác nhận mật khẩu mới"
+                    type="password"
+                    placeholder="••••••••"
                   />
                 </VCol>
                 <VCol cols="12">
@@ -147,7 +225,6 @@ const goBack = () => {
                   <VRadioGroup
                     v-model="userDetail.status"
                     inline
-                    readonly
                   >
                     <VRadio
                       label="Hoạt động"
@@ -183,14 +260,14 @@ const goBack = () => {
                     Vai trò & Tổ chức
                   </VCardTitle>
                   <VCardSubtitle class="text-body-2">
-                    Chi tiết phân quyền
+                    Chọn vai trò và tổ chức
                   </VCardSubtitle>
                 </div>
               </div>
             </template>
           </VCardItem>
 
-          <VCardText class="pt-6 flex-grow-1">
+          <VCardText class="pt-6 pb-0 flex-grow-1">
             <VTable
               class="text-no-wrap mb-4"
               density="comfortable"
@@ -222,7 +299,7 @@ const goBack = () => {
                       :label="role.name"
                       class="text-body-1"
                       hide-details
-                      readonly
+                      @change="onRoleToggle(role.id)"
                     />
                   </td>
                   <td class="px-0 py-2">
@@ -235,11 +312,10 @@ const goBack = () => {
                         item-value="id"
                         multiple
                         chips
-                        placeholder="Chưa chọn tổ chức"
+                        closable-chips
+                        placeholder="Chọn tổ chức (hoặc Tất cả)"
                         density="compact"
                         hide-details
-                        readonly
-                        menu-icon=""
                       />
                       <AppSelect
                         v-else
@@ -249,21 +325,48 @@ const goBack = () => {
                         item-value="id"
                         multiple
                         chips
+                        disabled
                         density="compact"
                         hide-details
-                        readonly
-                        menu-icon=""
                       />
                     </template>
                     <span
                       v-else
                       class="text-disabled text-body-2 ps-3"
-                    >Không có vai trò này</span>
+                    >Vui lòng chọn vai trò</span>
                   </td>
                 </tr>
               </tbody>
             </VTable>
           </VCardText>
+
+          <div class="mt-auto">
+            <VDivider />
+            <VCardActions class="px-6 py-4 justify-end gap-3">
+              <VBtn
+                variant="tonal"
+                color="primary"
+                :loading="isSavingDraft"
+                @click="saveUser(false)"
+              >
+                <VIcon
+                  icon="tabler-device-floppy"
+                  start
+                /> Lưu & Sửa
+              </VBtn>
+              <VBtn
+                variant="elevated"
+                color="primary"
+                :loading="isSavingExit"
+                @click="saveUser(true)"
+              >
+                <VIcon
+                  icon="tabler-check"
+                  start
+                /> Lưu & Thoát
+              </VBtn>
+            </VCardActions>
+          </div>
         </VCard>
       </VCol>
     </VRow>

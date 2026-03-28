@@ -42,29 +42,59 @@ onMounted(() => {
             @keyup.enter="loadMyMeetings"
           />
           <VSpacer />
-          <VBtn color="primary" @click="loadMyMeetings">Làm mới</VBtn>
+          <VBtn
+            color="primary"
+            @click="loadMyMeetings"
+          >
+            Làm mới
+          </VBtn>
         </VCardText>
         <VDivider />
 
-        <VCardText v-if="loading" class="text-center pa-5">
-          <VProgressCircular indeterminate color="primary" />
+        <VCardText
+          v-if="loading"
+          class="text-center pa-5"
+        >
+          <VProgressCircular
+            indeterminate
+            color="primary"
+          />
         </VCardText>
 
-        <VCardText v-else-if="meetings.length === 0" class="text-center pa-10">
-          <p class="text-body-1 text-disabled mb-0">Bạn hiện không có lịch họp nào.</p>
+        <VCardText
+          v-else-if="meetings.length === 0"
+          class="text-center pa-10"
+        >
+          <p class="text-body-1 text-disabled mb-0">
+            Bạn hiện không có lịch họp nào.
+          </p>
         </VCardText>
 
         <VCardText v-else>
           <VRow>
-            <VCol v-for="meeting in meetings" :key="meeting.id" cols="12" md="6" lg="4">
-              <VCard variant="outlined" class="h-100 hover-elevation shadow-sm">
+            <VCol
+              v-for="meeting in meetings"
+              :key="meeting.id"
+              cols="12"
+              md="6"
+              lg="4"
+            >
+              <VCard
+                variant="outlined"
+                class="h-100 hover-elevation shadow-sm"
+              >
                 <VCardItem>
                   <template #title>
-                    <div class="text-h6 text-primary text-truncate">{{ meeting.title }}</div>
+                    <div class="text-h6 text-primary text-truncate">
+                      {{ meeting.title }}
+                    </div>
                   </template>
                   <template #subtitle>
                     <div class="d-flex align-center mt-1 gap-2">
-                      <VIcon icon="tabler-calendar" size="16" />
+                      <VIcon
+                        icon="tabler-calendar"
+                        size="16"
+                      />
                       <span>{{ meeting.start_at || 'Chưa xác định' }}</span>
                     </div>
                   </template>
@@ -72,7 +102,11 @@ onMounted(() => {
                 
                 <VCardText class="pt-2">
                   <div class="d-flex align-center gap-2 mb-2">
-                    <VIcon icon="tabler-map-pin" size="16" class="text-disabled" />
+                    <VIcon
+                      icon="tabler-map-pin"
+                      size="16"
+                      class="text-disabled"
+                    />
                     <span class="text-body-2">{{ meeting.location || 'Phòng trực tuyến' }}</span>
                   </div>
                   <div class="text-body-2 text-truncate line-clamp-2 text-medium-emphasis">

@@ -17,6 +17,7 @@ export const routes = [
     component: () => import('../views/AcademyCourseDetailsPage.vue'),
     meta: { action: 'read', subject: 'Academy' },
   },
+
   // Alias: /dashboards/academy
   {
     path: '/dashboards/academy',

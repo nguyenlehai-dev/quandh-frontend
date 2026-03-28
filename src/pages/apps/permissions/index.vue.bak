@@ -1,5 +1,4 @@
 <script setup>
-/* eslint-disable-next-line lines-around-comment */
 // ─── State ──────────────────────────────────────
 const search = ref('')
 const page = ref(1)
@@ -11,10 +10,12 @@ const stats = ref({ groups: 0, total: 0 })
 // ─── Dialogs ────────────────────────────────────
 const isEditDialogVisible = ref(false)
 const editingPermissionName = ref('')
-const editingPermissionDescription = ref('')
 const editingPermissionId = ref(null)
 
-// ─── Fetch stats ────────────────────────────────
+// ─── API Setup ──────────────────────────────────
+// Chạy hàm fake-await để match Suspense behavior
+await new Promise(resolve => setTimeout(resolve, 0))
+
 const fetchStats = async () => {
   try {
     const res = await $api('/permissions/stats')
@@ -29,7 +30,6 @@ const fetchStats = async () => {
   }
 }
 
-// ─── Fetch list ─────────────────────────────────
 const fetchPermissions = async () => {
   try {
     const res = await $api('/permissions', {
@@ -37,9 +37,7 @@ const fetchPermissions = async () => {
         search: search.value || undefined,
         limit: itemsPerPage.value,
         page: page.value,
-        // eslint-disable-next-line camelcase
         sort_by: 'sort_order',
-        // eslint-disable-next-line camelcase
         sort_order: 'asc',
       },
     })
@@ -53,13 +51,10 @@ const fetchPermissions = async () => {
   }
 }
 
-// Fetch on mount
-onMounted(() => {
-  fetchStats()
-  fetchPermissions()
-})
+// Lấy data ngay lập tức
+fetchStats()
+fetchPermissions()
 
-// Watch search & pagination
 watch([search, page, itemsPerPage], () => {
   fetchPermissions()
 })
@@ -67,72 +62,25 @@ watch([search, page, itemsPerPage], () => {
 // ─── Helpers ────────────────────────────────────
 const isGroupRow = perm => perm.name?.startsWith('group:')
 
-const actionToNameMap = {
-  index: 'Truy cập danh sách',
-  show: 'Xem chi tiết',
-  store: 'Tạo mới',
-  update: 'Cập nhật',
-  destroy: 'Xóa',
-  bulkDestroy: 'Xóa hàng loạt',
-  bulkUpdateStatus: 'Cập nhật trạng thái hàng loạt',
-  stats: 'Thống kê',
-  import: 'Nhập dữ liệu',
-  export: 'Xuất dữ liệu',
-  review: 'Xem xét',
-  approve: 'Phê duyệt',
-  download: 'Tải xuống',
-}
-
-const entityToNameMap = {
-  users: 'Người dùng',
-  roles: 'Vai trò',
-  organizations: 'Tổ chức',
-  posts: 'Bài viết/Tin tức',
-  'post-categories': 'Danh mục bài viết',
-  'log-activities': 'Nhật ký',
-  'report-periods': 'Đợt báo cáo',
-  'report-templates': 'Mẫu báo cáo',
-  reports: 'Báo cáo',
-  meetings: 'Cuộc họp',
-  documents: 'Tài liệu',
-  'document-types': 'Loại tài liệu',
-  'issuing-agencies': 'Cơ quan ban hành',
-  'issuing-levels': 'Cấp ban hành',
-  'document-signers': 'Người ký',
-  'document-fields': 'Lĩnh vực văn bản',
-}
-
 const getDisplayName = perm => {
   if (isGroupRow(perm)) {
-    const groupName = perm.name.replace('group:', '')
-
-    return entityToNameMap[groupName] || groupName
+    return perm.description || perm.name.replace('group:', '')
   }
 
-  const parts = perm.name.split('.')
-  if (parts.length === 2) {
-    const entity = entityToNameMap[parts[0]] || parts[0]
-    const action = actionToNameMap[parts[1]] || parts[1]
-
-    return `${entity} - ${action}`
-  }
-
-  return perm.name
+  return perm.description || perm.name
 }
 
 const getGroupName = perm => {
-  if (isGroupRow(perm)) {
-    return '—'
-  }
-
+  if (isGroupRow(perm)) return '—'
   if (perm.parent?.name) {
     return perm.parent.name.replace('group:', '')
   }
+  const prefix = perm.name.split('.')[0]
 
-  return perm.name.split('.')[0]
+  return prefix
 }
 
-// ─── Role badge colors ──────────────────────────
+// ─── Mảng badge color cho vai trò ────────────────
 const roleBadgeColor = name => {
   const map = {
     admin: 'error',
@@ -144,10 +92,9 @@ const roleBadgeColor = name => {
   return map[name?.toLowerCase()] || 'info'
 }
 
-// ─── Edit ───────────────────────────────────────
+// ─── Edit Action ────────────────────────────────
 const editPermission = perm => {
   editingPermissionName.value = perm.name
-  editingPermissionDescription.value = perm.description
   editingPermissionId.value = perm.id
   isEditDialogVisible.value = true
 }
@@ -157,7 +104,7 @@ const onPermissionSaved = () => {
   fetchStats()
 }
 
-// ─── Export ──────────────────────────────────────
+// ─── Xuất/Nhập dữ liệu ──────────────────────────
 const isExporting = ref(false)
 
 const handleExport = async () => {
@@ -173,28 +120,26 @@ const handleExport = async () => {
     window.URL.revokeObjectURL(url)
   }
   catch (err) {
-    console.error('Export permissions error:', err)
+    console.error('Export error:', err)
   }
   finally {
     isExporting.value = false
   }
 }
 
-// ─── Table headers ──────────────────────────────
 const headers = [
   { title: 'STT', key: 'index', sortable: false, width: '70px' },
   { title: 'TÊN QUYỀN HẠN', key: 'name', sortable: false },
   { title: 'NHÓM QUYỀN HẠN', key: 'group', sortable: false },
   { title: 'THUỘC VAI TRÒ', key: 'roles', sortable: false },
   { title: 'NGÀY TẠO', key: 'created_at', sortable: false, width: '160px' },
-  { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, width: '100px', align: 'center' },
+  { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, width: '100px' },
 ]
 </script>
 
 <template>
-  <div id="permissions-module-root">
+  <div id="permissions-page-root">
     <VRow class="mb-4">
-      <!-- ─── Header ──────────────────────── -->
       <VCol
         cols="12"
         class="mb-2"
@@ -221,12 +166,11 @@ const headers = [
         </div>
       </VCol>
 
-      <!-- ─── Stat cards ─────────────────── -->
       <VCol
         cols="12"
         md="6"
       >
-        <VCard class="border">
+        <VCard class="border shadow-none">
           <VCardText class="d-flex align-center justify-space-between">
             <div>
               <p class="text-body-2 text-disabled mb-1">
@@ -256,7 +200,7 @@ const headers = [
         cols="12"
         md="6"
       >
-        <VCard class="border">
+        <VCard class="border shadow-none">
           <VCardText class="d-flex align-center justify-space-between">
             <div>
               <p class="text-body-2 text-disabled mb-1">
@@ -282,10 +226,8 @@ const headers = [
         </VCard>
       </VCol>
 
-      <!-- ─── Table card ─────────────────── -->
       <VCol cols="12">
         <VCard>
-          <!-- Filter bar -->
           <VCardText class="d-flex align-center justify-space-between flex-wrap gap-4 pb-2">
             <div class="d-flex align-center gap-2">
               <VIcon
@@ -303,7 +245,7 @@ const headers = [
               :loading="isExporting"
               @click="handleExport"
             >
-              Xuất Excel
+              Xuất Dữ Liệu
             </VBtn>
           </VCardText>
 
@@ -326,7 +268,6 @@ const headers = [
 
           <VDivider />
 
-          <!-- Data table -->
           <VDataTableServer
             v-model:items-per-page="itemsPerPage"
             v-model:page="page"
@@ -335,12 +276,10 @@ const headers = [
             :items="permissions"
             class="text-no-wrap permission-table"
           >
-            <!-- STT -->
             <template #item.index="{ index }">
               <span class="text-body-2 text-disabled">{{ (page - 1) * itemsPerPage + index + 1 }}</span>
             </template>
 
-            <!-- Permission name -->
             <template #item.name="{ item }">
               <div
                 v-if="isGroupRow(item)"
@@ -363,12 +302,10 @@ const headers = [
               </div>
             </template>
 
-            <!-- Group column -->
             <template #item.group="{ item }">
               <span class="text-body-2 text-disabled">{{ getGroupName(item) }}</span>
             </template>
 
-            <!-- Roles column -->
             <template #item.roles="{ item }">
               <div
                 v-if="item.roles && item.roles.length"
@@ -400,15 +337,13 @@ const headers = [
               >—</span>
             </template>
 
-            <!-- Created date -->
             <template #item.created_at="{ item }">
               <span class="text-body-2 text-disabled">{{ item.created_at || '—' }}</span>
             </template>
 
-            <!-- Actions -->
             <template #item.actions="{ item }">
               <IconBtn
-                v-if="!isGroupRow(item) && $can('update', 'Permission')"
+                v-if="!isGroupRow(item)"
                 size="small"
                 color="info"
                 @click="editPermission(item)"
@@ -424,7 +359,6 @@ const headers = [
               >—</span>
             </template>
 
-            <!-- Pagination -->
             <template #bottom>
               <TablePagination
                 v-model:page="page"
@@ -437,12 +371,10 @@ const headers = [
       </VCol>
     </VRow>
 
-    <!-- Edit Dialog -->
     <AddEditPermissionDialog
       v-model:is-dialog-visible="isEditDialogVisible"
       :permission-name="editingPermissionName"
       :permission-id="editingPermissionId"
-      :permission-description="editingPermissionDescription"
       @saved="onPermissionSaved"
     />
   </div>

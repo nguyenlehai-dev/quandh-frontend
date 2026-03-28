@@ -36,6 +36,7 @@ const fetchReferences = async () => {
 
     // Support potential variations in pagination responses
     const orgs = orgsRes.data?.data || orgsRes.data || []
+
     organizations.value = orgs
 
     roles.value = (rolesRes.data?.data || rolesRes.data || []).map(r => {

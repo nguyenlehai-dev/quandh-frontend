@@ -11,6 +11,7 @@ export const routes = [
     component: () => import('../views/LogisticsFleetPage.vue'),
     meta: { action: 'read', subject: 'Logistics' },
   },
+
   // Alias: /dashboards/logistics → same component
   {
     path: '/dashboards/logistics',

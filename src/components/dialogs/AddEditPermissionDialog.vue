@@ -14,6 +14,11 @@ const props = defineProps({
     required: false,
     default: null,
   },
+  permissionDescription: {
+    type: String,
+    required: false, 
+    default: '',
+  },
 })
 
 const emit = defineEmits([
@@ -70,7 +75,7 @@ const onSubmit = async () => {
 watch(() => props.isDialogVisible, visible => {
   if (visible) {
     currentPermissionName.value = props.permissionName || ''
-    currentDescription.value = ''
+    currentDescription.value = props.permissionDescription || ''
   }
 })
 </script>
@@ -86,36 +91,41 @@ watch(() => props.isDialogVisible, visible => {
     <VCard class="pa-2 pa-sm-10">
       <VCardText>
         <h4 class="text-h4 text-center mb-2">
-          {{ props.permissionId ? 'Chỉnh sửa' : 'Thêm' }} Quyền
+          Chi tiết quyền hạn
         </h4>
         <p class="text-body-1 text-center mb-6">
-          {{ props.permissionId ? 'Cập nhật' : 'Thêm mới' }} quyền truy cập.
+          Xem mã hệ thống và cập nhật mô tả chức năng.
         </p>
 
         <VForm @submit.prevent="onSubmit">
           <VAlert
-            type="warning"
-            title="Lưu ý!"
+            type="info"
+            title="Lưu ý"
             variant="tonal"
             class="mb-6"
           >
             <template #text>
-              Việc {{ props.permissionId ? 'sửa' : 'thêm' }} quyền có thể ảnh hưởng đến phân quyền hệ thống.
+              Mã quyền là cố định. Bạn có thể tự do chỉnh sửa <b>Mô tả</b> để giải thích chi tiết chức năng này cho các Admin khác hiểu.
             </template>
           </VAlert>
 
           <AppTextField
             v-model="currentPermissionName"
-            label="Tên quyền"
+            label="Mã quyền hệ thống (Không được sửa)"
             placeholder="Ví dụ: users.create"
             class="mb-4"
+            disabled
+            hint="Mã này kết nối trực tiếp với Database & Mã nguồn."
+            persistent-hint
           />
 
-          <AppTextField
+          <AppTextarea
             v-model="currentDescription"
-            label="Mô tả"
-            placeholder="Mô tả quyền..."
-            class="mb-6"
+            label="Mô tả chức năng"
+            placeholder="Mô tả cụ thể quyền này dùng để làm gì cho người dùng biết (Ví dụ: Cho phép kế toán xem biểu đồ...)"
+            class="mb-6 mt-4"
+            rows="3"
+            auto-grow
           />
 
           <div class="d-flex gap-4 justify-center">

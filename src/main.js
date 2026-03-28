@@ -21,13 +21,13 @@ app.mount('#app')
 
 // Dọn dẹp Mock Service Worker trên trình duyệt khách nếu nó còn tồn tại (cho an toàn triệt để)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
     for (let registration of registrations) {
       if (registration.active?.scriptURL.includes('mockServiceWorker')) {
         registration.unregister().then(() => {
-          console.log('MSW (Mock Service Worker) has been successfully unregistered.');
-        });
+          console.log('MSW (Mock Service Worker) has been successfully unregistered.')
+        })
       }
     }
-  });
+  })
 }

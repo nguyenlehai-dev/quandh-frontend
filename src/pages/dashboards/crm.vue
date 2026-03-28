@@ -51,8 +51,10 @@ const totalLogs = computed(() => logsData.value?.meta?.total ?? 0)
 // Fetch stats
 const statsUrl = computed(() => {
   const params = { ...queryParams.value }
+
   delete params.page
   delete params.limit
+  
   return createUrl('/log-activities/stats', { query: params }).value
 })
 
@@ -61,6 +63,7 @@ const { data: statsData, isFetching: statsLoading } = await useApi(statsUrl)
 // Compute stat cards from API
 const statCards = computed(() => {
   const stats = statsData.value?.data || statsData.value || {}
+  
   return [
     {
       title: 'Số lượt thao tác xem',
@@ -96,12 +99,12 @@ const statCards = computed(() => {
 // Fetch Options for filters (mock since endpoints may not exist yet)
 const userOptions = ref([
   { label: 'Quản trị hệ thống', value: 1 },
-  { label: 'Nguyễn Lê Hải', value: 2 }
+  { label: 'Nguyễn Lê Hải', value: 2 },
 ])
 
 const orgOptions = ref([
   { label: 'Thành phố Đà Nẵng', value: 1 },
-  { label: 'Sở Thông tin', value: 2 }
+  { label: 'Sở Thông tin', value: 2 },
 ])
 
 // Headers for DataTable
@@ -115,25 +118,25 @@ const headers = [
 ]
 
 // Handlers
-const getMethodColor = (method) => {
+const getMethodColor = method => {
   switch (method) {
-    case 'GET': return 'info'
-    case 'POST': return 'success'
-    case 'PUT':
-    case 'PATCH': return 'warning'
-    case 'DELETE': return 'error'
-    default: return 'primary'
+  case 'GET': return 'info'
+  case 'POST': return 'success'
+  case 'PUT':
+  case 'PATCH': return 'warning'
+  case 'DELETE': return 'error'
+  default: return 'primary'
   }
 }
 
-const getMethodLabel = (method) => {
+const getMethodLabel = method => {
   switch (method) {
-    case 'GET': return 'Xem'
-    case 'POST': return 'Thêm mới'
-    case 'PUT':
-    case 'PATCH': return 'Cập nhật'
-    case 'DELETE': return 'Xóa'
-    default: return method || 'Khác'
+  case 'GET': return 'Xem'
+  case 'POST': return 'Thêm mới'
+  case 'PUT':
+  case 'PATCH': return 'Cập nhật'
+  case 'DELETE': return 'Xóa'
+  default: return method || 'Khác'
   }
 }
 
@@ -199,9 +202,14 @@ const clearFilters = () => {
         <VCardTitle>Nhật ký hoạt động toàn bộ hệ thống</VCardTitle>
       </VCardItem>
       <VCardText class="pt-4">
-        <div class="text-subtitle-1 font-weight-bold mb-4">Bộ lọc</div>
+        <div class="text-subtitle-1 font-weight-bold mb-4">
+          Bộ lọc
+        </div>
         <VRow>
-          <VCol cols="12" md="3">
+          <VCol
+            cols="12"
+            md="3"
+          >
             <AppAutocomplete
               v-model="filters.user_id"
               :items="userOptions"
@@ -212,7 +220,10 @@ const clearFilters = () => {
               clearable
             />
           </VCol>
-          <VCol cols="12" md="3">
+          <VCol
+            cols="12"
+            md="3"
+          >
             <AppAutocomplete
               v-model="filters.organization_id"
               :items="orgOptions"
@@ -223,7 +234,10 @@ const clearFilters = () => {
               clearable
             />
           </VCol>
-          <VCol cols="12" md="3">
+          <VCol
+            cols="12"
+            md="3"
+          >
             <AppDateTimePicker
               v-model="filters.date_range"
               label="Khoảng thời gian"
@@ -232,7 +246,10 @@ const clearFilters = () => {
               clearable
             />
           </VCol>
-          <VCol cols="12" md="3">
+          <VCol
+            cols="12"
+            md="3"
+          >
             <AppSelect
               v-model="filters.method"
               :items="methodOptions"
@@ -241,7 +258,10 @@ const clearFilters = () => {
               clearable
             />
           </VCol>
-          <VCol cols="12" class="d-flex justify-end gap-3 mt-4">
+          <VCol
+            cols="12"
+            class="d-flex justify-end gap-3 mt-4"
+          >
             <VBtn
               variant="tonal"
               color="primary"
@@ -279,7 +299,11 @@ const clearFilters = () => {
 
         <template #item.user_name="{ item }">
           <div class="d-flex align-center gap-2">
-            <VAvatar size="32" color="primary" variant="tonal">
+            <VAvatar
+              size="32"
+              color="primary"
+              variant="tonal"
+            >
               <span>{{ item.user_name?.charAt(0)?.toUpperCase() || 'H' }}</span>
             </VAvatar>
             <div class="d-flex flex-column">

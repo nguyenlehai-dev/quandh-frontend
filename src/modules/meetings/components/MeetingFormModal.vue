@@ -179,8 +179,14 @@ const submitForm = async actionType => {
     scrollable
     transition="dialog-bottom-transition"
   >
-    <VCard class="d-flex flex-column" style="height: 90vh;">
-      <VCardItem class="pb-0 border-b bg-surface" style="z-index: 10;">
+    <VCard
+      class="d-flex flex-column"
+      style="height: 90vh;"
+    >
+      <VCardItem
+        class="pb-0 border-b bg-surface"
+        style="z-index: 10;"
+      >
         <div class="d-flex align-center justify-space-between w-100">
           <VCardTitle class="text-h4 font-weight-bold">
             {{ isEditMode ? 'Chỉnh sửa cuộc họp' : 'Thêm mới cuộc họp' }}
@@ -192,70 +198,153 @@ const submitForm = async actionType => {
             size="small"
             @click="isDialogVisible = false"
           >
-            <VIcon icon="tabler-x" size="24" />
+            <VIcon
+              icon="tabler-x"
+              size="24"
+            />
           </VBtn>
         </div>
         
-        <VTabs v-model="activeTab" class="mt-4">
-          <VTab value="general">Thông tin chung</VTab>
-          <VTab value="agenda">Chương trình</VTab>
-          <VTab value="participants">Thành phần tham dự</VTab>
-          <VTab v-if="isEditMode" value="documents">Tài liệu đính kèm</VTab>
+        <VTabs
+          v-model="activeTab"
+          class="mt-4"
+        >
+          <VTab value="general">
+            Thông tin chung
+          </VTab>
+          <VTab value="agenda">
+            Chương trình
+          </VTab>
+          <VTab value="participants">
+            Thành phần tham dự
+          </VTab>
+          <VTab
+            v-if="isEditMode"
+            value="documents"
+          >
+            Tài liệu đính kèm
+          </VTab>
         </VTabs>
       </VCardItem>
 
-      <VCardText class="pa-6" style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; background-color: rgb(var(--v-theme-background));">
-        <div v-if="loading && isEditMode" class="d-flex justify-center align-center h-100">
-          <VProgressCircular indeterminate color="primary" size="48" />
+      <VCardText
+        class="pa-6"
+        style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; background-color: rgb(var(--v-theme-background));"
+      >
+        <div
+          v-if="loading && isEditMode"
+          class="d-flex justify-center align-center h-100"
+        >
+          <VProgressCircular
+            indeterminate
+            color="primary"
+            size="48"
+          />
         </div>
         
-        <VWindow v-else v-model="activeTab" :touch="false" :transition="false" :reverse-transition="false">
+        <VWindow
+          v-else
+          v-model="activeTab"
+          :touch="false"
+          :transition="false"
+          :reverse-transition="false"
+        >
           <!-- General Tab -->
           <VWindowItem value="general">
             <VRow>
-              <VCol cols="12" lg="8">
+              <VCol
+                cols="12"
+                lg="8"
+              >
                 <div class="meeting-section-card">
                   <div class="meeting-section-header">
                     <div class="meeting-section-title">
-                      <VIcon icon="tabler-info-circle" class="section-icon" />
+                      <VIcon
+                        icon="tabler-info-circle"
+                        class="section-icon"
+                      />
                       Thông tin chung
                     </div>
                   </div>
                   <div class="pa-5">
                     <VRow>
                       <VCol cols="12">
-                        <div class="text-body-2 font-weight-medium mb-1">Tên cuộc họp (*)</div>
-                        <AppTextField v-model="formData.title" placeholder="Nhập tên cuộc họp" />
+                        <div class="text-body-2 font-weight-medium mb-1">
+                          Tên cuộc họp (*)
+                        </div>
+                        <AppTextField
+                          v-model="formData.title"
+                          placeholder="Nhập tên cuộc họp"
+                        />
                       </VCol>
-                      <VCol cols="12" md="6">
-                        <div class="text-body-2 font-weight-medium mb-1">Ngày bắt đầu (*)</div>
-                        <AppTextField v-model="formData.start_at" type="datetime-local" placeholder="Chọn ngày" />
+                      <VCol
+                        cols="12"
+                        md="6"
+                      >
+                        <div class="text-body-2 font-weight-medium mb-1">
+                          Ngày bắt đầu (*)
+                        </div>
+                        <AppTextField
+                          v-model="formData.start_at"
+                          type="datetime-local"
+                          placeholder="Chọn ngày"
+                        />
                       </VCol>
-                      <VCol cols="12" md="6">
-                        <div class="text-body-2 font-weight-medium mb-1">Ngày kết thúc (*)</div>
-                        <AppTextField v-model="formData.end_at" type="datetime-local" placeholder="Chọn ngày" />
+                      <VCol
+                        cols="12"
+                        md="6"
+                      >
+                        <div class="text-body-2 font-weight-medium mb-1">
+                          Ngày kết thúc (*)
+                        </div>
+                        <AppTextField
+                          v-model="formData.end_at"
+                          type="datetime-local"
+                          placeholder="Chọn ngày"
+                        />
                       </VCol>
                       <VCol cols="12">
-                        <div class="text-body-2 font-weight-medium mb-1">Nội dung tóm tắt</div>
-                        <AppTextarea v-model="formData.description" rows="4" placeholder="Nhập nội dung tóm tắt..." />
+                        <div class="text-body-2 font-weight-medium mb-1">
+                          Nội dung tóm tắt
+                        </div>
+                        <AppTextarea
+                          v-model="formData.description"
+                          rows="4"
+                          placeholder="Nhập nội dung tóm tắt..."
+                        />
                       </VCol>
                     </VRow>
                   </div>
                 </div>
               </VCol>
 
-              <VCol cols="12" lg="4">
+              <VCol
+                cols="12"
+                lg="4"
+              >
                 <div class="meeting-section-card">
                   <div class="meeting-section-header">
                     <div class="meeting-section-title">
-                      <VIcon icon="tabler-map-pin" class="section-icon" style="color: #f97316;" />
+                      <VIcon
+                        icon="tabler-map-pin"
+                        class="section-icon"
+                        style="color: #f97316;"
+                      />
                       Địa điểm & Trạng thái
                     </div>
                   </div>
                   <div class="pa-5">
-                    <div class="text-body-2 font-weight-medium mb-1">Địa điểm (*)</div>
-                    <AppTextField v-model="formData.location" placeholder="Phòng họp giao ban" class="mb-5" />
-                    <div class="text-body-2 font-weight-medium mb-1">Trạng thái</div>
+                    <div class="text-body-2 font-weight-medium mb-1">
+                      Địa điểm (*)
+                    </div>
+                    <AppTextField
+                      v-model="formData.location"
+                      placeholder="Phòng họp giao ban"
+                      class="mb-5"
+                    />
+                    <div class="text-body-2 font-weight-medium mb-1">
+                      Trạng thái
+                    </div>
                     <AppSelect
                       v-model="formData.status"
                       :items="[
@@ -277,7 +366,11 @@ const submitForm = async actionType => {
             <div class="meeting-section-card">
               <div class="meeting-section-header">
                 <div class="meeting-section-title">
-                  <VIcon icon="tabler-list-details" class="section-icon" style="color: #3b82f6;" />
+                  <VIcon
+                    icon="tabler-list-details"
+                    class="section-icon"
+                    style="color: #3b82f6;"
+                  />
                   Chương trình cuộc họp
                 </div>
               </div>
@@ -302,8 +395,13 @@ const submitForm = async actionType => {
                       {{ index + 1 }}
                     </div>
                     <VRow class="flex-grow-1">
-                      <VCol cols="12" md="3">
-                        <div class="text-caption text-disabled mb-1">Bắt đầu</div>
+                      <VCol
+                        cols="12"
+                        md="3"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Bắt đầu
+                        </div>
                         <AppTextField
                           v-model="agenda.start_time"
                           type="time"
@@ -311,8 +409,13 @@ const submitForm = async actionType => {
                           placeholder="Chọn giờ"
                         />
                       </VCol>
-                      <VCol cols="12" md="3">
-                        <div class="text-caption text-disabled mb-1">Kết thúc</div>
+                      <VCol
+                        cols="12"
+                        md="3"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Kết thúc
+                        </div>
                         <AppTextField
                           v-model="agenda.end_time"
                           type="time"
@@ -320,16 +423,26 @@ const submitForm = async actionType => {
                           placeholder="Chọn giờ"
                         />
                       </VCol>
-                      <VCol cols="12" md="3">
-                        <div class="text-caption text-disabled mb-1">Nội dung</div>
+                      <VCol
+                        cols="12"
+                        md="3"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Nội dung
+                        </div>
                         <AppTextField
                           v-model="agenda.title"
                           density="compact"
                           placeholder="Nhập nội dung..."
                         />
                       </VCol>
-                      <VCol cols="12" md="3">
-                        <div class="text-caption text-disabled mb-1">Người phụ trách</div>
+                      <VCol
+                        cols="12"
+                        md="3"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Người phụ trách
+                        </div>
                         <AppTextField
                           v-model="agenda.presenter_name"
                           density="compact"
@@ -337,13 +450,20 @@ const submitForm = async actionType => {
                         />
                       </VCol>
                     </VRow>
-                    <IconBtn color="error" @click="removeAgendaItem(index)">
+                    <IconBtn
+                      color="error"
+                      @click="removeAgendaItem(index)"
+                    >
                       <VIcon icon="tabler-trash" />
                     </IconBtn>
                   </div>
                 </template>
 
-                <VAlert v-else type="info" variant="tonal">
+                <VAlert
+                  v-else
+                  type="info"
+                  variant="tonal"
+                >
                   Chưa có chương trình họp. Nhấn "Thêm Chương Trình" để bắt đầu.
                 </VAlert>
               </div>
@@ -352,19 +472,29 @@ const submitForm = async actionType => {
 
           <!-- Participants Tab -->
           <VWindowItem value="participants">
-           <div class="meeting-section-card">
+            <div class="meeting-section-card">
               <div class="meeting-section-header">
                 <div class="meeting-section-title">
-                  <VIcon icon="tabler-users-group" class="section-icon" style="color: #8b5cf6;" />
+                  <VIcon
+                    icon="tabler-users-group"
+                    class="section-icon"
+                    style="color: #8b5cf6;"
+                  />
                   Thành phần tham dự
                 </div>
               </div>
 
-              <div v-if="isEditMode" class="pa-5">
+              <div
+                v-if="isEditMode"
+                class="pa-5"
+              >
                 <MeetingAttendeesTab :meeting-id="props.meetingId" />
               </div>
 
-              <div v-else class="pa-5">
+              <div
+                v-else
+                class="pa-5"
+              >
                 <VBtn
                   class="mb-4"
                   variant="outlined"
@@ -385,16 +515,26 @@ const submitForm = async actionType => {
                       {{ index + 1 }}
                     </div>
                     <VRow class="flex-grow-1">
-                      <VCol cols="12" md="4">
-                        <div class="text-caption text-disabled mb-1">Họ và tên</div>
+                      <VCol
+                        cols="12"
+                        md="4"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Họ và tên
+                        </div>
                         <AppTextField
                           v-model="attendee.name"
                           density="compact"
                           placeholder="Ví dụ: Nguyễn Văn A"
                         />
                       </VCol>
-                      <VCol cols="12" md="4">
-                        <div class="text-caption text-disabled mb-1">Chức vụ / Vị trí</div>
+                      <VCol
+                        cols="12"
+                        md="4"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Chức vụ / Vị trí
+                        </div>
                         <AppSelect
                           v-model="attendee.position"
                           :items="[
@@ -406,8 +546,13 @@ const submitForm = async actionType => {
                           density="compact"
                         />
                       </VCol>
-                      <VCol cols="12" md="4">
-                        <div class="text-caption text-disabled mb-1">Kiểu đại biểu</div>
+                      <VCol
+                        cols="12"
+                        md="4"
+                      >
+                        <div class="text-caption text-disabled mb-1">
+                          Kiểu đại biểu
+                        </div>
                         <AppSelect
                           v-model="attendee.type"
                           :items="[
@@ -418,13 +563,20 @@ const submitForm = async actionType => {
                         />
                       </VCol>
                     </VRow>
-                    <IconBtn color="error" @click="removeAttendeeItem(index)">
+                    <IconBtn
+                      color="error"
+                      @click="removeAttendeeItem(index)"
+                    >
                       <VIcon icon="tabler-trash" />
                     </IconBtn>
                   </div>
                 </template>
 
-                <VAlert v-else type="info" variant="tonal">
+                <VAlert
+                  v-else
+                  type="info"
+                  variant="tonal"
+                >
                   Chưa có thành phần tham dự. Nhấn "Thêm Người" để bắt đầu.
                 </VAlert>
               </div>
@@ -432,14 +584,25 @@ const submitForm = async actionType => {
           </VWindowItem>
 
           <!-- Documents Tab -->
-          <VWindowItem v-if="isEditMode" value="documents">
+          <VWindowItem
+            v-if="isEditMode"
+            value="documents"
+          >
             <div class="meeting-section-card">
               <div class="meeting-section-header">
                 <div class="meeting-section-title">
-                  <VIcon icon="tabler-paperclip" class="section-icon" style="color: #10b981;" />
+                  <VIcon
+                    icon="tabler-paperclip"
+                    class="section-icon"
+                    style="color: #10b981;"
+                  />
                   Tài liệu đính kèm
                 </div>
-                <VBtn size="small" variant="outlined" prepend-icon="tabler-plus">
+                <VBtn
+                  size="small"
+                  variant="outlined"
+                  prepend-icon="tabler-plus"
+                >
                   Thêm Tài Liệu
                 </VBtn>
               </div>

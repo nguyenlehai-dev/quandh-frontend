@@ -39,6 +39,7 @@ const fetchPermissions = async () => {
         id: p.id,
         name: p.name,
         description: p.description || p.name,
+        parentId: p.parent_id,
         checked: false,
       }))
   }
@@ -54,7 +55,13 @@ const fetchPermissions = async () => {
 const isSelectAll = ref(false)
 const role = ref('')
 const roleId = ref(null)
+const roleScope = ref('admin')
 const refPermissionForm = ref()
+
+const scopeOptions = [
+  { title: 'Trong quản trị', value: 'admin' },
+  { title: 'Ngoài quản trị', value: 'user' },
+]
 
 const checkedCount = computed(() => allPermissions.value.filter(p => p.checked).length)
 const isIndeterminate = computed(() => checkedCount.value > 0 && checkedCount.value < allPermissions.value.length)
@@ -76,31 +83,134 @@ watch(() => checkedCount.value, count => {
     isSelectAll.value = true
 })
 
+// ─── Preset permissions per scope ────────────────
+// "Trong quản trị" → tất cả quyền quản trị hệ thống
+// "Ngoài quản trị" → chỉ quyền xem nội dung cơ bản
+const scopePresets = {
+  admin: {
+    // Các nhóm được tick TẤT CẢ quyền
+    fullGroups: ['users', 'roles', 'organizations', 'permissions', 'settings', 'log-activities'],
+
+    // Các nhóm chỉ tick quyền đọc (index, show, stats)
+    readGroups: ['meetings', 'posts', 'documents', 'document-types', 'post-categories'],
+  },
+  user: {
+    fullGroups: [],
+    readGroups: ['meetings', 'posts', 'documents', 'post-categories'],
+  },
+}
+
+const readActions = ['index', 'show', 'stats']
+
+const applyScopePreset = scope => {
+  const preset = scopePresets[scope]
+  if (!preset) return
+
+  allPermissions.value.forEach(p => {
+    const dotIndex = p.name.indexOf('.')
+    const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
+    const action = dotIndex > -1 ? p.name.substring(dotIndex + 1) : ''
+
+    if (preset.fullGroups.includes(prefix)) {
+      p.checked = true
+    }
+    else if (preset.readGroups.includes(prefix)) {
+      p.checked = readActions.includes(action)
+    }
+    else {
+      p.checked = false
+    }
+  })
+}
+
+// Watch scope change — only apply preset for NEW roles (not editing)
+watch(roleScope, newScope => {
+  if (!roleId.value && allPermissions.value.length > 0) {
+    applyScopePreset(newScope)
+  }
+})
+
+// ─── Vietnamese label map for permission groups ─────
+const groupLabelMap = {
+  users: 'Quản lý người dùng',
+  roles: 'Quản lý vai trò',
+  organizations: 'Quản lý tổ chức',
+  permissions: 'Quản lý quyền hạn',
+  posts: 'Quản lý tin tức',
+  settings: 'Quản lý cấu hình',
+  'log-activities': 'Quản lý nhật ký',
+  'report-periods': 'Quản lý đợt báo cáo',
+  'report-templates': 'Quản lý mẫu báo cáo',
+  reports: 'Quản lý danh sách báo cáo',
+  meetings: 'Quản lý cuộc họp',
+  documents: 'Quản lý tài liệu',
+  'document-types': 'Quản lý loại tài liệu',
+  'post-categories': 'Quản lý danh mục tin tức',
+  'issuing-agencies': 'Quản lý cơ quan ban hành',
+  'issuing-levels': 'Quản lý cấp ban hành',
+  'document-signers': 'Quản lý người ký',
+  'document-fields': 'Quản lý lĩnh vực',
+}
+
+// ─── Vietnamese label map for permission actions ─────
+const actionLabelMap = {
+  index: 'Truy cập danh sách',
+  show: 'Xem chi tiết',
+  store: 'Tạo mới',
+  update: 'Cập nhật',
+  destroy: 'Xóa',
+  stats: 'Thống kê',
+  import: 'Nhập dữ liệu',
+  export: 'Xuất dữ liệu',
+  bulkDestroy: 'Xóa hàng loạt',
+  bulkUpdateStatus: 'Cập nhật trạng thái hàng loạt',
+  review: 'Xem xét',
+  approve: 'Phê duyệt',
+  reject: 'Từ chối',
+  assignPermissions: 'Phân quyền',
+}
+
 // Tree/Group logic
 const permissionGroups = computed(() => {
   const groups = {}
+
   allPermissions.value.forEach(p => {
-    const prefix = p.name.split('.')[0]
+    // Split "users.index" → prefix="users", action="index"
+    const dotIndex = p.name.indexOf('.')
+    const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
+    const action = dotIndex > -1 ? p.name.substring(dotIndex + 1) : ''
+
     if (!groups[prefix]) {
-      const label = p.description.includes(' - ') ? p.description.split(' - ')[0] : prefix
       groups[prefix] = {
         name: prefix,
-        label,
-        permissions: []
+        label: groupLabelMap[prefix] || (p.description.includes(' - ') ? p.description.split(' - ')[0] : prefix),
+        permissions: [],
       }
     }
+
+    // Build a nice Vietnamese description for each permission
+    const groupLabel = groups[prefix].label
+    const actionLabel = actionLabelMap[action] || (p.description.includes(' - ') ? p.description.split(' - ').slice(1).join(' - ') : p.description)
+
+    // Build the full description like "Truy cập danh sách người dùng"
+    const groupNoun = groupLabel.replace(/^Quản lý\s*/i, '')
+
+    p.displayLabel = `${actionLabel} ${groupNoun}`.trim()
+
     groups[prefix].permissions.push(p)
   })
+
   return Object.values(groups)
 })
 
-const isGroupChecked = (group) => {
+const isGroupChecked = group => {
   return group.permissions.length > 0 && group.permissions.every(p => p.checked)
 }
 
-const isGroupIndeterminate = (group) => {
-  const checkedCount = group.permissions.filter(p => p.checked).length
-  return checkedCount > 0 && checkedCount < group.permissions.length
+const isGroupIndeterminate = group => {
+  const checked = group.permissions.filter(p => p.checked).length
+
+  return checked > 0 && checked < group.permissions.length
 }
 
 const toggleGroup = (group, val) => {
@@ -113,9 +223,10 @@ watch(() => props.isDialogVisible, async visible => {
     await fetchPermissions()
 
     if (props.rolePermissions?.name) {
-      // Edit mode — populate existing data
+      // Edit mode
       role.value = props.rolePermissions.name
       roleId.value = props.rolePermissions.id
+      roleScope.value = props.rolePermissions.scope || 'admin'
 
       const existingNames = (props.rolePermissions.permissions || []).map(p => p.name || p)
 
@@ -124,12 +235,11 @@ watch(() => props.isDialogVisible, async visible => {
       })
     }
     else {
-      // Add mode — reset
+      // Add mode — apply default preset
       role.value = ''
       roleId.value = null
-      allPermissions.value.forEach(p => {
-        p.checked = false
-      })
+      roleScope.value = 'admin'
+      applyScopePreset('admin')
     }
   }
 })
@@ -142,21 +252,23 @@ const onSubmit = async () => {
     const selectedIds = allPermissions.value.filter(p => p.checked).map(p => p.id)
 
     if (roleId.value) {
-      // Update
       await $api(`/roles/${roleId.value}`, {
         method: 'PUT',
         body: {
           name: role.value,
+          scope: roleScope.value,
+          // eslint-disable-next-line camelcase
           permission_ids: selectedIds,
         },
       })
     }
     else {
-      // Create
       await $api('/roles', {
         method: 'POST',
         body: {
           name: role.value,
+          scope: roleScope.value,
+          // eslint-disable-next-line camelcase
           permission_ids: selectedIds,
         },
       })
@@ -186,28 +298,67 @@ const onReset = () => {
   <VDialog
     :width="$vuetify.display.smAndDown ? 'auto' : 900"
     :model-value="props.isDialogVisible"
+    scrollable
     @update:model-value="onReset"
   >
     <DialogCloseBtn @click="onReset" />
 
-    <VCard class="pa-sm-10 pa-2">
-      <VCardText>
-        <h4 class="text-h4 text-center mb-2">
-          {{ roleId ? 'Chỉnh sửa' : 'Thêm' }} Vai trò
-        </h4>
-        <p class="text-body-1 text-center mb-6">
-          Thiết lập quyền cho vai trò
-        </p>
-
-        <VForm ref="refPermissionForm">
-          <AppTextField
-            v-model="role"
-            label="Tên vai trò"
-            placeholder="Nhập tên vai trò"
+    <VCard>
+      <!-- ─── Header ─────────────────────────────── -->
+      <VCardTitle class="d-flex align-center justify-center flex-column pt-8 pb-4">
+        <VAvatar
+          color="info"
+          variant="tonal"
+          size="48"
+          class="mb-3"
+        >
+          <VIcon
+            icon="tabler-shield-check"
+            size="26"
           />
+        </VAvatar>
+        <h4 class="text-h4 text-uppercase font-weight-bold">
+          {{ roleId ? 'CHỈNH SỬA VAI TRÒ' : 'TẠO MỚI VAI TRÒ' }}
+        </h4>
+        <span class="text-body-2 text-disabled mt-1">Phân quyền</span>
+      </VCardTitle>
 
-          <h5 class="text-h5 my-6">
-            Danh sách quyền
+      <VDivider />
+
+      <!-- ─── Scrollable body ────────────────────── -->
+      <VCardText
+        class="pt-6"
+        style="max-block-size: 65vh; overflow-y: auto;"
+      >
+        <VForm ref="refPermissionForm">
+          <!-- ─── Role name + Scope ─────────────── -->
+          <VRow class="mb-6">
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppTextField
+                v-model="role"
+                label="Tên vai trò"
+                placeholder="Nhập tên vai trò"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppSelect
+                v-model="roleScope"
+                :items="scopeOptions"
+                label="Vai trò dành cho"
+                placeholder="Chọn phạm vi"
+              />
+            </VCol>
+          </VRow>
+
+          <!-- ─── Permission section ────────────── -->
+          <h5 class="text-h5 font-weight-bold mb-4">
+            Phân quyền
           </h5>
 
           <VProgressLinear
@@ -216,111 +367,105 @@ const onReset = () => {
             class="mb-4"
           />
 
-          <VTable
-            v-else
-            class="permission-table text-no-wrap mb-6"
-          >
-            <tr>
-              <td>
-                <h6 class="text-h6">
-                  Chọn tất cả
-                </h6>
-              </td>
-              <td>
-                <div class="d-flex justify-end">
-                  <VCheckbox
-                    v-model="isSelectAll"
-                    v-model:indeterminate="isIndeterminate"
-                    label="Tất cả"
-                  />
-                </div>
-              </td>
-            </tr>
+          <template v-else>
+            <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
+              <span class="text-h6 font-weight-bold">Quyền Quản trị viên</span>
+              <VCheckbox
+                v-model="isSelectAll"
+                :indeterminate="isIndeterminate"
+                label="Chọn tất cả"
+                hide-details
+                density="compact"
+              />
+            </div>
 
-            <template
+            <!-- Permission groups -->
+            <div
               v-for="group in permissionGroups"
               :key="group.name"
+              class="role-perm-group mb-6"
             >
-              <tr class="bg-var-theme-background bg-opacity-50">
-                <td>
-                  <h6 class="text-h6 text-primary">
-                    {{ group.label }}
-                  </h6>
-                  <span class="text-caption text-disabled">{{ group.name }}</span>
-                </td>
-                <td>
-                  <div class="d-flex justify-end">
-                    <VCheckbox
-                      :model-value="isGroupChecked(group)"
-                      :indeterminate="isGroupIndeterminate(group)"
-                      label="Chọn nhóm"
-                      @update:model-value="toggleGroup(group, $event)"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr
-                v-for="permission in group.permissions"
-                :key="permission.id"
-              >
-                <td class="pl-8">
-                  <div class="d-flex align-center">
-                    <VIcon icon="tabler-corner-down-right" size="16" class="me-2 text-disabled" />
-                    <div>
-                      <h6 class="text-h6">
-                        {{ permission.description.includes(' - ') ? permission.description.split(' - ')[1] : permission.description }}
-                      </h6>
-                      <span class="text-caption text-disabled">{{ permission.name }}</span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="d-flex justify-end">
-                    <VCheckbox v-model="permission.checked" />
-                  </div>
-                </td>
-              </tr>
-            </template>
-          </VTable>
+              <!-- Group header -->
+              <div class="d-flex align-center justify-space-between mb-3 bg-var-theme-background">
+                <h6 class="text-h6 font-weight-bold">
+                  {{ group.label }}
+                </h6>
+                <VCheckbox
+                  :model-value="isGroupChecked(group)"
+                  :indeterminate="isGroupIndeterminate(group)"
+                  label="Chọn tất cả"
+                  hide-details
+                  density="compact"
+                  @update:model-value="toggleGroup(group, $event)"
+                />
+              </div>
 
-          <div class="d-flex align-center justify-center gap-4">
-            <VBtn
-              :loading="saving"
-              @click="onSubmit"
-            >
-              {{ roleId ? 'Cập nhật' : 'Tạo mới' }}
-            </VBtn>
+              <!-- Permissions grid (2 columns) -->
+              <VRow dense>
+                <VCol
+                  v-for="permission in group.permissions"
+                  :key="permission.id"
+                  cols="12"
+                  sm="6"
+                  class="py-1"
+                >
+                  <VCheckbox
+                    v-model="permission.checked"
+                    :label="permission.displayLabel"
+                    hide-details
+                    density="compact"
+                    class="ms-2"
+                  />
+                </VCol>
+              </VRow>
 
-            <VBtn
-              color="secondary"
-              variant="tonal"
-              @click="onReset"
-            >
-              Hủy
-            </VBtn>
-          </div>
+              <VDivider class="mt-5" />
+            </div>
+          </template>
         </VForm>
       </VCardText>
+
+      <!-- ─── Actions ────────────────────────────── -->
+      <VDivider />
+      <VCardActions class="pa-4 d-flex justify-center gap-4">
+        <VBtn
+          color="primary"
+          :loading="saving"
+          min-width="120"
+          @click="onSubmit"
+        >
+          <VIcon
+            icon="tabler-check"
+            class="me-1"
+          />
+          {{ roleId ? 'Cập nhật' : 'Tạo mới' }}
+        </VBtn>
+
+        <VBtn
+          color="secondary"
+          variant="tonal"
+          min-width="120"
+          @click="onReset"
+        >
+          Hủy
+        </VBtn>
+      </VCardActions>
     </VCard>
   </VDialog>
 </template>
 
 <style lang="scss">
-.permission-table {
-  td {
-    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    padding-block: 0.5rem;
+.role-perm-header {
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  background: rgba(var(--v-theme-primary), 0.08);
+}
 
-    .v-checkbox {
-      min-inline-size: 4.75rem;
-    }
-
-    &:not(:first-child) {
-      padding-inline: 0.5rem;
-    }
-
+.role-perm-group {
+  .v-checkbox {
     .v-label {
-      white-space: nowrap;
+      color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+      font-size: 0.875rem;
+      white-space: normal;
     }
   }
 }

@@ -192,13 +192,17 @@ const onOrgSubmit = () => {
             <VAlert
               color="primary"
               variant="tonal"
+              class="text-sm"
             >
-              <p class="text-sm mb-2">
-                Admin Email: <strong>admin@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
-              </p>
-              <p class="text-sm mb-0">
-                Basic Email: <strong>basic@example.com</strong> / Mật khẩu: <strong>quandcore**11</strong>
-              </p>
+              <div class="font-weight-medium mb-1">
+                Tài khoản trải nghiệm (Mật khẩu: <strong>quandcore**11</strong>)
+              </div>
+              <ul style="padding-inline-start: 1.5rem;">
+                <li>Super Admin: <strong>admin@example.com</strong></li>
+                <li>Admin: <strong>admin2@example.com</strong></li>
+                <li>Editor: <strong>editor@example.com</strong></li>
+                <li>Vai trò mẫu: <strong>basic@example.com</strong></li>
+              </ul>
             </VAlert>
           </VCardText>
           <VCardText>

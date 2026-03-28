@@ -20,7 +20,10 @@ import { VerticalNavLayout } from '@layouts'
   <VerticalNavLayout :nav-items="navItems">
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div class="d-flex h-100 align-center" style="gap: 4px;">
+      <div
+        class="d-flex h-100 align-center"
+        style="gap: 4px;"
+      >
         <IconBtn
           id="vertical-nav-toggle-btn"
           class="ms-n3 d-lg-none"
