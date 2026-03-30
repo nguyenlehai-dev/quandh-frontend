@@ -1,259 +1,133 @@
-# Phân tích chức năng các Module
+# Frontend Modules Analysis
 
-> Tài liệu mô tả chi tiết chức năng, mục đích, và phạm vi hoạt động của từng module trong hệ thống.
+Tai lieu nay duoc tu dong sinh tu `module.meta.js` trong tung module frontend.
 
----
+## Nhom business
 
-## 1. User — Quản lý người dùng
+### Meetings
 
-**Mục đích**: Quản lý toàn bộ lifecycle của user trong hệ thống.
+Path:
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách user | Hiển thị bảng có phân trang, filter theo role/status/plan, tìm kiếm theo tên/email |
-| Tạo user | Form tạo mới với validate email, gán role, plan |
-| Sửa user | Cập nhật thông tin, đổi role/plan |
-| Xóa user | Xóa với xác nhận, kiểm tra ràng buộc |
-| Đổi trạng thái | Active / Pending / Inactive |
-| Xuất Excel | Export danh sách user theo bộ lọc hiện tại |
+- [src/modules/meetings](/e:/Danatec/Projects/quandh-frontend/src/modules/meetings)
 
-**Trạng thái**: `active` (Đang hoạt động), `pending` (Chờ duyệt), `inactive` (Ngưng hoạt động)  
-**Quyền**: `user.view`, `user.create`, `user.edit`, `user.delete`, `user.export`
+Muc dich:
 
----
+- Quan ly nghiep vu hop khong giay, participant flow, tai lieu, bieu quyet va ket luan.
 
-## 2. Roles — Quản lý vai trò
+Chuc nang chinh:
 
-**Mục đích**: Định nghĩa các vai trò (role) trong hệ thống, mỗi role chứa tập hợp quyền hạn.
+- CRUD cuoc hop
+- Quan ly participants, documents, votings, conclusions
+- Participant flow my-meetings
+- Global lists va danh muc phu tro
+- Realtime meeting updates
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách roles | Hiển thị tất cả roles với số lượng user/permissions |
-| Tạo role | Đặt tên, mô tả, chọn permissions |
-| Sửa role | Cập nhật tên, mô tả, thay đổi permissions |
-| Xóa role | Xóa role (kiểm tra còn user nào đang dùng) |
-| Gán quyền | Chọn/bỏ chọn permissions cho role |
+## Nhom auth
 
-**Quyền**: `role.view`, `role.create`, `role.edit`, `role.delete`
+### Organizations
 
----
+Path:
 
-## 3. Permissions — Quản lý quyền hạn
+- [src/modules/auth/organizations](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/organizations)
 
-**Mục đích**: Quản lý danh sách permissions (quyền) chi tiết, dùng kết hợp với CASL để phân quyền frontend.
+Muc dich:
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách permissions | Bảng permissions có phân trang |
-| Tạo permission | Định nghĩa quyền mới (action + subject) |
-| Sửa permission | Cập nhật tên, mô tả |
-| Xóa permission | Xóa quyền (kiểm tra role nào đang dùng) |
+- Quan ly cay to chuc va boi canh lam viec theo to chuc.
 
-**Quyền**: `permission.view`, `permission.create`, `permission.edit`, `permission.delete`
+Chuc nang chinh:
 
----
+- Danh sach to chuc
+- Tree organization
+- Tao, sua, xoa to chuc
+- Bulk delete va bulk status
+- Import/export Excel
 
-## 4. Ecommerce — Thương mại điện tử
+### Users
 
-**Mục đích**: Quản lý toàn bộ hoạt động thương mại: sản phẩm, đơn hàng, khách hàng.
+Path:
 
-### 4.1 Products (Sản phẩm)
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng sản phẩm có filter theo category, status, giá |
-| CRUD | Tạo/sửa/xóa sản phẩm với hình ảnh, giá, mô tả |
-| Export | Xuất Excel danh sách sản phẩm |
+- [src/modules/auth/user](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/user)
 
-### 4.2 Orders (Đơn hàng)
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng đơn hàng có filter theo trạng thái |
-| Chi tiết | Xem chi tiết đơn hàng, sản phẩm, khách hàng |
-| Đổi trạng thái | Pending → Processing → Shipped → Delivered |
-| Export | Xuất Excel |
+Muc dich:
 
-### 4.3 Customers (Khách hàng)
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng khách hàng, tìm kiếm theo tên/email |
-| CRUD | Tạo/sửa/xóa khách hàng |
+- Quan ly nguoi dung he thong, phan quyen theo to chuc va profile ca nhan.
 
-**Quyền**: `ecommerce.view`, `ecommerce.create`, `ecommerce.edit`, `ecommerce.delete`
+Chuc nang chinh:
 
----
+- Danh sach user co filter, search, sort va pagination
+- Tao, sua, xoa user
+- Bulk delete va bulk status
+- Import/export Excel
+- Profile tabs: info, trends, activity logs, notifications
 
-## 5. Invoice — Quản lý hóa đơn
+### Activity Logs
 
-**Mục đích**: Tạo, quản lý, và xuất hóa đơn cho khách hàng.
+Path:
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng hóa đơn có filter theo trạng thái thanh toán |
-| Tạo hóa đơn | Form tạo với khách hàng, items, thuế, giảm giá |
-| Sửa hóa đơn | Cập nhật nội dung, trạng thái |
-| Xóa | Xóa hóa đơn |
-| Xuất PDF | Tải file PDF hóa đơn |
-| Xuất Excel | Export danh sách |
+- [src/modules/auth/activity-logs](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/activity-logs)
 
-**Quyền**: `invoice.view`, `invoice.create`, `invoice.edit`, `invoice.delete`
+Muc dich:
 
----
+- Giam sat nhat ky thao tac cua he thong va xuat bao cao audit.
 
-## 6. Academy — Quản lý khóa học
+Chuc nang chinh:
 
-**Mục đích**: Quản lý nội dung giáo dục, khóa học online.
+- Danh sach nhat ky
+- Loc theo actor, route, action, thoi gian
+- Thong ke tong quan
+- Xuat file
+- Bulk delete
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng khóa học có filter theo category, instructor |
-| CRUD | Tạo/sửa/xóa khóa học |
-| Export | Xuất Excel |
+### Roles
 
-**Quyền**: `academy.view`, `academy.create`, `academy.edit`, `academy.delete`
+Path:
 
----
+- [src/modules/auth/roles](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/roles)
 
-## 7. Calendar — Lịch / Sự kiện
+Muc dich:
 
-**Mục đích**: Quản lý lịch trình, sự kiện, cuộc họp.
+- Quan ly vai tro va tap quyen cua tung vai tro trong he thong.
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Xem lịch | Giao diện lịch (ngày/tuần/tháng) |
-| Tạo sự kiện | Form tạo với thời gian, tiêu đề, màu sắc |
-| Sửa sự kiện | Kéo thả hoặc form chỉnh sửa |
-| Xóa sự kiện | Xóa sự kiện |
+Chuc nang chinh:
 
-**Quyền**: `calendar.view`, `calendar.create`, `calendar.edit`, `calendar.delete`
+- Danh sach role
+- Tao, sua, xoa role
+- Thong ke role
+- Import/export Excel
+- Dung chung menu voi permissions
 
----
+### Permissions
 
-## 8. Chat — Trò chuyện
+Path:
 
-**Mục đích**: Hệ thống nhắn tin realtime giữa các user.
+- [src/modules/auth/permissions](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/permissions)
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách chat | Sidebar hiển thị các cuộc trò chuyện |
-| Gửi tin nhắn | Gửi text vào cuộc trò chuyện |
-| Đánh dấu đã đọc | Tự động mark as read khi mở chat |
-| Xóa tin nhắn | Xóa tin nhắn cá nhân |
+Muc dich:
 
-**Quyền**: `chat.view`, `chat.send`
+- Quan ly danh sach permission va nhom quyen hien thi tren frontend.
 
----
+Chuc nang chinh:
 
-## 9. Email — Quản lý email
+- Danh sach permission
+- Tao, sua, xoa permission
+- Tree permission
+- Thong ke
+- Import/export Excel
+- Tu quan ly navigation item cua module permissions
 
-**Mục đích**: Giao diện email client tích hợp (inbox, sent, draft, trash).
+### System Settings
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Inbox | Danh sách email đến |
-| Gửi email | Compose email mới |
-| Đọc email | Xem nội dung chi tiết |
-| Di chuyển | Chuyển email giữa các folder |
-| Đánh dấu sao | Toggle star |
-| Đánh dấu đã đọc | Mark as read (batch) |
-| Xóa | Xóa email |
+Path:
 
-**Quyền**: `email.view`, `email.send`, `email.edit`, `email.delete`
+- [src/modules/auth/system-settings](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/system-settings)
 
----
+Muc dich:
 
-## 10. Kanban — Bảng công việc
+- Quan ly cau hinh chung, logo, favicon, ngon ngu va thong bao cua he thong.
 
-**Mục đích**: Quản lý công việc theo phương pháp Kanban (columns + cards).
+Chuc nang chinh:
 
-| Chức năng | Mô tả |
-|-----------|-------|
-| Boards | Tạo/sửa/xóa bảng Kanban |
-| Cards | Tạo/sửa/xóa card trong column |
-| Kéo thả | Di chuyển card giữa các column |
-
-**Quyền**: `kanban.view`, `kanban.create`, `kanban.edit`, `kanban.delete`
-
----
-
-## 11. Logistics — Hậu cần / Vận chuyển
-
-**Mục đích**: Quản lý đội xe (fleet) và vận chuyển (shipments).
-
-### 11.1 Fleet (Đội xe)
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng phương tiện với trạng thái |
-| CRUD | Tạo/sửa/xóa phương tiện |
-
-### 11.2 Shipments (Vận chuyển)
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách | Bảng shipments với tracking |
-| Tạo | Tạo đơn vận chuyển |
-| Đổi trạng thái | Pending → In Transit → Delivered |
-
-**Quyền**: `logistics.view`, `logistics.create`, `logistics.edit`, `logistics.delete`
-
----
-
-## 12. Dashboards — Bảng điều khiển
-
-**Mục đích**: Tổng hợp dữ liệu thống kê, biểu đồ, KPI cho từng lĩnh vực.
-
-| Chức năng | Mô tả |
-|-----------|-------|
-| Analytics | Biểu đồ traffic, sessions, bounce rate |
-| CRM | Tổng khách hàng, deals, revenue |
-| Ecommerce | Doanh thu, đơn hàng, sản phẩm bán chạy |
-| Statistics | Thống kê tổng hợp theo thời gian |
-
-**Quyền**: `dashboard.view`
-
----
-
-## 13. Front Pages — Trang công khai
-
-**Mục đích**: Quản lý nội dung trang công khai (landing, pricing, FAQ, liên hệ).
-
-| Chức năng | Mô tả |
-|-----------|-------|
-| Landing page | Nội dung trang chủ |
-| Pricing | Bảng giá các gói |
-| FAQ | Câu hỏi thường gặp |
-| Contact form | Form liên hệ |
-
-**Quyền**: `frontpage.view`, `frontpage.edit`
-
----
-
-## 14. Example (Template mẫu)
-
-**Mục đích**: Module mẫu (template) để developer tham khảo khi tạo module mới. Bị bỏ qua trong `_loader.js`, không load lên app.
-
-| Chức năng | Mô tả |
-|-----------|-------|
-| CRUD Employee | Ví dụ CRUD đầy đủ với phân trang, filter, export |
-
-> ⚠️ Module này chỉ là template tham khảo, không chạy trên production.
-
----
-
-## 15. Meetings — Quản lý cuộc họp
-
-**Mục đích**: Quản lý toàn bộ thông tin về các cuộc họp, thành phần tham dự, tài liệu liên đới, biểu quyết và kết luận cuộc họp. Cấu trúc giao diện được tổ chức theo kiến trúc Mega-Form để tăng trải nghiệm người dùng (gom nhóm các tính năng liên quan vào cùng một màn hình chi tiết).
-
-| Chức năng | Mô tả |
-|-----------|-------|
-| Danh sách cuộc họp | Bảng danh sách các cuộc họp có phân trang, lọc theo thời gian, trạng thái |
-| Tạo cuộc họp | Form tạo mới thông tin cơ bản của cuộc họp (Thời gian, địa điểm, phòng họp...) |
-| Quản lý chi tiết (Tabs) | Màn hình thao tác chính cho 1 cuộc họp cụ thể, chia làm nhiều tab chuyên biệt |
-| > Thông tin chung | Xem và cập nhật các thông tin cơ bản của cuộc họp |
-| > Người dự họp | Quản lý danh sách đại biểu tham gia, gán nhóm đại biểu |
-| > Tài liệu | Tải lên và quản lý các tài liệu, báo cáo phục vụ cuộc họp |
-| > Biểu quyết | Thiết lập các phiên biểu quyết, quản lý các tuỳ chọn biểu quyết |
-| > Kết luận | Ghi nhận văn bản kết luận, chỉ đạo sau khi cuộc họp kết thúc |
-| Nhóm người dự họp | Quản lý danh mục phân loại/nhóm người tham gia (Đại biểu, Khách mời...) |
-| Loại cuộc họp | Quản lý danh mục loại hình cuộc họp (Họp giao ban, Tổng kết...) |
-| Loại tài liệu | Quản lý danh mục loại giấy tờ, tài liệu |
-
-**Quyền mặc định**: `meeting.view`, `meeting.create`, `meeting.edit`, `meeting.delete`
+- System dashboard
+- General settings
+- Notification settings
+- Dong bo public settings cho shell app

@@ -1,301 +1,43 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import { createPersonalNote, fetchMeeting, fetchPersonalNotes, updatePersonalNote, selfCheckinMeetingParticipant, fetchAvailableDelegates } from '@/modules/meetings/services/meetingService'
-
+import { useParticipantMeetingDetails } from '@/modules/meetings/composables/useParticipantMeetingDetails'
 import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
-import { watchDebounced } from '@vueuse/core'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
 
-const route = useRoute()
 const meetingStore = useMeetingStore()
 
-const loading = ref(true)
-const meeting = ref(null)
-const activeTab = ref('agenda')
-
-// Personal Notes
-const personalNotes = ref('')
-const personalNoteId = ref(null)
-const isSavingNote = ref(false)
-const lastSaved = ref(null)
-
-// Current User State & Self Checkin
-const userData = useCookie('userData')
-const currentUserParticipant = computed(() => {
-  if (!meeting.value?.participants || !userData.value) return null
-
-  return meeting.value.participants.find(p => p.user_id === userData.value.id)
-})
-
-const isCheckinSubmitting = ref(false)
-const isAbsentDialogOpen = ref(false)
-const absenceReason = ref('')
-const isDelegateDialogOpen = ref(false)
-const delegatedToId = ref(null)
-const availableUsers = ref([])
-
-const loadAvailableUsers = async () => {
-  if (availableUsers.value.length > 0) return
-  if (!meeting.value?.id) return
-  try {
-    const res = await fetchAvailableDelegates(meeting.value.id)
-    availableUsers.value = res.data || []
-  } catch (error) {
-    console.error('Failed to load users for delegation:', error)
-  }
-}
-
-const handleSelfCheckin = async (status) => {
-  if (!meeting.value?.id) return
-  isCheckinSubmitting.value = true
-  
-  const payload = { attendance_status: status }
-  if (status === 'absent') payload.absence_reason = absenceReason.value
-  if (status === 'delegated') payload.delegated_to_id = delegatedToId.value
-
-  try {
-    const res = await selfCheckinMeetingParticipant(meeting.value.id, payload)
-    
-    // Update local state
-    if (currentUserParticipant.value) {
-      Object.assign(currentUserParticipant.value, res.data.data)
-    }
-    
-    // Close dialogs
-    isAbsentDialogOpen.value = false
-    isDelegateDialogOpen.value = false
-  } catch (error) {
-    console.error('Checkin failed:', error)
-  } finally {
-    isCheckinSubmitting.value = false
-  }
-}
-
-
-// Voting Modal (nhận event qua WebSocket hoặc mở thủ công)
-const isVotingModalOpen = ref(false)
-const activeVote = ref(null)
-const selectedVoteAnswer = ref(null)
-const isSubmittingVote = ref(false)
-
-// Speak request
-const isSpeakRequested = ref(false)
-const isRequestingSpeak = ref(false)
-const speechRequestId = ref(null)
-
-// Countdown timer
-const countdownDisplay = ref('00:00:00')
-let countdownInterval = null
-
-const startCountdown = () => {
-  if (countdownInterval) clearInterval(countdownInterval)
-  countdownInterval = setInterval(() => {
-    if (!meeting.value?.end_at) {
-      countdownDisplay.value = '00:00:00'
-
-      return
-    }
-
-    // Parse end_at (format: "HH:mm:ss DD/MM/YYYY" or ISO)
-    let endTime
-    const raw = meeting.value.end_at
-    if (raw.includes('/')) {
-      const parts = raw.split(' ')
-      const timePart = parts[0]
-      const datePart = parts[1]?.split('/') || []
-      if (datePart.length === 3) {
-        endTime = new Date(`${datePart[2]}-${datePart[1]}-${datePart[0]}T${timePart}`)
-      }
-    }
-    if (!endTime) endTime = new Date(raw)
-
-    const now = new Date()
-    const diff = Math.max(0, endTime - now)
-    const h = String(Math.floor(diff / 3600000)).padStart(2, '0')
-    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0')
-    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')
-
-    countdownDisplay.value = `${h}:${m}:${s}`
-  }, 1000)
-}
-
-// Computed attendance stats
-const attendanceStats = computed(() => {
-  const participants = meeting.value?.participants || []
-  const total = participants.length
-  const present = participants.filter(p => p.attendance_status === 'present').length
-  const absent = participants.filter(p => p.attendance_status === 'absent').length
-  const guest = participants.filter(p => p.meeting_role === 'guest').length
-
-  return { total, present, absent, guest }
-})
-
-const loadMeeting = async () => {
-  loading.value = true
-  try {
-    const [res, notesRes] = await Promise.all([
-      fetchMeeting(route.params.id),
-      fetchPersonalNotes(route.params.id).catch(() => ({ data: [] })),
-    ])
-
-    meeting.value = res.data
-    meetingStore.setCurrentMeeting(meeting.value)
-    meetingStore.subscribeToMeeting(meeting.value.id)
-
-    if (notesRes.data && notesRes.data.length > 0) {
-      personalNotes.value = notesRes.data[0].content
-      personalNoteId.value = notesRes.data[0].id
-    }
-
-    startCountdown()
-  }
-  catch (error) {
-    console.error('Failed to load meeting details', error)
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  loadMeeting()
-})
-
-onUnmounted(() => {
-  meetingStore.unsubscribeFromMeeting()
-  if (countdownInterval) clearInterval(countdownInterval)
-})
-
-// Listen to WS sync payload for meeting details
-watch(() => meetingStore.currentMeeting, newVal => {
-  if (newVal) {
-    meeting.value.status = newVal.status
-  }
-}, { deep: true })
-
-// Auto-save logic
-let initialLoad = true
-
-watchDebounced(
+const {
+  absenceReason,
+  activeTab,
+  activeVote,
+  attendanceStats,
+  availableUsers,
+  cancelSpeakRequest,
+  countdownDisplay,
+  currentUserParticipant,
+  delegatedToId,
+  getChairperson,
+  getPresenterName,
+  getSecretary,
+  handleSelfCheckin,
+  isAbsentDialogOpen,
+  isCheckinSubmitting,
+  isDelegateDialogOpen,
+  isRequestingSpeak,
+  isSavingNote,
+  isSpeakRequested,
+  isSubmittingVote,
+  isVotingModalOpen,
+  lastSaved,
+  loadAvailableUsers,
+  loading,
+  meeting,
   personalNotes,
-  async newVal => {
-    if (initialLoad) {
-      initialLoad = false
-
-      return
-    }
-    if (!meeting.value?.id) return
-
-    isSavingNote.value = true
-    try {
-      if (personalNoteId.value) {
-        await updatePersonalNote(meeting.value.id, personalNoteId.value, { content: newVal })
-      }
-      else {
-        const res = await createPersonalNote(meeting.value.id, { content: newVal })
-
-        personalNoteId.value = res.data.id
-      }
-      lastSaved.value = new Date().toLocaleTimeString('vi-VN')
-    }
-    catch (error) {
-      console.error('Failed to save note', error)
-    }
-    finally {
-      isSavingNote.value = false
-    }
-  },
-  { debounce: 1500, maxWait: 5000 },
-)
-
-// ===== ĐĂNG KÝ PHÁT BIỂU =====
-const requestSpeak = async () => {
-  if (!meeting.value?.id) return
-
-  isRequestingSpeak.value = true
-  try {
-    const { createSpeechRequest } = await import('@/modules/meetings/services/meetingService')
-    const res = await createSpeechRequest(meeting.value.id)
-
-    speechRequestId.value = res.data?.id || null
-    isSpeakRequested.value = true
-  }
-  catch (error) {
-    console.error('Failed to request speak:', error)
-  }
-  finally {
-    isRequestingSpeak.value = false
-  }
-}
-
-const cancelSpeakRequest = async () => {
-  if (!meeting.value?.id || !speechRequestId.value) return
-  try {
-    const { deleteSpeechRequest } = await import('@/modules/meetings/services/meetingService')
-
-    await deleteSpeechRequest(meeting.value.id, speechRequestId.value)
-    isSpeakRequested.value = false
-    speechRequestId.value = null
-  }
-  catch (error) {
-    console.error('Failed to cancel speak request:', error)
-  }
-}
-
-// ===== BIỂU QUYẾT MODAL =====
-const submitVote = async () => {
-  if (!activeVote.value || selectedVoteAnswer.value === null) return
-
-  isSubmittingVote.value = true
-  try {
-    const { castVote } = await import('@/modules/meetings/services/meetingService')
-
-    await castVote(meeting.value.id, activeVote.value.id, selectedVoteAnswer.value)
-    isVotingModalOpen.value = false
-    activeVote.value = null
-    selectedVoteAnswer.value = null
-  }
-  catch (error) {
-    console.error('Failed to submit vote:', error)
-  }
-  finally {
-    isSubmittingVote.value = false
-  }
-}
-
-const resolveStatusLabel = status => {
-  if (status === 'active' || status === 'in_progress') return 'Đang diễn ra'
-  if (status === 'draft' || status === 'scheduled') return 'Chưa bắt đầu'
-
-  return 'Đã kết thúc'
-}
-
-const resolveStatusBadgeClass = status => {
-  if (status === 'active' || status === 'in_progress') return 'status-badge-live'
-  if (status === 'draft' || status === 'scheduled') return 'status-badge-draft'
-
-  return 'status-badge-completed'
-}
-
-const getPresenterName = presenterId => {
-  if (!presenterId || !meeting.value?.participants) return ''
-  const p = meeting.value.participants.find(x => x.user_id === presenterId)
-
-  return p?.user?.name || ''
-}
-
-const getChairperson = () => {
-  if (!meeting.value?.participants) return null
-
-  return meeting.value.participants.find(p => ['chairperson', 'chair'].includes(p.meeting_role || p.role))
-}
-
-const getSecretary = () => {
-  if (!meeting.value?.participants) return null
-
-  return meeting.value.participants.find(p => p.meeting_role === 'secretary' || p.role === 'secretary')
-}
+  requestSpeak,
+  resolveStatusBadgeClass,
+  resolveStatusLabel,
+  selectedVoteAnswer,
+  submitVote,
+} = useParticipantMeetingDetails()
 </script>
 
 <template>
@@ -516,7 +258,10 @@ const getSecretary = () => {
                   />
                   Chương trình cuộc họp
                 </div>
-                <div class="d-flex gap-2" v-if="currentUserParticipant">
+                <div
+                  v-if="currentUserParticipant"
+                  class="d-flex gap-2"
+                >
                   <template v-if="currentUserParticipant.attendance_status === 'pending' || !currentUserParticipant.attendance_status">
                     <VBtn
                       size="small"
@@ -857,6 +602,7 @@ const getSecretary = () => {
                           color="primary"
                           :href="doc.file_url"
                           target="_blank"
+                          rel="noopener noreferrer"
                         >
                           <VIcon icon="tabler-download" />
                         </VBtn>
@@ -1481,15 +1227,23 @@ const getSecretary = () => {
   </VDialog>
 
   <!-- ===== ABSENT MODAL ===== -->
-  <VDialog v-model="isAbsentDialogOpen" max-width="500">
+  <VDialog
+    v-model="isAbsentDialogOpen"
+    max-width="500"
+  >
     <VCard>
       <VCardTitle class="text-h5 pa-5">
-        <VIcon icon="tabler-user-x" class="me-2 text-error" />
+        <VIcon
+          icon="tabler-user-x"
+          class="me-2 text-error"
+        />
         Báo vắng mặt
       </VCardTitle>
       <VDivider />
       <VCardText class="pa-5">
-        <p class="mb-4">Vui lòng nhập lý do vắng mặt để thông báo cho ban tổ chức.</p>
+        <p class="mb-4">
+          Vui lòng nhập lý do vắng mặt để thông báo cho ban tổ chức.
+        </p>
         <VTextarea
           v-model="absenceReason"
           label="Lý do vắng mặt"
@@ -1521,15 +1275,23 @@ const getSecretary = () => {
   </VDialog>
 
   <!-- ===== DELEGATE MODAL ===== -->
-  <VDialog v-model="isDelegateDialogOpen" max-width="500">
+  <VDialog
+    v-model="isDelegateDialogOpen"
+    max-width="500"
+  >
     <VCard>
       <VCardTitle class="text-h5 pa-5">
-        <VIcon icon="tabler-arrow-autofit-right" class="me-2 text-warning" />
+        <VIcon
+          icon="tabler-arrow-autofit-right"
+          class="me-2 text-warning"
+        />
         Ủy quyền tham dự
       </VCardTitle>
       <VDivider />
       <VCardText class="pa-5">
-        <p class="mb-4">Chọn người mà bạn muốn ủy quyền tham dự cuộc họp này thay cho bạn.</p>
+        <p class="mb-4">
+          Chọn người mà bạn muốn ủy quyền tham dự cuộc họp này thay cho bạn.
+        </p>
         <VSelect
           v-model="delegatedToId"
           :items="availableUsers"
@@ -1587,3 +1349,5 @@ const getSecretary = () => {
   animation: blink 1.5s ease-in-out infinite;
 }
 </style>
+
+

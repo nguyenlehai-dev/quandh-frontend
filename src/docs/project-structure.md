@@ -1,222 +1,195 @@
-# Cấu trúc dự án & Hướng dẫn phát triển Module mới
+# Project Structure And Module Guide
 
-> Tài liệu mô tả cây cấu trúc project và hướng dẫn từng bước để tạo module mới theo flow hiện tại.
+Tai lieu nay mo ta cau truc frontend hien tai, quy trinh tao module moi, va cach de docs tu dong cap nhat ma khong can viet tay.
 
----
+## 1. Tong quan cau truc `src`
 
-## 1. Cây cấu trúc dự án
-
-```
+```text
 src/
-├── @core/                    # Core components (không sửa đổi)
-├── @layouts/                 # Layout system, nav plugins, CASL
-├── assets/                   # Static assets (images, icons)
-├── components/               # Shared components (AppTextField, DataTable...)
-├── docs/                     # 📖 Tài liệu
-│   ├── api/                  #    API documentation (endpoint specs)
-│   └── answer/               #    Module functional analysis
-├── lang/                     # 🌐 i18n messages (module-based)
-│   ├── en/                   #    English translations
-│   │   ├── common/           #    Shared keys (actions, labels, status)
-│   │   └── [module]/         #    Module-specific keys
-│   └── vi/                   #    Vietnamese translations
-│       ├── common/
-│       └── [module]/
-├── layouts/                  # App layouts (default, blank)
-├── modules/                  # 🏗️ Business modules (auto-discovered)
-│   ├── _loader.js            #    Auto-discovery: scan modules/*/index.js
-│   ├── example/              #    📋 Template module (tham khảo)
-│   └── [module-name]/        #    Mỗi module có cấu trúc chuẩn ↓
-│       ├── index.js           #   Entry point: export routes, navigation, navOrder
-│       ├── components/        #   Vue components riêng của module
-│       ├── composables/       #   Vue composables (useXxx)
-│       ├── configs/           #   API_BASE, enums, permissions, columns
-│       │   └── index.js
-│       ├── models/            #   Data models, TypeScript types
-│       ├── router/            #   Routes & navigation
-│       │   ├── routes.js      #   Vue Router routes
-│       │   └── navigation.js  #   Sidebar nav items
-│       ├── services/          #   API service functions
-│       │   └── [name]Service.js
-│       ├── stores/            #   Pinia stores
-│       ├── utils/             #   Helper functions
-│       │   └── index.js
-│       └── views/             #   Vue pages (.vue)
-├── pages/                    # File-based routing pages
-├── plugins/                  # Vue plugins
-│   ├── 1.router/             #   Vue Router + guards
-│   ├── casl/                 #   CASL ability (phân quyền)
-│   ├── fake-api/             #   MSW mock API handlers
-│   └── i18n/                 #   vue-i18n setup
-│       └── locales/          #   Legacy locale JSON (nav items, vuetify)
-├── services/                 # 🔌 Shared services
-│   ├── api-service.js        #   Axios-based ApiService class
-│   └── auth.js               #   Auth service (login, logout)
-├── utils/                    # Global utilities
-│   └── api.js                #   ofetch $api client (Bearer + org header)
-└── views/                    # Shared views (auth pages, error pages)
+|-- @core/                      # Core framework cua template
+|-- @layouts/                   # Layout system, nav utils, CASL helpers
+|-- assets/                     # Static assets
+|-- components/                 # Shared UI components
+|-- docs/                       # Tai lieu noi bo
+|   |-- api/
+|   `-- answer/
+|-- lang/                       # i18n theo namespace
+|   |-- en/
+|   `-- vi/
+|-- layouts/                    # App layouts
+|-- modules/                    # Business modules
+|   |-- _loader.js              # Auto-discovery loader
+|   |-- _template_modules/      # Template de copy, khong duoc load vao app
+|   |-- auth/                   # Nhom module he thong
+|   |   |-- shared/             # Shared helpers cho auth group
+|   |   |-- activity-logs/
+|   |   |-- organizations/
+|   |   |-- permissions/
+|   |   |-- roles/
+|   |   |-- system-settings/
+|   |   `-- user/
+|   `-- meetings/
+|       |-- shared/            # Shared helpers rieng cho meetings
+|       |-- components/admin/  # Form, tabs, live tabs cho admin
+|       `-- views/
+|           |-- overview/
+|           |-- management/
+|           |-- catalogs/
+|           |-- news/
+|           |-- participant/
+|           `-- admin/
+|-- pages/                      # File-based pages
+|-- plugins/                    # Router, i18n, CASL...
+|-- services/                   # Shared services
+|-- utils/                      # Global utilities
+`-- views/                      # Shared views
 ```
 
----
+## 2. Nguyen tac to chuc module
 
-## 2. Hệ thống Auto-Discovery
+Moi module la mot bounded context o frontend. Module co the nam:
 
-Khi thêm module mới, **không cần sửa bất kỳ file nào khác**. Hệ thống tự động:
+- truc tiep duoi `src/modules/<module-name>`
+- hoac nam trong nhom, vi du `src/modules/auth/<module-name>`
 
-```
-modules/_loader.js
-    ↓ import.meta.glob('./*/index.js')
-    ↓
-Tự động scan → merge routes → merge navigation → install plugins
-```
+Moi module nen co day du:
 
-**Điều kiện**: Module phải có file `index.js` ở root folder.
+- `components/`
+- `composables/`
+- `configs/index.js`
+- `models/`
+- `router/routes.js`
+- `router/navigation.js`
+- `services/*Service.js`
+- `stores/`
+- `utils/index.js`
+- `views/`
+- `index.js`
+- `module.meta.js`
 
----
+Luu y:
 
-## 3. Auth Flow
+- Loader hien tai da ho tro nested modules.
+- Folder bat dau bang `_` se bi bo qua.
+- `_template_modules` chi de lam template, khong duoc nap vao app.
+- `module.meta.js` duoc dung de sinh docs tu dong.
 
-```
-Login → POST /api/auth/login
-    ↓
-Cookie: accessToken, userData, userAbilityRules, currentOrganizationId
-    ↓
-ApiService.authHeader(): Bearer {token} + X-Organization-Id
-    ↓
-401 → xóa cookies → redirect /login
-```
+## 3. Loader module
 
----
+Loader nam o [src/modules/_loader.js](/e:/Danatec/Projects/quandh-frontend/src/modules/_loader.js).
 
-## 4. Hướng dẫn tạo Module mới
+Loader hien tai:
 
-### Bước 1: Tạo thư mục
+- scan `src/modules/**/index.js`
+- bo qua `src/modules/_template_modules/**`
+- ho tro module nested trong `auth/*`
+- doc `routes`, `navigation`, `navOrder`
+- goi `install(app)` neu module co export ham nay
 
-```
-src/modules/[ten-module]/
-├── index.js
-├── components/
-├── composables/
-├── configs/
-│   └── index.js
-├── models/
-├── router/
-│   ├── routes.js
-│   └── navigation.js
-├── services/
-│   └── [ten]Service.js
-├── stores/
-├── utils/
-│   └── index.js
-└── views/
-    ├── [Ten]ListPage.vue
-    └── [Ten]DetailPage.vue
-```
+Dieu kien de module duoc nhan:
 
-### Bước 2: `configs/index.js` — Cấu hình
+- co `index.js`
+- khong nam trong folder bat dau bang `_`
+- co cau truc folder hop le
 
-```js
-/** Base API path */
-export const API_BASE = '/ten-module'
+## 4. Cau truc chuan cua mot module
 
-/** Số dòng mặc định trên 1 trang */
-export const DEFAULT_PER_PAGE = 10
-
-/** Các tuỳ chọn items per page */
-export const PER_PAGE_OPTIONS = [10, 25, 50, 100]
-
-/** Statuses */
-export const STATUSES = [
-  { title: 'Hoạt động', value: 'active', color: 'success' },
-  { title: 'Ngưng', value: 'inactive', color: 'secondary' },
-]
-
-/** Danh sách cột mặc định hiển thị */
-export const DEFAULT_COLUMNS = ['name', 'status', 'createdAt']
-
-/** Permission keys */
-export const PERMISSIONS = {
-  VIEW: 'ten-module.view',
-  CREATE: 'ten-module.create',
-  EDIT: 'ten-module.edit',
-  DELETE: 'ten-module.delete',
-}
+```text
+src/modules/<group?>/<module-name>/
+|-- components/
+|-- composables/
+|-- configs/
+|   `-- index.js
+|-- models/
+|-- router/
+|   |-- navigation.js
+|   `-- routes.js
+|-- services/
+|   `-- <module>Service.js
+|-- stores/
+|-- utils/
+|   `-- index.js
+|-- views/
+|-- index.js
+`-- module.meta.js
 ```
 
-### Bước 3: `services/[ten]Service.js` — API Service
+`<group?>` la tuy chon, vi du `auth`.
 
-```js
-/**
- * [Ten] Service
- */
-import { API_BASE } from '../configs'
+## 5. Nhom `auth`
 
-export const fetchItems = params => {
-  return $api(API_BASE, { params })
-}
+Nhom `auth` dung de gom cac module he thong:
 
-export const fetchItem = id => {
-  return $api(`${API_BASE}/${id}`)
-}
+- `user`
+- `roles`
+- `permissions`
+- `organizations`
+- `activity-logs`
+- `system-settings`
 
-export const createItem = data => {
-  return $api(API_BASE, { method: 'POST', body: data })
-}
+Shared helpers cua nhom nay:
 
-export const updateItem = (id, data) => {
-  return $api(`${API_BASE}/${id}`, { method: 'PUT', body: data })
-}
+- [src/modules/auth/shared/moduleFactory.js](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/shared/moduleFactory.js)
+- [src/modules/auth/shared/crudServiceFactory.js](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/shared/crudServiceFactory.js)
+- [src/modules/auth/shared/config.js](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/shared/config.js)
+- [src/modules/auth/README.md](/e:/Danatec/Projects/quandh-frontend/src/modules/auth/README.md)
 
-export const deleteItem = id => {
-  return $api(`${API_BASE}/${id}`, { method: 'DELETE' })
-}
+Khi tao module moi trong `auth`, uu tien tan dung cac helper nay de giam duplicate va giam loi.
 
-export const exportItems = params => {
-  return $api(`${API_BASE}/export`, { params, responseType: 'blob' })
-}
+## 5.1 Module `meetings`
+
+`meetings` la root module lon nhat cua repo, nen ben trong no duoc tach tiep theo sub-domain thay vi de toan bo file o cung mot mat phang.
+
+Cau truc hien tai:
+
+```text
+src/modules/meetings/
+|-- components/
+|   `-- admin/
+|       |-- forms/
+|       |-- live-tabs/
+|       `-- tabs/
+|-- shared/
+|   `-- moduleFactory.js
+`-- views/
+    |-- overview/
+    |-- management/
+    |-- catalogs/
+    |   |-- participants/
+    |   |-- documents/
+    |   |-- meetings/
+    |   `-- issuers/
+    |-- news/
+    |-- monitoring/
+    |-- participant/
+    |   `-- details/
+    `-- admin/
+        |-- edit/
+        `-- live/
 ```
 
-### Bước 4: `router/routes.js` — Routes
+Muc dich:
 
-```js
-export const routes = [
-  {
-    path: '/ten-module',
-    name: 'ten-module-list',
-    component: () => import('../views/TenModuleListPage.vue'),
-    meta: {
-      action: 'view',
-      subject: 'TenModule',
-    },
-  },
-  {
-    path: '/ten-module/:id',
-    name: 'ten-module-detail',
-    component: () => import('../views/TenModuleDetailPage.vue'),
-    meta: {
-      action: 'view',
-      subject: 'TenModule',
-      navActiveLink: 'ten-module-list',
-    },
-  },
-]
-```
+- `overview/`: man tong quan nghiep vu
+- `management/`: danh sach van hanh nhu meetings, votes, documents, conclusions, calendar
+- `catalogs/`: cac danh muc phu tro
+- `news/`: bai viet va the loai bai viet
+- `participant/`: flow cua dai bieu
+- `admin/`: flow quan tri, edit va live controller
+- `components/admin/`: component phuc vu man admin
+- `shared/`: helper chung cho manifest va navigation cua module
 
-### Bước 5: `router/navigation.js` — Sidebar Menu
+## 6. Cac file quan trong cua module
 
-```js
-export const navigation = [
-  {
-    title: 'Ten Module',
-    icon: { icon: 'tabler-box' },
-    to: 'ten-module-list',
-    action: 'view',
-    subject: 'TenModule',
-  },
-]
-```
+### 6.1 `index.js`
 
-### Bước 6: `index.js` — Entry Point
+La entry cua module. It nhat phai export:
+
+- `routes`
+- `navigation`
+- `navOrder`
+
+Module root co the export object truc tiep:
 
 ```js
 import { routes } from './router/routes'
@@ -225,57 +198,249 @@ import { navigation } from './router/navigation'
 export default {
   routes,
   navigation,
-  navOrder: 50, // Thứ tự hiển thị trên sidebar (nhỏ = lên trước)
+  navOrder: 120,
 }
 ```
 
-### Bước 7: i18n — Bản dịch (tùy chọn)
-
-Tạo file `src/lang/en/[ten-module]/[ten-module].js` và `src/lang/vi/[ten-module]/[ten-module].js`:
+Module trong `auth` nen dung `createModuleManifest`:
 
 ```js
-// src/lang/vi/ten-module/ten-module.js
+import { routes } from './router/routes'
+import { navigation } from './router/navigation'
+import { createModuleManifest } from '../shared/moduleFactory'
+
+export default createModuleManifest({
+  routes,
+  navigation,
+  navOrder: 120,
+})
+```
+
+### 6.2 `configs/index.js`
+
+Nen chua:
+
+- `API_BASE`
+- `DEFAULT_PER_PAGE`
+- `PER_PAGE_OPTIONS`
+- `DEFAULT_COLUMNS`
+- `PERMISSIONS`
+
+### 6.3 `services/*Service.js`
+
+La noi map API cua module.
+
+Trong `auth`, nen uu tien dung `createCrudService()` de gom CRUD chung.
+
+### 6.4 `router/routes.js`
+
+Khai bao route cua module. Route name nen on dinh de tranh vo navigation, tab state, va link sau refactor.
+
+### 6.5 `router/navigation.js`
+
+Tra ve:
+
+- `null`
+- mot nav item
+- hoac mang nav items
+
+Neu module la nav link thuong thi khong duoc de `children: undefined`, vi nav layout se hieu sai thanh group.
+
+### 6.6 `module.meta.js`
+
+Day la file quan trong de docs tu dong cap nhat.
+
+Vi du:
+
+```js
 export default {
-  title: 'Tên Module',
-  list_title: 'Danh sách',
-  create_title: 'Tạo mới',
-  fields: {
-    name: 'Tên',
-    status: 'Trạng thái',
-  },
+  name: 'reports',
+  displayName: 'Reports',
+  group: 'root',
+  navOrder: 120,
+  path: 'src/modules/reports',
+  servicePaths: ['src/modules/reports/services/reportService.js'],
+  purpose: 'Quan ly bao cao nghiep vu.',
+  features: [
+    'Danh sach bao cao',
+    'Tao moi, cap nhat, xoa',
+    'Filter va export',
+  ],
+  api: [
+    { method: 'GET', endpoint: '/reports', service: 'fetchReports', description: 'Danh sach reports' },
+    { method: 'GET', endpoint: '/reports/:id', service: 'fetchReport', description: 'Chi tiet report' },
+    { method: 'POST', endpoint: '/reports', service: 'createReport', description: 'Tao report' },
+  ],
 }
 ```
 
-### Bước 8: Views — Tạo trang
+Y nghia cac field:
 
-Tham khảo `modules/example/views/` hoặc `modules/user/views/UserListPage.vue` để tạo views theo pattern chuẩn.
+- `name`: ten ky thuat cua module
+- `displayName`: ten hien thi trong docs
+- `group`: nhom module, vi du `auth`, `root`
+- `navOrder`: thu tu hien thi trong docs
+- `path`: duong dan module trong repo
+- `servicePaths`: danh sach service chinh
+- `purpose`: mo ta ngan ve muc dich
+- `features`: chuc nang chinh
+- `api`: cac endpoint frontend dang goi
 
----
+## 7. Cac docs duoc sinh tu dong
 
-## 5. Checklist tạo Module mới
+Script generator nam o [scripts/generate-module-docs.js](/e:/Danatec/Projects/quandh-frontend/scripts/generate-module-docs.js).
 
-- [ ] Tạo thư mục `modules/[ten-module]/` với đầy đủ sub-folders
-- [ ] Viết `configs/index.js` (API_BASE, enums, permissions)
-- [ ] Viết `services/[ten]Service.js` (CRUD functions)
-- [ ] Viết `router/routes.js` (Vue Router routes)
-- [ ] Viết `router/navigation.js` (sidebar items)
-- [ ] Viết `index.js` (export routes, navigation, navOrder)
-- [ ] Tạo views trong `views/` (list page, detail page)
-- [ ] Thêm i18n translations (en + vi)
-- [ ] Kiểm tra sidebar hiển thị đúng
-- [ ] Test CRUD hoạt động với API
-- [ ] Cập nhật `docs/api/` và `docs/answer/`
+Script nay doc tat ca `src/modules/**/module.meta.js` va sinh:
 
----
+- [src/docs/api/modules-api.md](/e:/Danatec/Projects/quandh-frontend/src/docs/api/modules-api.md)
+- [src/docs/answer/modules-analysis.md](/e:/Danatec/Projects/quandh-frontend/src/docs/answer/modules-analysis.md)
 
-## 6. Quy ước đặt tên
+Lenh chay tay:
 
-| Thành phần | Quy ước | Ví dụ |
-|------------|---------|-------|
-| Folder module | kebab-case | `user`, `front-pages` |
-| Service file | camelCase + Service | `userService.js` |
-| View file | PascalCase + Page | `UserListPage.vue` |
-| Route name | kebab-case | `user-list`, `user-detail` |
-| Config constants | UPPER_SNAKE | `API_BASE`, `DEFAULT_PER_PAGE` |
-| Permission keys | dot notation | `user.view`, `user.create` |
-| i18n keys | snake_case | `list_title`, `create_title` |
+```powershell
+npm run docs:generate
+```
+
+Generator cung duoc goi trong:
+
+- `npm run validate`
+- `npm run build` thong qua `prebuild`
+
+Nghia la:
+
+- dev copy template
+- doi ten file/folder
+- cap nhat `module.meta.js`
+- chay `npm run validate`
+
+la docs se duoc cap nhat truoc khi validator kiem tra.
+
+## 8. Cach tao mot module moi
+
+Co 2 truong hop:
+
+1. Tao module root trong `src/modules`
+2. Tao module con trong `src/modules/auth`
+
+### 8.1 Cach nhanh nhat: copy template
+
+Template co san:
+
+- [standard-root-module](/e:/Danatec/Projects/quandh-frontend/src/modules/_template_modules/standard-root-module)
+- [standard-auth-module](/e:/Danatec/Projects/quandh-frontend/src/modules/_template_modules/standard-auth-module)
+
+Chon template phu hop, copy ra ngoai `_template_modules`, roi doi ten.
+
+### 8.2 Tao module root
+
+Vi du tao `reports`:
+
+1. Copy `src/modules/_template_modules/standard-root-module`
+2. Doi ten folder thanh `src/modules/reports`
+3. Doi cac ten mau:
+   - `standard-root-module` -> `reports`
+   - `StandardRootModule` -> `Reports`
+4. Cap nhat:
+   - `configs/index.js`
+   - `services/reportService.js`
+   - `router/routes.js`
+   - `router/navigation.js`
+   - `views/ReportsListPage.vue`
+   - `module.meta.js`
+5. Them i18n:
+   - `src/lang/en/reports/reports.js`
+   - `src/lang/vi/reports/reports.js`
+6. Chay:
+
+```powershell
+npm run validate
+```
+
+### 8.3 Tao module trong `auth`
+
+Vi du tao `report-periods`:
+
+1. Copy `src/modules/_template_modules/standard-auth-module`
+2. Doi ten folder thanh `src/modules/auth/report-periods`
+3. Doi cac ten mau:
+   - `standard-auth-module` -> `report-periods`
+   - `StandardAuthModule` -> `ReportPeriods`
+4. Cap nhat:
+   - `configs/index.js`
+   - `services/reportPeriodsService.js`
+   - `router/routes.js`
+   - `router/navigation.js`
+   - `views/ReportPeriodsListPage.vue`
+   - `module.meta.js`
+5. Them i18n:
+   - `src/lang/en/report-periods/report-periods.js`
+   - `src/lang/vi/report-periods/report-periods.js`
+6. Chay:
+
+```powershell
+npm run validate
+```
+
+### 8.4 Checklist khi tao module moi
+
+- [ ] Chon dung loai template: root hay auth
+- [ ] Doi ten folder va file mau
+- [ ] Tao `index.js`
+- [ ] Tao `configs/index.js`
+- [ ] Tao `router/routes.js`
+- [ ] Tao `router/navigation.js`
+- [ ] Tao it nhat 1 `services/*Service.js`
+- [ ] Tao it nhat 1 `.vue` trong `views`
+- [ ] Tao `module.meta.js`
+- [ ] Them i18n `en` va `vi`
+- [ ] Chay `npm run validate`
+
+## 9. Quy trinh cap nhat docs tu dong
+
+Sau khi dev copy template va lam feature moi, docs se cap nhat theo quy trinh nay:
+
+1. Hoan thien module code
+2. Dien dung `module.meta.js`
+3. Chay `npm run docs:generate` hoac `npm run validate`
+4. Script sinh lai `modules-api.md` va `modules-analysis.md`
+5. Commit code cung docs da sinh
+
+## 10. Validator module
+
+Validator nam o [scripts/validate-modules.js](/e:/Danatec/Projects/quandh-frontend/scripts/validate-modules.js).
+
+Lenh:
+
+```powershell
+npm run validate
+```
+
+Validator hien tai se check:
+
+- required folders
+- required files
+- `index.js`
+- `configs/index.js`
+- `services/*Service.js`
+- docs file can thiet
+- va nhac neu module moi chua co `module.meta.js`
+
+## 11. Quy uoc dat ten
+
+| Thanh phan | Quy uoc | Vi du |
+|---|---|---|
+| Folder module | kebab-case | `activity-logs` |
+| Group path | kebab-case | `auth` |
+| Service file | camelCase + `Service` | `userService.js` |
+| View file | PascalCase + `Page` | `UserListPage.vue` |
+| Route name | kebab-case on dinh | `roles-list` |
+| Config constant | UPPER_SNAKE_CASE | `API_BASE` |
+| Permission key | dot notation | `user.view` |
+| i18n namespace | folder/file based | `user.user.list.title` |
+
+## 12. Ghi chu quan trong
+
+- Khong lam feature that trong `_template_modules`.
+- Khi refactor folder module, giu nguyen route name va API contract neu khong co yeu cau doi logic.
+- Module trong `auth` nen uu tien tan dung shared helpers truoc khi viet utility moi.
+- Neu docs co ve khong khop module thuc te, check lai `module.meta.js` truoc khi sua tay docs generated.

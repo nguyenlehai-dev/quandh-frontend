@@ -1,5 +1,10 @@
 import { canNavigate } from '@layouts/plugins/casl'
-import { fetchMe } from '@/services/auth'
+import {
+  buildOrganizationSelectionRoute,
+  fetchMe,
+  getAuthenticatedEntryRoute,
+  getOrganizationSessionState,
+} from '@/services/auth'
 
 export const setupGuards = router => {
   router.beforeEach(async to => {
@@ -14,7 +19,7 @@ export const setupGuards = router => {
      * Check if user is logged in by checking if token & user data exists in cookies
      */
     const isLoggedIn = !!(useCookie('userData').value && useCookie('accessToken').value)
-    const currentOrgId = useCookie('currentOrganizationId').value
+    const { currentOrganizationId, hasValidCurrentOrganization } = getOrganizationSessionState()
 
     if (to.path === '/select-organization') {
       if (!isLoggedIn) {
@@ -27,9 +32,8 @@ export const setupGuards = router => {
         }
       }
 
-      if (currentOrgId) {
-        return '/'
-      }
+      if (hasValidCurrentOrganization)
+        return to.query?.to ? String(to.query.to) : '/'
     }
 
     /*
@@ -39,7 +43,7 @@ export const setupGuards = router => {
      */
     if (to.meta.unauthenticatedOnly) {
       if (isLoggedIn)
-        return '/'
+        return getAuthenticatedEntryRoute('/')
       else
         return undefined
     }
@@ -49,13 +53,15 @@ export const setupGuards = router => {
      * → redirect sang trang chọn tổ chức (trừ khi đang ở trang đó rồi)
      */
     if (isLoggedIn) {
-      if (!currentOrgId && to.path !== '/select-organization') {
-        return '/select-organization'
+      if (!hasValidCurrentOrganization && to.path !== '/select-organization') {
+        return buildOrganizationSelectionRoute({
+          to: to.fullPath !== '/' ? to.fullPath : undefined,
+          currentOrganizationId,
+        })
       }
 
-      if (currentOrgId) {
+      if (hasValidCurrentOrganization)
         await fetchMe()
-      }
     }
 
     if (!canNavigate(to) && to.matched.length) {

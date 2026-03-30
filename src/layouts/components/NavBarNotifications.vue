@@ -1,8 +1,15 @@
 <script setup>
+import { getNotificationId, navigateToNotificationTarget } from '@/modules/auth/user/utils/notifications'
+
 const notifications = ref([])
 const isLoading = ref(false)
+const NOTIFICATIONS_FORBIDDEN_KEY = 'userNotificationsForbidden'
+const notificationsForbidden = ref(sessionStorage.getItem(NOTIFICATIONS_FORBIDDEN_KEY) === '1')
+const router = useRouter()
 
 const fetchNotifications = async () => {
+  if (notificationsForbidden.value) return
+
   isLoading.value = true
   try {
     const res = await $api('/user/notifications')
@@ -12,6 +19,14 @@ const fetchNotifications = async () => {
     }
   }
   catch (error) {
+    if (error?.status === 403 || error?.statusCode === 403) {
+      notificationsForbidden.value = true
+      sessionStorage.setItem(NOTIFICATIONS_FORBIDDEN_KEY, '1')
+      notifications.value = []
+
+      return
+    }
+
     console.error('Failed to fetch notifications:', error)
   }
   finally {
@@ -28,6 +43,8 @@ const refreshInterval = setInterval(fetchNotifications, 30000)
 onBeforeUnmount(() => clearInterval(refreshInterval))
 
 const removeNotification = async notificationId => {
+  if (notificationsForbidden.value) return
+
   try {
     await $api(`/user/notifications/${notificationId}`, { method: 'DELETE' })
     notifications.value = notifications.value.filter(n => n.id !== notificationId)
@@ -36,6 +53,8 @@ const removeNotification = async notificationId => {
 }
 
 const markRead = async notificationIds => {
+  if (notificationsForbidden.value) return
+
   try {
     await $api('/user/notifications/mark-read', {
       method: 'POST',
@@ -51,6 +70,8 @@ const markRead = async notificationIds => {
 }
 
 const markUnRead = async notificationIds => {
+  if (notificationsForbidden.value) return
+
   try {
     await $api('/user/notifications/mark-unread', {
       method: 'POST',
@@ -66,8 +87,19 @@ const markUnRead = async notificationIds => {
 }
 
 const handleNotificationClick = notification => {
-  if (!notification.isSeen)
-    markRead([notification.id])
+  const notificationId = getNotificationId(notification)
+
+  if (notificationId && !notification.isSeen)
+    markRead([notificationId])
+
+  navigateToNotificationTarget(notification, router).then(isNavigated => {
+    if (!isNavigated && notificationId) {
+      router.push({
+        name: 'user-notifications',
+        query: { selected: String(notificationId) },
+      })
+    }
+  })
 }
 </script>
 
@@ -78,5 +110,6 @@ const handleNotificationClick = notification => {
     @read="markRead"
     @unread="markUnRead"
     @click:notification="handleNotificationClick"
+    @click:all="router.push({ name: 'user-notifications' })"
   />
 </template>

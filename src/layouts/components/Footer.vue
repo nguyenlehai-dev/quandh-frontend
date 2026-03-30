@@ -1,6 +1,25 @@
 <script setup>
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
 const defaultCopyright = `© ${new Date().getFullYear()} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng`
-const copyrightText = localStorage.getItem('app_copyright') || defaultCopyright
+const copyrightText = ref(localStorage.getItem('app_copyright') || defaultCopyright)
+
+const syncCopyright = event => {
+  const nextValue = event?.detail?.copyright
+
+  if (typeof nextValue === 'string')
+    copyrightText.value = nextValue || defaultCopyright
+  else
+    copyrightText.value = localStorage.getItem('app_copyright') || defaultCopyright
+}
+
+onMounted(() => {
+  window.addEventListener('app-settings-updated', syncCopyright)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('app-settings-updated', syncCopyright)
+})
 </script>
 
 <template>

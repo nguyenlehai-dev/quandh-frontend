@@ -1,5 +1,12 @@
 <script setup>
-import { switchOrganization, logout as authLogout, fetchMe } from '@/services/auth'
+import {
+  clearCurrentOrganization,
+  getOrganizationSessionState,
+  setStoredOrganizations,
+  switchOrganization,
+  logout as authLogout,
+  fetchMe,
+} from '@/services/auth'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
 import authV2LoginIllustrationBorderedLight from '@images/pages/auth-v2-login-illustration-bordered-light.png'
@@ -16,9 +23,6 @@ const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
 definePage({
   meta: {
     layout: 'blank',
-
-    // Page này yêu cầu đã đăng nhập nhưng chưa chọn org
-    // Guard sẽ xử lý redirect
   },
 })
 
@@ -28,36 +32,41 @@ const refOrgForm = ref()
 const isLoading = ref(false)
 const availableOrganizations = ref([])
 const selectedOrgId = ref(null)
+const { t } = useI18n()
 
 onMounted(() => {
   try {
-    const raw = localStorage.getItem('availableOrganizations')
-    const currentIdCookie = useCookie('currentOrganizationId').value
+    const {
+      organizations,
+      currentOrganizationId,
+      hasValidCurrentOrganization,
+    } = getOrganizationSessionState()
+
     const requestedOrgId = Number(route.query.current_org)
 
-    if (currentIdCookie) {
-      router.replace('/')
+    availableOrganizations.value = organizations
+
+    if (hasValidCurrentOrganization) {
+      router.replace(route.query.to ? String(route.query.to) : '/')
 
       return
     }
 
-    if (raw) {
-      availableOrganizations.value = JSON.parse(raw)
+    if (currentOrganizationId)
+      clearCurrentOrganization()
 
-      const hasRequestedOrg = availableOrganizations.value.some(org => org.id === requestedOrgId)
+    const hasRequestedOrg = availableOrganizations.value.some(org => org.id === requestedOrgId)
 
-      selectedOrgId.value = hasRequestedOrg
-        ? requestedOrgId
-        : availableOrganizations.value[0]?.id
-    }
-  } catch (err) {
+    selectedOrgId.value = hasRequestedOrg
+      ? requestedOrgId
+      : availableOrganizations.value[0]?.id
+  }
+  catch (err) {
     console.warn(err)
   }
 
-  // Session đã đăng nhập nhưng không còn danh sách org hợp lệ -> quay về login để đăng nhập lại sạch.
-  if (!availableOrganizations.value || availableOrganizations.value.length === 0) {
+  if (!availableOrganizations.value || availableOrganizations.value.length === 0)
     router.replace('/login')
-  }
 })
 
 const handlePostOrgResolution = async () => {
@@ -72,14 +81,21 @@ const confirmOrganization = async () => {
   isLoading.value = true
   try {
     await switchOrganization(selectedOrgId.value)
-
-    // Fetch lại user + abilities theo org mới
     await fetchMe()
-
     await handlePostOrgResolution()
   }
   catch (err) {
     console.error('Switch organization failed:', err)
+
+    if (err?.code === 403) {
+      clearCurrentOrganization()
+
+      const freshOrganizations = availableOrganizations.value.filter(org => org.id !== Number(selectedOrgId.value))
+
+      availableOrganizations.value = freshOrganizations
+      setStoredOrganizations(freshOrganizations)
+      selectedOrgId.value = freshOrganizations[0]?.id ?? null
+    }
   }
   finally {
     isLoading.value = false
@@ -150,34 +166,32 @@ const onOrgSubmit = () => {
         width="100%"
       >
         <div>
-          <!-- BƯỚC 2: CHỌN TỔ CHỨC -->
           <VCardText class="text-center pt-8">
             <h4 class="text-h5 mb-1">
-              Sở nội vụ Đà Nẵng
+              {{ t('auth.auth.app.agency') }}
             </h4>
             <h5 class="text-h6 font-weight-bold mb-1 text-uppercase">
-              HỆ THỐNG THÔNG TIN NGHIỆP VỤ
+              {{ t('auth.auth.app.system_name') }}
             </h5>
             <p class="mb-6 text-sm text-disabled">
-              Hệ thống thông tin nghiệp vụ giữa Sở Nội vụ và UBND xã, phường, đặc khu
+              {{ t('auth.auth.app.description') }}
             </p>
           </VCardText>
-          
+
           <VCardText>
             <VForm
               ref="refOrgForm"
               @submit.prevent="onOrgSubmit"
             >
               <VRow>
-                <!-- organization select -->
                 <VCol cols="12">
                   <AppSelect
                     v-model="selectedOrgId"
                     :items="availableOrganizations"
                     item-title="name"
                     item-value="id"
-                    label="Chọn tổ chức làm việc"
-                    placeholder="-- Vui lòng chọn --"
+                    :label="t('auth.auth.select_organization.title')"
+                    :placeholder="t('auth.auth.select_organization.placeholder')"
                     :rules="[requiredValidator]"
                   />
                 </VCol>
@@ -193,16 +207,16 @@ const onOrgSubmit = () => {
                     color="info"
                     class="mb-3"
                   >
-                    Tiếp Tục
+                    {{ t('auth.auth.select_organization.continue') }}
                   </VBtn>
-                  
+
                   <VBtn
                     block
                     color="error"
                     variant="tonal"
                     @click="cancelOrganization"
                   >
-                    Đăng Xuất
+                    {{ t('auth.auth.select_organization.logout') }}
                   </VBtn>
                 </VCol>
               </VRow>

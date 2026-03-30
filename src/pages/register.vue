@@ -23,6 +23,7 @@ definePage({
 
 const router = useRouter()
 const refVForm = ref()
+const { t } = useI18n()
 const isLoading = ref(false)
 const isPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
@@ -59,7 +60,7 @@ const handleRegister = async () => {
   try {
     const res = await authRegister(form.value)
 
-    successMessage.value = res?.message || 'Đăng ký thành công. Vui lòng đăng nhập.'
+    successMessage.value = res?.message || t('auth.auth.register.success')
 
     setTimeout(() => {
       router.push('/login')
@@ -67,13 +68,13 @@ const handleRegister = async () => {
   }
   catch (err) {
     if (err?.code === 404)
-      generalError.value = 'API hiện chưa mở endpoint /auth/register.'
+      generalError.value = t('auth.auth.register.endpoint_missing')
     else if (err?.errors) {
       errors.value = { ...errors.value, ...err.errors }
-      generalError.value = err?.message || 'Dữ liệu đăng ký chưa hợp lệ.'
+      generalError.value = err?.message || t('auth.auth.register.invalid_data')
     }
     else
-      generalError.value = err?.data?.message || err?.message || 'Không thể đăng ký tài khoản.'
+      generalError.value = err?.data?.message || err?.message || t('auth.auth.register.failed')
   }
   finally {
     isLoading.value = false
@@ -141,10 +142,10 @@ const onSubmit = () => {
       >
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Tạo tài khoản mới
+            {{ t('auth.auth.register.title') }}
           </h4>
           <p class="mb-0">
-            FE sẽ gọi `POST /auth/register`. Nếu API của anh chưa mở endpoint này, màn hình sẽ trả lỗi rõ ràng.
+            {{ t('auth.auth.register.description') }}
           </p>
         </VCardText>
 
@@ -157,7 +158,7 @@ const onSubmit = () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.name"
-                  label="Họ và tên"
+                  :label="t('auth.auth.register.full_name')"
                   :rules="[requiredValidator]"
                   :error-messages="errors.name"
                 />
@@ -166,7 +167,7 @@ const onSubmit = () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.user_name"
-                  label="Tên đăng nhập"
+                  :label="t('auth.auth.register.username')"
                   :rules="[requiredValidator]"
                   :error-messages="errors.user_name"
                 />
@@ -175,7 +176,7 @@ const onSubmit = () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.email"
-                  label="Email"
+                  :label="t('auth.auth.register.email')"
                   type="email"
                   :rules="[requiredValidator, emailValidator]"
                   :error-messages="errors.email"
@@ -185,7 +186,7 @@ const onSubmit = () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.password"
-                  label="Mật khẩu"
+                  :label="t('auth.auth.register.password')"
                   :rules="[requiredValidator]"
                   :type="isPasswordVisible ? 'text' : 'password'"
                   :error-messages="errors.password"
@@ -197,7 +198,7 @@ const onSubmit = () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.password_confirmation"
-                  label="Xác nhận mật khẩu"
+                  :label="t('auth.auth.register.password_confirmation')"
                   :rules="[requiredValidator]"
                   :type="isConfirmPasswordVisible ? 'text' : 'password'"
                   :error-messages="errors.password_confirmation"
@@ -236,7 +237,7 @@ const onSubmit = () => {
                   type="submit"
                   :loading="isLoading"
                 >
-                  Đăng ký
+                  {{ t('auth.auth.register.submit') }}
                 </VBtn>
               </VCol>
 
@@ -244,12 +245,12 @@ const onSubmit = () => {
                 cols="12"
                 class="text-center"
               >
-                <span class="text-disabled">Đã có tài khoản?</span>
+                <span class="text-disabled">{{ t('auth.auth.register.have_account') }}</span>
                 <RouterLink
                   class="text-primary ms-1"
                   :to="{ name: 'login' }"
                 >
-                  Quay lại đăng nhập
+                  {{ t('auth.auth.register.back_to_login') }}
                 </RouterLink>
               </VCol>
             </VRow>

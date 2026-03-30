@@ -8,11 +8,11 @@ import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import AgendaTab from '@/modules/meetings/components/live-tabs/AgendaTab.vue'
-import ConclusionsTab from '@/modules/meetings/components/live-tabs/ConclusionsTab.vue'
-import DocumentsTab from '@/modules/meetings/components/live-tabs/DocumentsTab.vue'
-import ExecutiveTab from '@/modules/meetings/components/live-tabs/ExecutiveTab.vue'
-import VotingTab from '@/modules/meetings/components/live-tabs/VotingTab.vue'
+import AgendaTab from '@/modules/meetings/components/admin/live-tabs/AgendaTab.vue'
+import ConclusionsTab from '@/modules/meetings/components/admin/live-tabs/ConclusionsTab.vue'
+import DocumentsTab from '@/modules/meetings/components/admin/live-tabs/DocumentsTab.vue'
+import ExecutiveTab from '@/modules/meetings/components/admin/live-tabs/ExecutiveTab.vue'
+import VotingTab from '@/modules/meetings/components/admin/live-tabs/VotingTab.vue'
 
 const activeTab = ref('agenda')
 

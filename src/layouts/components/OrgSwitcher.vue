@@ -1,36 +1,29 @@
 <script setup>
+import {
+  getStoredOrganizations,
+  redirectToOrganizationSelection,
+} from '@/services/auth'
+
+const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const currentOrgId = useCookie('currentOrganizationId')
 
-// Lấy danh sách tổ chức từ localStorage
 const organizations = computed(() => {
-  try {
-    const raw = localStorage.getItem('availableOrganizations')
-
-    return raw ? JSON.parse(raw) : []
-  }
-  catch {
-    return []
-  }
+  return getStoredOrganizations()
 })
 
-// Tên tổ chức hiện tại
 const currentOrgName = computed(() => {
   const org = organizations.value.find(o => o.id === Number(currentOrgId.value))
 
-  return org?.name || 'Chưa chọn Tổ chức'
+  return org?.name || t('navigation.navigation.no_organization_selected')
 })
 
 const showSwitcher = computed(() => organizations.value.length >= 1)
 
-// Chuyển sang trang chọn tổ chức và giữ lại org hiện tại trong query để preselect.
-const handleSwitchOrg = () => {
-  const previousOrgId = currentOrgId.value ? String(currentOrgId.value) : undefined
-
-  currentOrgId.value = null
-  router.push({
-    path: '/select-organization',
-    query: previousOrgId ? { current_org: previousOrgId } : {},
+const handleSwitchOrg = async () => {
+  await redirectToOrganizationSelection(router, {
+    to: route.fullPath !== '/' ? route.fullPath : undefined,
   })
 }
 </script>

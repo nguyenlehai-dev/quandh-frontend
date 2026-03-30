@@ -1,8 +1,10 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { logout as authLogout } from '@/services/auth'
+import { logout as authLogout, redirectToOrganizationSelection } from '@/services/auth'
 
+const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 // TODO: Get type from backend
 const userData = useCookie('userData')
@@ -11,10 +13,10 @@ const logout = async () => {
   await authLogout(router)
 }
 
-// Chuyển tổ chức: xóa org cookie → redirect sang trang chọn
-const clearOrgAndSwitch = () => {
-  useCookie('currentOrganizationId').value = null
-  router.push('/select-organization')
+const clearOrgAndSwitch = async () => {
+  await redirectToOrganizationSelection(router, {
+    to: route.fullPath !== '/' ? route.fullPath : undefined,
+  })
 }
 
 const userProfileList = [
@@ -22,7 +24,7 @@ const userProfileList = [
   {
     type: 'navItem',
     icon: 'tabler-user',
-    title: 'Hồ sơ cá nhân',
+    title: t('navigation.navigation.user_profile'),
     to: {
       name: 'user-profile',
     },
@@ -30,7 +32,7 @@ const userProfileList = [
   {
     type: 'navItem',
     icon: 'tabler-building-community',
-    title: 'Chuyển Tổ Chức',
+    title: t('navigation.navigation.switch_organization'),
     action: 'switchOrg',
   },
 ]
@@ -61,7 +63,6 @@ const userProfileList = [
         icon="tabler-user"
       />
 
-      <!-- SECTION Menu -->
       <VMenu
         activator="parent"
         width="240"
@@ -104,7 +105,7 @@ const userProfileList = [
                   class="text-capitalize text-disabled"
                   style="white-space: normal;"
                 >
-                  {{ userData.assignments?.map(a => a.role_name).join(', ') || 'Người dùng' }}
+                  {{ userData.assignments?.map(a => a.role_name).join(', ') || t('navigation.navigation.user') }}
                 </VListItemSubtitle>
               </div>
             </div>
@@ -144,13 +145,12 @@ const userProfileList = [
                 append-icon="tabler-logout"
                 @click="logout"
               >
-                Đăng Xuất
+                {{ t('navigation.navigation.logout') }}
               </VBtn>
             </div>
           </PerfectScrollbar>
         </VList>
       </VMenu>
-      <!-- !SECTION -->
     </VAvatar>
   </VBadge>
 </template>

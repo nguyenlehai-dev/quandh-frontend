@@ -13,6 +13,7 @@ const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
 const isLoading = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
+const { t } = useI18n()
 
 definePage({
   meta: {
@@ -32,10 +33,10 @@ const submitForgotPassword = async () => {
       body: { email: email.value },
     })
 
-    successMessage.value = res?.message || 'Link đặt lại mật khẩu đã được gửi.'
+    successMessage.value = res?.message || t('auth.auth.forgot_password.success')
   }
   catch (err) {
-    errorMessage.value = err?.data?.message || err?.message || 'Không thể gửi yêu cầu đặt lại mật khẩu.'
+    errorMessage.value = err?.data?.message || err?.message || t('auth.auth.forgot_password.failed')
   }
   finally {
     isLoading.value = false
@@ -95,10 +96,10 @@ const submitForgotPassword = async () => {
       >
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Quên mật khẩu
+            {{ t('auth.auth.forgot_password.title') }}
           </h4>
           <p class="mb-0">
-            Nhập email tài khoản để nhận liên kết đặt lại mật khẩu.
+            {{ t('auth.auth.forgot_password.description') }}
           </p>
         </VCardText>
 
@@ -110,7 +111,7 @@ const submitForgotPassword = async () => {
                 <AppTextField
                   v-model="email"
                   autofocus
-                  label="Email"
+                  :label="t('auth.auth.forgot_password.email')"
                   type="email"
                   placeholder="johndoe@email.com"
                   :rules="[requiredValidator, emailValidator]"
@@ -148,7 +149,7 @@ const submitForgotPassword = async () => {
                   type="submit"
                   :loading="isLoading"
                 >
-                  Gửi liên kết đặt lại
+                  {{ t('auth.auth.forgot_password.submit') }}
                 </VBtn>
               </VCol>
 
@@ -163,7 +164,7 @@ const submitForgotPassword = async () => {
                     size="20"
                     class="me-1 flip-in-rtl"
                   />
-                  <span>Quay lại đăng nhập</span>
+                  <span>{{ t('auth.auth.forgot_password.back_to_login') }}</span>
                 </RouterLink>
               </VCol>
             </VRow>

@@ -23,6 +23,7 @@ const emit = defineEmits([
   'unread',
   'remove',
   'click:notification',
+  'click:all',
 ])
 
 const isAllMarkRead = computed(() => {
@@ -116,7 +117,7 @@ const toggleReadUnread = (isSeen, Id) => {
           <VList class="notification-list rounded-0 py-0">
             <template
               v-for="(notification, index) in props.notifications"
-              :key="notification.title"
+              :key="notification.id ?? notification.title"
             >
               <VDivider v-if="index > 0" />
               <VListItem
@@ -177,7 +178,7 @@ const toggleReadUnread = (isSeen, Id) => {
                       size="20"
                       icon="tabler-x"
                       class="visible-in-hover"
-                      @click="$emit('remove', notification.id)"
+                      @click.stop="$emit('remove', notification.id)"
                     />
                   </div>
                 </div>
@@ -204,6 +205,7 @@ const toggleReadUnread = (isSeen, Id) => {
           <VBtn
             block
             size="small"
+            @click="$emit('click:all')"
           >
             Xem tất cả thông báo
           </VBtn>

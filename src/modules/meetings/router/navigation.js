@@ -1,23 +1,23 @@
-export const navigation = {
-  title: 'Quản lý Cuộc họp',
-  icon: { icon: 'tabler-calendar-event' },
+import { createMeetingsNavigationGroup, createMeetingsNavigationItem } from '../shared/moduleFactory'
+
+export const navigation = createMeetingsNavigationGroup({
+  titleKey: 'navigation.navigation.meetings.title',
+  icon: 'tabler-calendar-event',
   children: [
-    { title: 'Lịch họp của tôi', to: 'meetings-my-calendar', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Cuộc họp', to: 'meetings-list', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Biểu quyết', to: 'meetings-votes-list', action: 'read', subject: 'Meeting' },
-    { title: 'Danh sách Tài liệu', to: 'meetings-documents-list', action: 'read', subject: 'Document' },
-    { title: 'Danh sách Kết luận', to: 'meetings-conclusions-list', action: 'read', subject: 'Meeting' },
-    {
-      title: 'Danh mục',
-      icon: { icon: 'tabler-folders' },
-      action: 'read',
-      subject: 'Meeting',
+    createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.my_calendar', to: 'meetings-my-calendar' }),
+    createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.meetings_list', to: 'meetings-list' }),
+    createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.votes_list', to: 'meetings-votes-list' }),
+    createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.documents_list', to: 'meetings-documents-list', subject: 'Document' }),
+    createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.conclusions_list', to: 'meetings-conclusions-list' }),
+    createMeetingsNavigationGroup({
+      titleKey: 'navigation.navigation.meetings.categories',
+      icon: 'tabler-folders',
       children: [
-        { title: 'Người dự họp', to: 'meetings-attendees-list', action: 'read', subject: 'MeetingParticipant' },
-        { title: 'Nhóm người dự họp', to: 'meetings-attendee-groups', action: 'read', subject: 'AttendeeGroup' },
-        { title: 'Loại tài liệu', to: 'meetings-document-types', action: 'read', subject: 'DocumentType' },
-        { title: 'Loại cuộc họp', to: 'meetings-meeting-types', action: 'read', subject: 'MeetingType' },
+        createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.attendees', to: 'meetings-attendees-list', subject: 'MeetingParticipant' }),
+        createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.attendee_groups', to: 'meetings-attendee-groups', subject: 'AttendeeGroup' }),
+        createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.document_types', to: 'meetings-document-types', subject: 'DocumentType' }),
+        createMeetingsNavigationItem({ titleKey: 'navigation.navigation.meetings.meeting_types', to: 'meetings-meeting-types', subject: 'MeetingType' }),
       ],
-    },
+    }),
   ],
-}
+})

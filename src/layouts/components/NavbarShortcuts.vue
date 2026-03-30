@@ -1,21 +1,22 @@
 <script setup>
 import { getVerticalNavItems } from '@/navigation/vertical'
 
+const { t } = useI18n()
+
 const shortcuts = computed(() => {
   return getVerticalNavItems()
     .filter(item => item.title && !item.heading && (item.to || item.children?.length))
     .map(item => {
-      // Get the destination route (either direct or the first child)
       const destination = item.to || (item.children && item.children[0]?.to) || { name: 'index' }
-      
+
       return {
         icon: item.icon?.icon || 'tabler-folder',
         title: item.title,
-        subtitle: item.children ? `${item.children.length} chức năng` : 'Truy cập nhanh',
+        subtitle: item.children ? t('navigation.navigation.shortcuts_count', { count: item.children.length }) : t('navigation.navigation.quick_access'),
         to: destination,
       }
     })
-    .slice(0, 8) // Limit to 8 items so it looks neat in the grid (2 columns x 4 rows, or 4 cols x 2 rows depending on Shorts layout)
+    .slice(0, 8)
 })
 </script>
 

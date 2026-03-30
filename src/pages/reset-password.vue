@@ -14,6 +14,7 @@ const isPasswordVisible = ref(false)
 const isPasswordConfirmVisible = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
+const { t } = useI18n()
 
 const form = ref({
   email: String(route.query.email || ''),
@@ -43,14 +44,14 @@ const submitResetPassword = async () => {
       body: form.value,
     })
 
-    successMessage.value = res?.message || 'Mật khẩu đã được đặt lại.'
+    successMessage.value = res?.message || t('auth.auth.reset_password.success')
 
     setTimeout(() => {
       router.push('/login')
     }, 1200)
   }
   catch (err) {
-    errorMessage.value = err?.data?.message || err?.message || 'Không thể đặt lại mật khẩu.'
+    errorMessage.value = err?.data?.message || err?.message || t('auth.auth.reset_password.failed')
   }
   finally {
     isLoading.value = false
@@ -110,10 +111,10 @@ const submitResetPassword = async () => {
       >
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Đặt lại mật khẩu
+            {{ t('auth.auth.reset_password.title') }}
           </h4>
           <p class="mb-0">
-            Nhập token, email và mật khẩu mới để hoàn tất quá trình đặt lại.
+            {{ t('auth.auth.reset_password.description') }}
           </p>
         </VCardText>
 
@@ -123,7 +124,7 @@ const submitResetPassword = async () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.email"
-                  label="Email"
+                  :label="t('auth.auth.reset_password.email')"
                   type="email"
                   :rules="[requiredValidator, emailValidator]"
                 />
@@ -132,7 +133,7 @@ const submitResetPassword = async () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.token"
-                  label="Token"
+                  :label="t('auth.auth.reset_password.token')"
                   :rules="[requiredValidator]"
                 />
               </VCol>
@@ -140,7 +141,7 @@ const submitResetPassword = async () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.password"
-                  label="Mật khẩu mới"
+                  :label="t('auth.auth.reset_password.new_password')"
                   :rules="[requiredValidator]"
                   :type="isPasswordVisible ? 'text' : 'password'"
                   :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
@@ -151,7 +152,7 @@ const submitResetPassword = async () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.password_confirmation"
-                  label="Xác nhận mật khẩu"
+                  :label="t('auth.auth.reset_password.password_confirmation')"
                   :rules="[requiredValidator]"
                   :type="isPasswordConfirmVisible ? 'text' : 'password'"
                   :append-inner-icon="isPasswordConfirmVisible ? 'tabler-eye-off' : 'tabler-eye'"
@@ -189,7 +190,7 @@ const submitResetPassword = async () => {
                   type="submit"
                   :loading="isLoading"
                 >
-                  Cập nhật mật khẩu
+                  {{ t('auth.auth.reset_password.submit') }}
                 </VBtn>
               </VCol>
 
@@ -203,7 +204,7 @@ const submitResetPassword = async () => {
                     size="20"
                     class="me-1 flip-in-rtl"
                   />
-                  <span>Quay lại đăng nhập</span>
+                  <span>{{ t('auth.auth.reset_password.back_to_login') }}</span>
                 </RouterLink>
               </VCol>
             </VRow>

@@ -1,5 +1,5 @@
 <script setup>
-import { login as authLogin } from '@/services/auth'
+import { login as authLogin, resolvePostLoginRoute } from '@/services/auth'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
 import authV2LoginIllustrationBorderedLight from '@images/pages/auth-v2-login-illustration-bordered-light.png'
@@ -24,6 +24,7 @@ definePage({
 const isPasswordVisible = ref(false)
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const errors = ref({
   email: undefined,
@@ -33,8 +34,8 @@ const errors = ref({
 const refVForm = ref()
 
 const credentials = ref({
-  email: "",
-  password: "",
+  email: '',
+  password: '',
 })
 
 const rememberMe = ref(false)
@@ -47,18 +48,14 @@ const login = async () => {
   try {
     const data = await authLogin(credentials.value.email, credentials.value.password)
 
-    // Nếu đã có tổ chức hiện tại → vào dashboard luôn
-    if (data.current_organization_id) {
-      await nextTick(() => {
-        router.replace(route.query.to ? String(route.query.to) : '/')
-      })
+    const nextRoute = resolvePostLoginRoute({
+      loginData: data,
+      preferredRoute: route.query.to ? String(route.query.to) : '/',
+      loginIdentifier: credentials.value.email,
+    })
 
-      return
-    }
-
-    // Chưa có tổ chức → redirect sang trang chọn tổ chức
     await nextTick(() => {
-      router.replace('/select-organization')
+      router.replace(nextRoute)
     })
   }
   catch (err) {
@@ -66,7 +63,7 @@ const login = async () => {
       errors.value = err.errors
     }
     else {
-      const msg = err?.data?.message || err?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.'
+      const msg = err?.data?.message || err?.message || t('auth.auth.login.invalid_credentials')
 
       errors.value.email = msg
     }
@@ -137,13 +134,13 @@ const onSubmit = () => {
       >
         <VCardText class="text-center">
           <h4 class="text-h5 mb-1">
-            Sở nội vụ Đà Nẵng
+            {{ t('auth.auth.app.agency') }}
           </h4>
           <h5 class="text-h6 font-weight-bold mb-1 text-uppercase">
-            HỆ THỐNG THÔNG TIN NGHIỆP VỤ
+            {{ t('auth.auth.app.system_name') }}
           </h5>
           <p class="text-sm text-disabled mb-0">
-            Hệ thống thông tin nghiệp vụ giữa Sở Nội vụ và UBND xã, phường, đặc khu
+            {{ t('auth.auth.app.description') }}
           </p>
         </VCardText>
 
@@ -153,11 +150,10 @@ const onSubmit = () => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- email -->
               <VCol cols="12">
                 <AppTextField
                   v-model="credentials.email"
-                  label="Tên đăng nhập hoặc Email"
+                  :label="t('auth.auth.login.username_or_email')"
                   placeholder="johndoe@email.com"
                   type="text"
                   autofocus
@@ -166,12 +162,11 @@ const onSubmit = () => {
                 />
               </VCol>
 
-              <!-- password -->
               <VCol cols="12">
                 <AppTextField
                   v-model="credentials.password"
-                  label="Mật khẩu"
-                  placeholder="············"
+                  :label="t('auth.auth.login.password')"
+                  placeholder="........"
                   :rules="[requiredValidator]"
                   :type="isPasswordVisible ? 'text' : 'password'"
                   autocomplete="password"
@@ -185,13 +180,13 @@ const onSubmit = () => {
                 <div class="d-flex align-center flex-wrap justify-space-between mb-6">
                   <VCheckbox
                     v-model="rememberMe"
-                    label="Ghi nhớ đăng nhập"
+                    :label="t('auth.auth.login.remember_me')"
                   />
                   <RouterLink
                     class="text-primary ms-2 mb-1"
                     :to="{ name: 'forgot-password' }"
                   >
-                    Quên mật khẩu?
+                    {{ t('auth.auth.login.forgot_password') }}
                   </RouterLink>
                 </div>
 
@@ -200,7 +195,7 @@ const onSubmit = () => {
                   type="submit"
                   :loading="isLoading"
                 >
-                  Đăng Nhập
+                  {{ t('auth.auth.login.submit') }}
                 </VBtn>
               </VCol>
 
@@ -208,15 +203,14 @@ const onSubmit = () => {
                 cols="12"
                 class="text-center"
               >
-                <span class="text-disabled">Chưa có tài khoản?</span>
+                <span class="text-disabled">{{ t('auth.auth.login.no_account') }}</span>
                 <RouterLink
                   class="text-primary ms-1"
                   :to="{ name: 'register' }"
                 >
-                  Đăng ký ngay
+                  {{ t('auth.auth.login.register_now') }}
                 </RouterLink>
               </VCol>
-
             </VRow>
           </VForm>
         </VCardText>

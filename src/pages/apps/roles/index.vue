@@ -1,5 +1,5 @@
 <script setup>
-import RolesPage from '@/modules/roles/views/RolesPageMain.vue'
+import RolesPage from '@/modules/auth/roles/views/RolesPageMain.vue'
 
 definePage({
   meta: {

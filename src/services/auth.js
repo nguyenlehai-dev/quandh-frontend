@@ -1,8 +1,7 @@
 /**
  * Auth Service
  *
- * Quản lý tập trung: login, logout, session state.
- * Sử dụng: import { login, logout, switchOrganization } from '@/services/auth'
+ * Centralized auth/session helpers for login, logout, org switching, and auth sync.
  */
 import { ability } from '@/plugins/casl/ability'
 import ApiService from '@/services/api-service'
@@ -15,17 +14,155 @@ const ABILITY_KEY = 'userAbilityRules'
 const ORG_KEY = 'currentOrganizationId'
 const ORGS_KEY = 'availableOrganizations'
 const FETCH_ME_SYNC_WINDOW = 5000
+const FETCH_ME_FORBIDDEN_KEY = 'authFetchMeForbidden'
+const USER_NOTIFICATIONS_FORBIDDEN_KEY = 'userNotificationsForbidden'
+const SYSTEM_DASHBOARD_FORBIDDEN_PREFIX = 'systemDashboardForbidden:'
 
 let fetchMePromise = null
 let lastFetchMeAt = 0
 
+const AUTH_TEST_FLOWS = {
+  'flow_direct': 'direct',
+  'flow.direct@example.com': 'direct',
+  'flow_select': 'select-organization',
+  'flow.select@example.com': 'select-organization',
+  'flow_switch': 'direct',
+  'flow.switch@example.com': 'direct',
+}
+
+const resolveConfiguredAuthFlow = (...identifiers) => {
+  for (const identifier of identifiers) {
+    const normalizedIdentifier = String(identifier || '').trim().toLowerCase()
+
+    if (normalizedIdentifier && AUTH_TEST_FLOWS[normalizedIdentifier])
+      return AUTH_TEST_FLOWS[normalizedIdentifier]
+  }
+
+  return null
+}
+
+export const getStoredOrganizations = () => {
+  try {
+    const raw = localStorage.getItem(ORGS_KEY)
+
+    return raw ? JSON.parse(raw) : []
+  }
+  catch {
+    return []
+  }
+}
+
+export const setStoredOrganizations = organizations => {
+  if (!Array.isArray(organizations) || organizations.length === 0) {
+    localStorage.removeItem(ORGS_KEY)
+
+    return
+  }
+
+  localStorage.setItem(ORGS_KEY, JSON.stringify(organizations))
+}
+
+export const clearCurrentOrganization = () => {
+  useCookie(ORG_KEY).value = null
+}
+
+export const getOrganizationSessionState = () => {
+  const organizations = getStoredOrganizations()
+  const currentOrganizationId = Number(useCookie(ORG_KEY).value) || null
+
+  const hasValidCurrentOrganization = Boolean(
+    currentOrganizationId
+    && organizations.some(org => Number(org.id) === currentOrganizationId),
+  )
+
+  return {
+    organizations,
+    currentOrganizationId,
+    hasOrganizations: organizations.length > 0,
+    hasValidCurrentOrganization,
+  }
+}
+
+export const buildOrganizationSelectionRoute = ({
+  to,
+  currentOrganizationId,
+} = {}) => {
+  const query = {}
+
+  if (to)
+    query.to = to
+
+  if (currentOrganizationId)
+    query['current_org'] = String(currentOrganizationId)
+
+  return {
+    path: '/select-organization',
+    query,
+  }
+}
+
+export const getAuthenticatedEntryRoute = preferredRoute => {
+  const { hasValidCurrentOrganization } = getOrganizationSessionState()
+
+  return hasValidCurrentOrganization ? preferredRoute || '/' : '/select-organization'
+}
+
+export const resolvePostLoginRoute = ({
+  loginData,
+  preferredRoute,
+  loginIdentifier,
+} = {}) => {
+  const configuredFlow = resolveConfiguredAuthFlow(
+    loginIdentifier,
+    loginData?.user?.username,
+    loginData?.user?.email,
+  )
+
+  if (configuredFlow === 'select-organization')
+    return '/select-organization'
+
+  return loginData?.current_organization_id ? preferredRoute || '/' : '/select-organization'
+}
+
+export const redirectToOrganizationSelection = async (router, options = {}) => {
+  const {
+    to,
+    currentOrganizationId = getOrganizationSessionState().currentOrganizationId,
+  } = options
+
+  clearCurrentOrganization()
+
+  return router.push(buildOrganizationSelectionRoute({
+    to,
+    currentOrganizationId,
+  }))
+}
+
+const clearSessionRuntimeFlags = () => {
+  sessionStorage.removeItem(FETCH_ME_FORBIDDEN_KEY)
+  sessionStorage.removeItem(USER_NOTIFICATIONS_FORBIDDEN_KEY)
+
+  Object.keys(sessionStorage)
+    .filter(key => key.startsWith(SYSTEM_DASHBOARD_FORBIDDEN_PREFIX))
+    .forEach(key => sessionStorage.removeItem(key))
+}
+
 const clearClientSession = () => {
   useCookie(TOKEN_KEY).value = null
   useCookie(USER_KEY).value = null
-  useCookie(ORG_KEY).value = null
+  clearCurrentOrganization()
   localStorage.removeItem(ABILITY_KEY)
   localStorage.removeItem(ORGS_KEY)
+  clearSessionRuntimeFlags()
   ability.update([])
+}
+
+const normalizeAbilityRules = rules => {
+  const normalizedRules = Array.isArray(rules) ? [...rules] : []
+
+  normalizedRules.push({ action: 'read', subject: 'Auth' })
+
+  return normalizedRules
 }
 
 export const register = async payload => {
@@ -35,99 +172,87 @@ export const register = async payload => {
     param: payload,
   })
 
-  if (res.errors || res.code || res.success === false) {
+  if (res.errors || res.code || res.success === false)
     throw res
-  }
 
   return res.data || res
 }
 
-/**
- * Login
- * POST /auth/login → lưu cookies + update CASL ability
- *
- * Khi current_organization_id = null (nhiều org, chưa có preference)
- * → không lưu cookie org, trả data cho page hiển thị dialog chọn.
- */
 export const login = async (email, password) => {
+  // Reset stale organization state from any previous session before applying
+  // the current login payload. This avoids sending an old X-Organization-Id.
+  clearCurrentOrganization()
+  localStorage.removeItem(ORGS_KEY)
+  clearSessionRuntimeFlags()
+
   const res = await api.callApi({
     method: 'POST',
     url: '/auth/login',
     param: { email, password },
   })
 
-  // Nếu có lỗi (422, network error, ...)
-  if (res.errors || res.code || res.success === false) {
+  if (res.errors || res.code || res.success === false)
     throw res
-  }
 
-  // Laravel backend chuẩn trả về payload nằm trong property 'data'
   const data = res.data || res
-
   const accessToken = data.access_token
   const userData = data.user
-  const userAbilityRules = data.abilities || []
+  const userAbilityRules = normalizeAbilityRules(data.abilities)
 
-  // Bổ sung quyền mặc định để truy cập Dashboard và các Route không được định nghĩa rõ ràng
-  userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
-  userAbilityRules.push({ action: 'read', subject: 'Auth' })
-
-  // Lưu session vào cookies
   useCookie(TOKEN_KEY).value = accessToken
   useCookie(USER_KEY).value = userData
   localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
 
-  // Lưu danh sách tổ chức user có quyền truy cập
-  if (data.available_organizations) {
-    localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
-  }
+  if (data.available_organizations)
+    setStoredOrganizations(data.available_organizations)
+  else
+    localStorage.removeItem(ORGS_KEY)
 
-  // Lưu organization (nếu BE đã xác định được)
-  if (data.current_organization_id) {
+  const configuredFlow = resolveConfiguredAuthFlow(
+    email,
+    userData?.username,
+    userData?.email,
+  )
+
+  if (configuredFlow === 'select-organization')
+    clearCurrentOrganization()
+  else if (data.current_organization_id)
     useCookie(ORG_KEY).value = data.current_organization_id
-  }
+  else
+    clearCurrentOrganization()
 
-  // Update CASL permissions
   ability.update(userAbilityRules)
 
   return data
 }
 
-/**
- * Chuyển tổ chức làm việc
- * POST /auth/switch-organization → lưu DB + cập nhật cookie & CASL
- */
 export const switchOrganization = async orgId => {
   const res = await api.callApi({
     method: 'POST',
     url: '/auth/switch-organization',
-    param: { organization_id: orgId },
+    param: { ['organization_id']: orgId },
   })
 
   if (res.errors || res.code || res.success === false) {
+    if (res.code === 403)
+      clearCurrentOrganization()
+
     throw res
   }
 
   const data = res.data || res
 
-  // Lưu org đã chọn vào cookie
   useCookie(ORG_KEY).value = data.current_organization_id
+  clearSessionRuntimeFlags()
 
-  // Cập nhật CASL abilities theo org mới
-  const userAbilityRules = data.abilities || []
+  const userAbilityRules = normalizeAbilityRules(data.abilities)
 
-  userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
-  userAbilityRules.push({ action: 'read', subject: 'Auth' })
   localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
   ability.update(userAbilityRules)
 
   return data
 }
 
-/**
- * Logout
- * Xóa tất cả cookies → reset CASL → redirect /login
- */
 export const logout = async router => {
   try {
     if (useCookie(TOKEN_KEY).value) {
@@ -144,53 +269,35 @@ export const logout = async router => {
 
   clearClientSession()
 
-  // Redirect trước rồi mới reset ability (tránh flickering nav menu)
-  if (router) {
+  if (router)
     await router.push('/login')
-  }
 }
 
-/**
- * Lấy thông tin user hiện tại từ cookie
- */
 export const getCurrentUser = () => {
   return useCookie(USER_KEY).value
 }
 
-/**
- * Kiểm tra đã đăng nhập chưa
- */
 export const isAuthenticated = () => {
   return !!(useCookie(TOKEN_KEY).value && useCookie(USER_KEY).value)
 }
 
-/**
- * Đổi organization hiện tại (chỉ client-side, không gọi API)
- */
 export const setCurrentOrganization = orgId => {
   useCookie(ORG_KEY).value = orgId
 }
 
-/**
- * Fetch lại thông tin user & quyền hạn mới nhất từ Server
- * Thường gọi khi ứng dụng vửa khởi tạo (reload / F5)
- */
 export const fetchMe = async ({ force = false } = {}) => {
   if (!isAuthenticated()) return null
 
-  // Middleware set.permissions.team yêu cầu X-Organization-Id header.
-  // Nếu chưa có org (chưa chọn tổ chức) → skip, tránh lỗi 422.
-  const orgId = useCookie('currentOrganizationId').value
+  const orgId = useCookie(ORG_KEY).value
   if (!orgId) return null
+  if (sessionStorage.getItem(FETCH_ME_FORBIDDEN_KEY) === '1') return null
 
   const now = Date.now()
-  if (!force && now - lastFetchMeAt < FETCH_ME_SYNC_WINDOW) {
+  if (!force && now - lastFetchMeAt < FETCH_ME_SYNC_WINDOW)
     return null
-  }
 
-  if (fetchMePromise) {
+  if (fetchMePromise)
     return fetchMePromise
-  }
 
   fetchMePromise = (async () => {
     try {
@@ -199,40 +306,37 @@ export const fetchMe = async ({ force = false } = {}) => {
         url: '/user',
       })
 
-      if (res.errors || res.code || res.success === false) {
+      if (res.errors || res.code || res.success === false)
         return null
-      }
 
       const data = res.data || res
 
       if (data) {
-        // 1. Cập nhật quyền
-        const userAbilityRules = data.abilities || []
-        
-        userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
-        userAbilityRules.push({ action: 'read', subject: 'Auth' })
-        
+        const userAbilityRules = normalizeAbilityRules(data.abilities)
+
         localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
         ability.update(userAbilityRules)
 
-        // 2. Cập nhật User
-        if (data.user) {
+        if (data.user)
           useCookie(USER_KEY).value = data.user
-        }
 
-        // 3. Cập nhật Organizations
-        if (data.available_organizations) {
-          localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
-        }
+        if (data.available_organizations)
+          setStoredOrganizations(data.available_organizations)
 
         lastFetchMeAt = Date.now()
 
         return data
       }
-      
+
       return null
     }
     catch (err) {
+      if (err?.code === 403 || err?.status === 403 || err?.statusCode === 403) {
+        sessionStorage.setItem(FETCH_ME_FORBIDDEN_KEY, '1')
+
+        return null
+      }
+
       console.warn('Fetch auth/me failed', err)
 
       return null

@@ -1,5 +1,5 @@
 <script setup>
-import PermissionsPage from '@/modules/permissions/views/PermissionsPage.vue'
+import PermissionsPage from '@/modules/auth/permissions/views/PermissionsPage.vue'
 
 definePage({
   meta: {

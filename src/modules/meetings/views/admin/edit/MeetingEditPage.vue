@@ -1,325 +1,35 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import MeetingAttendeesTab from '@/modules/meetings/components/tabs/MeetingAttendeesTab.vue'
-import MeetingConclusionsTab from '@/modules/meetings/components/tabs/MeetingConclusionsTab.vue'
-import MeetingDocumentsTab from '@/modules/meetings/components/tabs/MeetingDocumentsTab.vue'
-import MeetingVotesTab from '@/modules/meetings/components/tabs/MeetingVotesTab.vue'
-import { createMeeting, fetchAttendeeGroups, fetchMeeting, fetchMeetingTypes, updateMeeting } from '@/modules/meetings/services/meetingService'
-import { fetchUsers } from '@/modules/user/services/userService'
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useMeetingEditPage } from '@/modules/meetings/composables/useMeetingEditPage'
+import MeetingAttendeesTab from '@/modules/meetings/components/admin/tabs/MeetingAttendeesTab.vue'
+import MeetingConclusionsTab from '@/modules/meetings/components/admin/tabs/MeetingConclusionsTab.vue'
+import MeetingDocumentsTab from '@/modules/meetings/components/admin/tabs/MeetingDocumentsTab.vue'
+import MeetingVotesTab from '@/modules/meetings/components/admin/tabs/MeetingVotesTab.vue'
 
-const route = useRoute()
-const router = useRouter()
-const isEditMode = computed(() => !!route.params.id)
-
-const activeTab = ref('general')
-
-const loading = ref(false)
-const submittingAction = ref(null)
-
-const snackbar = ref({ show: false, message: '', color: 'success' })
-
-const showMessage = (message, color = 'success') => {
-  snackbar.value = { show: true, message, color }
-}
-
-const dateTimeConfig = {
-  enableTime: true,
-  dateFormat: 'Y-m-d H:i',
-}
-
-const timeConfig = {
-  enableTime: true,
-  noCalendar: true,
-  dateFormat: 'H:i',
-}
-
-const initialFormData = {
-  title: '',
-  description: '',
-  room_name: '',
-  location: '',
-  meeting_type_id: null,
-  start_at: '',
-  end_at: '',
-  status: 'draft',
-  agendas: [],
-  attendees: [],
-}
-
-const formData = ref(JSON.parse(JSON.stringify(initialFormData)))
-
-const fetchMeetingDetails = async () => {
-  loading.value = true
-  try {
-    const res = await fetchMeeting(route.params.id)
-    if (res.data) {
-      const formatToInput = dateStr => {
-        if (!dateStr) return ''
-
-        // Backend format: "HH:mm:ss DD/MM/YYYY"
-        if (dateStr.includes('/')) {
-          const parts = dateStr.split(' ')
-          if (parts.length !== 2) return dateStr
-          const timePart = parts[0] // HH:mm:ss
-          const datePart = parts[1].split('/') // DD/MM/YYYY
-          if (datePart.length !== 3) return dateStr
-
-          return `${datePart[2]}-${datePart[1]}-${datePart[0]} ${timePart.slice(0, 5)}`
-        }
-
-        // ISO format fallback
-        return dateStr.replace('T', ' ').slice(0, 16)
-      }
-
-      formData.value = {
-        title: res.data.title || '',
-        meeting_type_id: res.data.meeting_type_id || null,
-        description: res.data.description || '',
-        location: res.data.location || '',
-        start_at: formatToInput(res.data.start_at),
-        end_at: formatToInput(res.data.end_at),
-        status: res.data.status || 'draft',
-        agendas: res.data.agendas || [],
-        attendees: res.data.participants || [],
-      }
-    }
-  }
-  catch (err) {
-    console.error('Lỗi khi tải dữ liệu cuộc họp', err)
-    showMessage('Có lỗi xảy ra khi tải cuộc họp', 'error')
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  loadUsers()
-  loadMeetingTypes()
-  if (isEditMode.value) {
-    fetchMeetingDetails()
-  }
-})
-
-// Load danh sách User để chọn Người phụ trách
-const userList = ref([])
-
-// Load danh sách Meeting Types
-const meetingTypeList = ref([])
-
-const loadMeetingTypes = async () => {
-  try {
-    const res = await fetchMeetingTypes({ limit: 100 })
-
-    meetingTypeList.value = (res.data?.data || res.data || []).map(t => ({
-      value: t.id,
-      title: t.name,
-    }))
-  } catch (e) {
-    console.error('Lỗi khi tải danh sách loại cuộc họp', e)
-  }
-}
-
-const loadUsers = async () => {
-  try {
-    const res = await fetchUsers({ limit: 100 })
-
-    userList.value = (res.data || []).map(u => ({
-      value: u.id,
-      title: u.full_name || u.name || u.email,
-    }))
-  }
-  catch (e) {
-    console.error('Lỗi khi tải danh sách người dùng', e)
-  }
-}
-
-// ===== Phase 3: Auto-fill từ Nhóm người dự họp =====
-const attendeeGroupsForType = ref([])
-const loadingGroups = ref(false)
-const selectedGroupIds = ref([])
-
-const loadAttendeeGroupsForType = async meetingTypeId => {
-  if (!meetingTypeId) {
-    attendeeGroupsForType.value = []
-
-    return
-  }
-  loadingGroups.value = true
-  try {
-    const res = await fetchAttendeeGroups({ meeting_type_id: meetingTypeId, limit: 100 })
-
-    attendeeGroupsForType.value = res.data?.data || res.data || []
-  } catch (e) {
-    console.error('Lỗi khi tải nhóm theo loại cuộc họp', e)
-  } finally {
-    loadingGroups.value = false
-  }
-}
-
-// Watch meeting_type_id thay đổi → load nhóm
-watch(() => formData.value.meeting_type_id, newVal => {
-  selectedGroupIds.value = []
-  loadAttendeeGroupsForType(newVal)
-})
-
-// Auto-fill attendees từ các nhóm đã chọn
-const autoFillFromGroups = () => {
-  const groups = attendeeGroupsForType.value.filter(g => selectedGroupIds.value.includes(g.id))
-  const existingNames = new Set(formData.value.attendees.map(a => a.name?.toLowerCase()))
-
-  groups.forEach(group => {
-    if (!group.members) return
-    group.members.forEach(member => {
-      if (!existingNames.has(member.name?.toLowerCase())) {
-        formData.value.attendees.push({
-          name: member.name,
-          position: 'member',
-          type: 'internal',
-          user_id: member.id,
-        })
-        existingNames.add(member.name?.toLowerCase())
-      }
-    })
-  })
-  showMessage(`Đã thêm thành viên từ ${groups.length} nhóm`, 'success')
-}
-
-const addAgendaItem = () => {
-  formData.value.agendas.push({
-    title: '',
-    duration: 0,
-    presenter_id: null,
-    start_time: '',
-    end_time: '',
-  })
-}
-
-const removeAgendaItem = index => {
-  formData.value.agendas.splice(index, 1)
-}
-
-const addAttendeeItem = () => {
-  formData.value.attendees.push({
-    name: '',
-    position: 'member',
-    type: 'internal',
-  })
-}
-
-const removeAttendeeItem = index => {
-  formData.value.attendees.splice(index, 1)
-}
-
-const submitForm = async actionType => {
-  // Validate required fields
-  if (!formData.value.title) {
-    showMessage('Vui lòng nhập tên cuộc họp', 'error')
-    activeTab.value = 'general'
-    
-    return
-  }
-
-  submittingAction.value = actionType
-  try {
-    const formatToBackend = datetimeLocal => {
-      if (!datetimeLocal) return ''
-      if (datetimeLocal.length === 16 && datetimeLocal.includes(' ')) {
-        return datetimeLocal + ':00'
-      }
-      
-      return datetimeLocal.replace('T', ' ') + ':00'
-    }
-
-    // Clean agendas to only include backend-valid fields
-    const cleanAgendas = (formData.value.agendas || []).map(a => ({
-      ...(a.id ? { id: a.id } : {}),
-      title: a.title,
-      duration: a.duration || null,
-      presenter_id: a.presenter_id || null,
-    }))
-
-    const payload = {
-      title: formData.value.title,
-      description: formData.value.description || null,
-      location: formData.value.location || null,
-      meeting_type_id: formData.value.meeting_type_id || null,
-      start_at: formatToBackend(formData.value.start_at) || null,
-      end_at: formatToBackend(formData.value.end_at) || null,
-      status: formData.value.status || 'draft',
-      agendas: cleanAgendas.length > 0 ? cleanAgendas : null,
-    }
-
-    let savedMeetingId = route.params.id
-
-    if (isEditMode.value) {
-      await updateMeeting(route.params.id, payload)
-      showMessage('Đã cập nhật cuộc họp thành công')
-    }
-    else {
-      const resp = await createMeeting(payload)
-
-      savedMeetingId = resp.data?.id || resp.id
-      showMessage('Đã tạo cuộc họp thành công')
-    }
-
-    if (actionType === 'save-add') {
-      formData.value = JSON.parse(JSON.stringify(initialFormData))
-      router.replace({ name: 'meetings-create' })
-    }
-    else if (actionType === 'save-edit') {
-      if (!isEditMode.value) {
-        router.replace({ name: 'meetings-edit', params: { id: savedMeetingId } })
-      } else {
-        fetchMeetingDetails()
-      }
-    }
-    else {
-      router.push({ name: 'meetings-list' })
-    }
-  }
-  catch (err) {
-    console.error('Lỗi khi lưu cuộc họp', err)
-
-    // Log chi tiết lỗi validation từ backend
-    const errData = err?.response?._data || err?.data
-    if (errData) {
-      console.error('Backend validation errors:', errData)
-    }
-
-    // Extract detailed validation error messages
-    let msg = 'Lỗi khi lưu cuộc họp. Vui lòng kiểm tra lại thông tin.'
-    if (errData?.errors) {
-      const firstErrors = Object.values(errData.errors).map(e => Array.isArray(e) ? e[0] : e)
-
-      msg = firstErrors.join(' | ')
-    } else if (errData?.message) {
-      msg = errData.message
-    }
-
-    showMessage(msg, 'error')
-  }
-  finally {
-    submittingAction.value = null
-  }
-}
-
-// Tab config with edit-only flags
-const tabsConfig = computed(() => [
-  { value: 'general', label: 'Thông tin & Lịch trình', icon: 'tabler-list-details', editOnly: false },
-  { value: 'documents', label: 'Tài liệu đính kèm', icon: 'tabler-file-text', editOnly: true },
-  { value: 'attendees', label: 'Thành phần tham dự', icon: 'tabler-users-group', editOnly: false },
-  { value: 'voting', label: 'Biểu quyết', icon: 'tabler-checkbox', editOnly: true },
-  { value: 'conclusions', label: 'Kết luận cuộc họp', icon: 'tabler-file-check', editOnly: true },
-])
-
-const isTabDisabled = tabValue => {
-  const tab = tabsConfig.value.find(t => t.value === tabValue)
-  
-  return tab?.editOnly && !isEditMode.value
-}
+const {
+  activeTab,
+  addAgendaItem,
+  addAttendeeItem,
+  attendeeGroupsForType,
+  autoFillFromGroups,
+  dateTimeConfig,
+  formData,
+  isEditMode,
+  isTabDisabled,
+  loading,
+  loadingGroups,
+  meetingTypeList,
+  removeAgendaItem,
+  removeAttendeeItem,
+  route,
+  selectedGroupIds,
+  snackbar,
+  submitForm,
+  submittingAction,
+  tabsConfig,
+  timeConfig,
+  userList,
+} = useMeetingEditPage()
 </script>
 
 <template>
@@ -637,8 +347,7 @@ const isTabDisabled = tabValue => {
                             v-if="formData.agendas.length > 0"
                             size="small"
                             variant="flat"
-                            style="background-color: #dbeafe; color: #3b82f6; font-weight: 600;"
-                            class="ml-2"
+                            style="margin-left: 8px; background-color: #dbeafe; color: #3b82f6; font-weight: 600;"
                           >
                             {{ formData.agendas.length }} nội dung
                           </VChip>
@@ -1444,3 +1153,4 @@ const EditModeRequired = {
   margin-block-start: 18px;
 }
 </style>
+

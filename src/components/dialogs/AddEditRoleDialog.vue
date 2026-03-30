@@ -59,6 +59,7 @@ const role = ref('')
 const roleId = ref(null)
 const roleScope = ref('admin')
 const roleGuardName = ref('api')
+const permissionSearch = ref('')
 const refPermissionForm = ref()
 
 const scopeOptions = [
@@ -174,6 +175,8 @@ const actionLabelMap = {
   assignPermissions: 'Phân quyền',
 }
 
+const sortByLabel = (left, right) => left.localeCompare(right, 'vi', { sensitivity: 'base' })
+
 // Tree/Group logic
 const permissionGroups = computed(() => {
   const groups = {}
@@ -199,12 +202,34 @@ const permissionGroups = computed(() => {
     // Build the full description like "Truy cập danh sách người dùng"
     const groupNoun = groupLabel.replace(/^Quản lý\s*/i, '')
 
-    p.displayLabel = `${actionLabel} ${groupNoun}`.trim()
-
-    groups[prefix].permissions.push(p)
+    groups[prefix].permissions.push({
+      ...p,
+      displayLabel: `${actionLabel} ${groupNoun}`.trim(),
+    })
   })
 
   return Object.values(groups)
+    .map(group => ({
+      ...group,
+      permissions: group.permissions
+        .filter(permission => {
+          if (!permissionSearch.value) return true
+
+          const keyword = permissionSearch.value.toLowerCase()
+
+          return permission.displayLabel.toLowerCase().includes(keyword)
+            || permission.name.toLowerCase().includes(keyword)
+        })
+        .sort((left, right) => sortByLabel(left.displayLabel, right.displayLabel)),
+    }))
+    .filter(group => {
+      if (!permissionSearch.value) return true
+
+      const keyword = permissionSearch.value.toLowerCase()
+
+      return group.label.toLowerCase().includes(keyword) || group.permissions.length > 0
+    })
+    .sort((left, right) => sortByLabel(left.label, right.label))
 })
 
 const isGroupChecked = group => {
@@ -233,6 +258,7 @@ watch(() => props.isDialogVisible, async visible => {
       roleId.value = props.rolePermissions.id
       roleScope.value = props.rolePermissions.scope || 'admin'
       roleGuardName.value = props.rolePermissions.guard_name || 'api'
+      permissionSearch.value = ''
 
       const existingNames = (props.rolePermissions.permissions || []).map(p => p.name || p)
 
@@ -246,6 +272,7 @@ watch(() => props.isDialogVisible, async visible => {
       roleId.value = null
       roleScope.value = 'admin'
       roleGuardName.value = 'api'
+      permissionSearch.value = ''
       allPermissions.value.forEach(p => {
         p.checked = false
       })
@@ -422,6 +449,14 @@ const onReset = () => {
                 density="compact"
               />
             </div>
+
+            <AppTextField
+              v-model="permissionSearch"
+              label="Tim kiem quyen"
+              placeholder="Nhap ten quyen hoac nhom quyen"
+              prepend-inner-icon="tabler-search"
+              class="mb-4"
+            />
 
             <!-- Permission groups -->
             <div

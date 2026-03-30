@@ -1,13 +1,20 @@
 // Module Auto-Discovery Loader
 //
-// Tu dong scan tat ca modules/[name]/index.js bang Vite import.meta.glob.
+// Tu dong scan tat ca modules/**/index.js bang Vite import.meta.glob.
 // Khi them module moi, chi can tao folder trong modules/ voi index.js
 // -> he thong tu nhan dien, khong can sua bat ky file nao khac.
 import { can } from '@layouts/plugins/casl'
+import { getI18n } from '@/plugins/i18n'
 
-const moduleFiles = import.meta.glob('./*/index.js', { eager: true })
+const moduleFiles = import.meta.glob([
+  './**/index.js',
+  '!./_template_modules/**/index.js',
+], { eager: true })
+
+const t = key => getI18n().global.t(key)
 
 // Danh sách các module không tải vào app (demo hoặc chưa dùng tới)
+// eslint-disable-next-line sonarjs/no-empty-collection
 const IGNORED_MODULES = [
   // 'example',
   // 'ecommerce',
@@ -23,15 +30,20 @@ const IGNORED_MODULES = [
 
 export const modules = Object.entries(moduleFiles)
   .filter(([path]) => {
-    const moduleName = path.split('/')[1]
+    const segments = path.replace('./', '').split('/')
+    const moduleName = segments.at(-2)
+    const hasIgnoredSegment = segments.some(segment => segment.startsWith('_'))
 
-    return !IGNORED_MODULES.includes(moduleName)
+    // eslint-disable-next-line sonarjs/no-empty-collection
+    return !hasIgnoredSegment && !IGNORED_MODULES.includes(moduleName)
   })
   .map(([path, mod]) => {
-    const moduleName = path.split('/')[1]
+    const segments = path.replace('./', '').split('/')
+    const moduleName = segments.at(-2)
 
     return {
       name: moduleName,
+      path,
       ...mod.default,
     }
   })
@@ -55,6 +67,7 @@ function getModNav(name) {
 
 function normalizeNavItems(nav) {
   if (!nav) return []
+
   return Array.isArray(nav) ? nav : [nav]
 }
 
@@ -94,8 +107,20 @@ function buildSection(heading, items) {
 export function getModuleNavigation() {
   // 1. Bảng điều khiển: luôn hiện cho mọi user
   const dashboardNav = [
-    { title: 'Tổng quan hệ thống', to: 'system-dashboard', icon: { icon: 'tabler-layout-dashboard' } },
-    { title: 'Tổng quan nghiệp vụ', to: 'meetings-business-overview', icon: { icon: 'tabler-briefcase' } },
+    {
+      title: t('navigation.navigation.dashboard.system_overview'),
+      to: 'system-dashboard',
+      icon: { icon: 'tabler-layout-dashboard' },
+      action: 'read',
+      subject: 'Dashboard',
+    },
+    {
+      title: t('navigation.navigation.dashboard.business_overview'),
+      to: 'meetings-business-overview',
+      icon: { icon: 'tabler-briefcase' },
+      action: 'read',
+      subject: 'BusinessOverview',
+    },
   ]
 
   // 2. Quản lý cuộc họp (từ meetings module)
@@ -117,9 +142,9 @@ export function getModuleNavigation() {
   ].filter(Boolean)
 
   return [
-    ...buildSection('Bảng điều khiển', dashboardNav),
-    ...buildSection('Quản lý cuộc họp', meetingsNav),
-    ...buildSection('Quản lý hệ thống', systemNav),
+    ...buildSection(t('navigation.navigation.dashboard.section'), dashboardNav),
+    ...buildSection(t('navigation.navigation.meetings.section'), meetingsNav),
+    ...buildSection(t('navigation.navigation.system.section'), systemNav),
   ]
 }
 

@@ -94,10 +94,23 @@ const loadGlobalSettings = async () => {
   }
 }
 
-import { fetchMe } from '@/services/auth'
+import { fetchMe, getOrganizationSessionState } from '@/services/auth'
 
 loadGlobalSettings()
-fetchMe()
+
+const hasCachedAuthState = () => {
+  const { hasValidCurrentOrganization } = getOrganizationSessionState()
+
+  return Boolean(
+    useCookie('accessToken').value
+    && hasValidCurrentOrganization
+    && useCookie('userData').value
+    && localStorage.getItem('userAbilityRules'),
+  )
+}
+
+if (!hasCachedAuthState())
+  fetchMe()
 
 const syncPermissionsOnFocus = () => {
   if (document.visibilityState === 'visible') {

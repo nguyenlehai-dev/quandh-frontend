@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "validate": "node scripts/validate-modules.js",
-    "prebuild": "node scripts/validate-modules.js",
+    "docs:generate": "node scripts/generate-module-docs.js",
+    "validate": "npm run docs:generate && node scripts/validate-modules.js",
+    "prebuild": "npm run docs:generate && node scripts/validate-modules.js",
     "build": "vite build",
     "preview": "vite preview --port 5050",
     "lint": "eslint . -c .eslintrc.cjs --fix --ext .ts,.js,.cjs,.vue,.tsx,.jsx",
