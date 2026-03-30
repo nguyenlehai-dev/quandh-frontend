@@ -194,6 +194,11 @@ const deleteUser = async id => {
             clear-icon="tabler-x"
             style="inline-size: 10rem;"
           />
+
+          <!-- ?? Add user button -->
+          <VBtn @click="isAddNewUserDrawerVisible = true">
+            Add New User
+          </VBtn>
         </div>
       </VCardText>
 
@@ -353,3 +358,4 @@ const deleteUser = async id => {
   color: rgba(var(--v-theme-on-background), var(--v-medium-emphasis-opacity));
 }
 </style>
+

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-
+import SettingsLayout from './SettingsLayout.vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -99,19 +99,7 @@ onMounted(() => fetchSettings())
 </script>
 
 <template>
-  <div>
-    <!-- Back Header -->
-    <div
-      class="d-flex align-center mb-6 cursor-pointer"
-      @click="$router.push('/system/settings')"
-    >
-      <VIcon
-        icon="tabler-arrow-left"
-        class="me-2 text-disabled"
-      />
-      <span class="text-h5 text-disabled">Cấu hình hệ thống</span>
-    </div>
-
+  <SettingsLayout>
     <!-- 👉 Content -->
     <VCard :loading="loading">
       <VCardItem class="pb-2">
@@ -330,5 +318,5 @@ onMounted(() => fetchSettings())
         </div>
       </VCardText>
     </VCard>
-  </div>
+  </SettingsLayout>
 </template>

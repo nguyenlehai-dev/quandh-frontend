@@ -22,8 +22,23 @@ export const can = (action, subject) => {
  * Based on item's action and subject & Hide group if all of it's children are hidden
  * @param {object} item navigation object item
  */
+/**
+ * Check if a single nav item is visible based on permissions.
+ * For leaf items: check action/subject.
+ * For group items (with children): recursively check if any child is visible.
+ */
+const isNavItemVisible = item => {
+  // If item has children, it's a group — recursively check children
+  if (item.children && item.children.length) {
+    return item.children.some(child => isNavItemVisible(child))
+  }
+
+  // Leaf item: check permission
+  return can(item.action, item.subject)
+}
+
 export const canViewNavMenuGroup = item => {
-  const hasAnyVisibleChild = item.children.some(i => can(i.action, i.subject))
+  const hasAnyVisibleChild = item.children.some(child => isNavItemVisible(child))
 
   // If subject and action is defined in item => Return based on children visibility (Hide group if no child is visible)
   // Else check for ability using provided subject and action along with checking if has any visible child

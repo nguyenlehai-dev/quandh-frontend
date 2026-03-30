@@ -44,6 +44,10 @@ export const exportPermissions = params => {
   return $api(`${API_BASE}/export`, { params, responseType: 'blob' })
 }
 
+export const downloadPermissionTemplate = () => {
+  return $api(`${API_BASE}/template`, { responseType: 'blob' })
+}
+
 export const importPermissions = file => {
   const formData = new FormData()
 

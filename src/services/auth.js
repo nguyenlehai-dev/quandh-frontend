@@ -139,3 +139,56 @@ export const setCurrentOrganization = orgId => {
   useCookie(ORG_KEY).value = orgId
 }
 
+/**
+ * Fetch lại thông tin user & quyền hạn mới nhất từ Server
+ * Thường gọi khi ứng dụng vửa khởi tạo (reload / F5)
+ */
+export const fetchMe = async () => {
+  if (!isAuthenticated()) return null
+
+  // Middleware set.permissions.team yêu cầu X-Organization-Id header.
+  // Nếu chưa có org (chưa chọn tổ chức) → skip, tránh lỗi 422.
+  const orgId = useCookie('currentOrganizationId').value
+  if (!orgId) return null
+
+  try {
+    const res = await api.callApi({
+      method: 'GET',
+      url: '/user',
+    })
+
+    if (res.errors || res.code || res.success === false) {
+      return null
+    }
+
+    const data = res.data || res
+
+    if (data) {
+      // 1. Cập nhật quyền
+      const userAbilityRules = data.abilities || []
+      
+      userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
+      userAbilityRules.push({ action: 'read', subject: 'Auth' })
+      
+      localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
+      ability.update(userAbilityRules)
+
+      // 2. Cập nhật User
+      if (data.user) {
+        useCookie(USER_KEY).value = data.user
+      }
+
+      // 3. Cập nhật Organizations
+      if (data.available_organizations) {
+        localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
+      }
+      
+      return data
+    }
+  } catch (err) {
+    console.warn('Fetch auth/me failed', err)
+  }
+
+  return null
+}
+

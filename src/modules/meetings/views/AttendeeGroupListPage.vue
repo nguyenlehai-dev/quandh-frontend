@@ -1,5 +1,6 @@
 <script setup>
-import { deleteAttendeeGroup, createAttendeeGroup, updateAttendeeGroup } from '@/modules/meetings/services/meetingService'
+import { deleteAttendeeGroup, createAttendeeGroup, updateAttendeeGroup, exportAttendeeGroups } from '@/modules/meetings/services/meetingService'
+import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
@@ -8,11 +9,13 @@ const page = ref(1)
 
 const headers = [
   { title: 'Tên Nhóm', key: 'name' },
-  { title: 'Mô tả', key: 'description' },
+  { title: 'Loại cuộc họp', key: 'meeting_type_name' },
+  { title: 'Thành viên', key: 'members_count' },
   { title: 'Trạng thái', key: 'status' },
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
+// Fetch danh sách nhóm
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/attendee-groups', {
   query: {
     search: computed(() => searchQuery.value || undefined),
@@ -24,6 +27,25 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
+// Fetch danh sách Loại cuộc họp (cho dropdown)
+const { data: meetingTypesData } = useApi('/meetings/meeting-types?limit=100')
+
+const meetingTypeOptions = computed(() => {
+  const types = meetingTypesData.value?.data ?? []
+  
+  return [{ title: '-- Không gắn --', value: null }, ...types.map(t => ({ title: t.name, value: t.id }))]
+})
+
+// Fetch danh sách User (cho chọn thành viên)
+const { data: usersData } = useApi('/users?limit=200')
+
+const userOptions = computed(() => {
+  const users = usersData.value?.data ?? []
+  
+  return users.map(u => ({ title: `${u.name} (${u.email})`, value: u.id }))
+})
+
+// === Dialog CRUD ===
 const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
@@ -33,16 +55,24 @@ const formData = ref({
   name: '',
   description: '',
   status: 'active',
+  meeting_type_id: null,
+  member_ids: [],
 })
 
 const openAddDialog = () => {
-  formData.value = { name: '', description: '', status: 'active' }
+  formData.value = { name: '', description: '', status: 'active', meeting_type_id: null, member_ids: [] }
   isAddDialogVisible.value = true
 }
 
 const openEditDialog = item => {
   selectedItemId.value = item.id
-  formData.value = { name: item.name, description: item.description || '', status: item.status }
+  formData.value = {
+    name: item.name,
+    description: item.description || '',
+    status: item.status,
+    meeting_type_id: item.meeting_type_id,
+    member_ids: item.members?.map(m => m.id) || [],
+  }
   isEditDialogVisible.value = true
 }
 
@@ -73,6 +103,34 @@ const deleteItem = async id => {
   if (confirm('Xóa nhóm này?')) {
     await deleteAttendeeGroup(id)
     fetchItems()
+  }
+}
+
+// === Dialog Xem chi tiết thành viên ===
+const isMembersDialogVisible = ref(false)
+const selectedGroup = ref(null)
+
+const openMembersDialog = item => {
+  selectedGroup.value = item
+  isMembersDialogVisible.value = true
+}
+
+const isExporting = ref(false)
+
+const exportData = async () => {
+  isExporting.value = true
+  try {
+    const res = await exportAttendeeGroups({
+      search: searchQuery.value || undefined,
+      limit: itemsPerPage.value,
+      page: page.value,
+    })
+
+    downloadBlob(res, 'nhom-nguoi-du-hop.xlsx')
+  } catch (error) {
+    console.error('Lỗi khi xuất dữ liệu:', error)
+  } finally {
+    isExporting.value = false
   }
 }
 </script>
@@ -127,10 +185,13 @@ const deleteItem = async id => {
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
+          :loading="isExporting"
+          @click="exportData"
         >
           Xuất Dữ Liệu
         </VBtn>
         <VBtn
+          v-if="$can('create', 'AttendeeGroup')"
           color="primary"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
@@ -154,7 +215,39 @@ const deleteItem = async id => {
         <template #item.name="{ item }">
           <span class="font-weight-medium">{{ item.name }}</span>
         </template>
-        
+
+        <template #item.meeting_type_name="{ item }">
+          <VChip
+            v-if="item.meeting_type_name"
+            size="small"
+            color="primary"
+            variant="tonal"
+          >
+            {{ item.meeting_type_name }}
+          </VChip>
+          <span
+            v-else
+            class="text-disabled"
+          >Chưa gắn</span>
+        </template>
+
+        <template #item.members_count="{ item }">
+          <VChip
+            size="small"
+            :color="item.members_count > 0 ? 'info' : 'secondary'"
+            variant="tonal"
+            class="cursor-pointer"
+            @click="openMembersDialog(item)"
+          >
+            <VIcon
+              start
+              icon="tabler-users"
+              size="14"
+            />
+            {{ item.members_count || 0 }} người
+          </VChip>
+        </template>
+
         <template #item.status="{ item }">
           <VChip
             size="small"
@@ -166,7 +259,10 @@ const deleteItem = async id => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn @click="openEditDialog(item)">
+            <IconBtn
+              v-if="$can('update', 'AttendeeGroup')"
+              @click="openEditDialog(item)"
+            >
               <VIcon icon="tabler-pencil" />
               <VTooltip
                 activator="parent"
@@ -175,7 +271,10 @@ const deleteItem = async id => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item.id)">
+            <IconBtn
+              v-if="$can('delete', 'AttendeeGroup')"
+              @click="deleteItem(item.id)"
+            >
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -205,10 +304,10 @@ const deleteItem = async id => {
       </VDataTableServer>
     </div>
 
-    <!-- Dialog Thêm mới -->
+    <!-- Dialog Thêm/Sửa -->
     <VDialog
       v-model="isAddDialogVisible"
-      max-width="500"
+      max-width="600"
     >
       <VCard title="Thêm Nhóm người dự họp">
         <VCardText>
@@ -216,8 +315,27 @@ const deleteItem = async id => {
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên nhóm"
+                label="Tên nhóm *"
                 required
+              />
+            </VCol>
+            <VCol cols="12">
+              <AppSelect
+                v-model="formData.meeting_type_id"
+                :items="meetingTypeOptions"
+                label="Thuộc Loại cuộc họp"
+                clearable
+              />
+            </VCol>
+            <VCol cols="12">
+              <AppAutocomplete
+                v-model="formData.member_ids"
+                :items="userOptions"
+                label="Thành viên trong nhóm"
+                multiple
+                chips
+                closable-chips
+                placeholder="Chọn thành viên..."
               />
             </VCol>
             <VCol cols="12">
@@ -259,7 +377,7 @@ const deleteItem = async id => {
     <!-- Dialog Cập nhật -->
     <VDialog
       v-model="isEditDialogVisible"
-      max-width="500"
+      max-width="600"
     >
       <VCard title="Cập nhật Nhóm người dự họp">
         <VCardText>
@@ -267,8 +385,27 @@ const deleteItem = async id => {
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên nhóm"
+                label="Tên nhóm *"
                 required
+              />
+            </VCol>
+            <VCol cols="12">
+              <AppSelect
+                v-model="formData.meeting_type_id"
+                :items="meetingTypeOptions"
+                label="Thuộc Loại cuộc họp"
+                clearable
+              />
+            </VCol>
+            <VCol cols="12">
+              <AppAutocomplete
+                v-model="formData.member_ids"
+                :items="userOptions"
+                label="Thành viên trong nhóm"
+                multiple
+                chips
+                closable-chips
+                placeholder="Chọn thành viên..."
               />
             </VCol>
             <VCol cols="12">
@@ -302,6 +439,78 @@ const deleteItem = async id => {
             @click="submitForm"
           >
             Cập nhật
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
+
+    <!-- Dialog Xem thành viên -->
+    <VDialog
+      v-model="isMembersDialogVisible"
+      max-width="500"
+    >
+      <VCard v-if="selectedGroup">
+        <VCardTitle class="d-flex align-center gap-2">
+          <VIcon
+            icon="tabler-users"
+            color="primary"
+          />
+          Thành viên: {{ selectedGroup.name }}
+        </VCardTitle>
+        <VCardText>
+          <div
+            v-if="selectedGroup.members?.length"
+            class="d-flex flex-column gap-3"
+          >
+            <div
+              v-for="member in selectedGroup.members"
+              :key="member.id"
+              class="d-flex align-center gap-3 pa-3 rounded"
+              style="background: rgba(var(--v-theme-on-surface), 0.04);"
+            >
+              <VAvatar
+                size="36"
+                color="primary"
+                variant="tonal"
+              >
+                {{ member.name?.charAt(0)?.toUpperCase() }}
+              </VAvatar>
+              <div>
+                <div class="font-weight-medium">
+                  {{ member.name }}
+                </div>
+                <div class="text-body-2 text-disabled">
+                  {{ member.email }}
+                </div>
+              </div>
+              <VSpacer />
+              <VChip
+                v-if="member.position"
+                size="x-small"
+                variant="tonal"
+              >
+                {{ member.position }}
+              </VChip>
+            </div>
+          </div>
+          <div
+            v-else
+            class="text-center text-disabled py-6"
+          >
+            <VIcon
+              icon="tabler-users-minus"
+              size="48"
+              class="mb-2"
+            />
+            <div>Chưa có thành viên nào trong nhóm.</div>
+          </div>
+        </VCardText>
+        <VCardText class="d-flex justify-end">
+          <VBtn
+            variant="tonal"
+            @click="isMembersDialogVisible = false"
+          >
+            Đóng
           </VBtn>
         </VCardText>
       </VCard>

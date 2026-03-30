@@ -1,5 +1,12 @@
 <script setup>
 import RolesPage from '@/modules/roles/views/RolesPageMain.vue'
+
+definePage({
+  meta: {
+    action: 'read',
+    subject: 'Role',
+  },
+})
 </script>
 
 <template>

@@ -15,7 +15,7 @@ const isSubmitting = ref(false)
 
 const formData = ref({
   title: '',
-  type: 'agree_disagree',
+  type: 'public',
   description: '',
 })
 
@@ -27,9 +27,8 @@ const headers = [
 ]
 
 const votingTypeOptions = [
-  { title: 'Đồng ý / Không đồng ý', value: 'agree_disagree' },
-  { title: 'Trắc nghiệm nhiều lựa chọn', value: 'multiple_choice' },
-  { title: 'Bỏ phiếu kín', value: 'secret_ballot' },
+  { title: 'Công khai', value: 'public' },
+  { title: 'Ẩn danh', value: 'anonymous' },
 ]
 
 const votingTypeLabel = type => {
@@ -77,11 +76,20 @@ const submitAdd = async () => {
     await createMeetingVote(props.meetingId, formData.value)
 
     isAddDialogVisible.value = false
-    formData.value = { title: '', type: 'agree_disagree', description: '' }
+    formData.value = { title: '', type: 'public', description: '' }
     loadData()
   }
   catch (err) {
     console.error('Lỗi khi thêm biểu quyết', err)
+    
+    // Thêm cảnh báo nếu backend trả về lỗi validation
+    let msg = 'Có lỗi xảy ra khi thêm biểu quyết.'
+    if (err.data?.errors) {
+      msg = Object.values(err.data.errors).flat().join('\\n')
+    } else if (err.data?.message) {
+      msg = err.data.message
+    }
+    alert(msg)
   }
   finally {
     isSubmitting.value = false

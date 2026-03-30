@@ -1,6 +1,7 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import { deleteMeeting } from '@/modules/meetings/services/meetingService'
+import { deleteMeeting, exportMeetings } from '@/modules/meetings/services/meetingService'
+import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const { t } = useI18n()
@@ -25,7 +26,7 @@ const headers = [
   { title: '', key: 'data-table-select', sortable: false, width: 40 },
   { title: 'Tên cuộc họp', key: 'title' },
   { title: 'Thời gian & Địa điểm', key: 'start_at' },
-  { title: 'Người chủ trì', key: 'chairperson' },
+  { title: 'Người tạo', key: 'created_by' },
   { title: 'Trạng thái', key: 'status' },
   { title: 'Thao tác', key: 'actions', sortable: false },
 ]
@@ -48,7 +49,7 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
 // Stats
 const activeCount = computed(() => items.value.filter(m => ['active', 'in_progress'].includes(m.status)).length)
-const completedCount = computed(() => items.value.filter(m => ['completed', 'cancelled'].includes(m.status)).length)
+const completedCount = computed(() => items.value.filter(m => m.status === 'completed').length)
 
 const deleteItem = async id => {
   console.log('deleteItem triggered with id:', id)
@@ -69,14 +70,18 @@ const deleteItem = async id => {
 }
 
 const resolveStatusLabel = status => {
-  if (status === 'active' || status === 'in_progress') return 'Đang hoạt động'
-  if (status === 'draft' || status === 'scheduled') return 'Không hoạt động'
+  if (status === 'active') return 'Kích hoạt'
+  if (status === 'in_progress') return 'Đang họp'
+  if (status === 'draft') return 'Nháp'
+  if (status === 'completed') return 'Đã kết thúc'
 
-  return 'Không hoạt động'
+  return 'Nháp'
 }
 
 const resolveStatusColor = status => {
-  if (status === 'active' || status === 'in_progress') return 'success'
+  if (status === 'active') return 'info'
+  if (status === 'in_progress') return 'warning'
+  if (status === 'completed') return 'success'
 
   return 'secondary'
 }
@@ -84,6 +89,26 @@ const resolveStatusColor = status => {
 const resetFilters = () => {
   searchQuery.value = ''
   statusFilter.value = ''
+}
+
+const isExporting = ref(false)
+
+const exportData = async () => {
+  isExporting.value = true
+  try {
+    const res = await exportMeetings({
+      search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
+      limit: itemsPerPage.value,
+      page: page.value,
+    })
+
+    downloadBlob(res, 'danh-sach-cuoc-hop.xlsx')
+  } catch (error) {
+    console.error('Lỗi khi xuất dữ liệu:', error)
+  } finally {
+    isExporting.value = false
+  }
 }
 
 // No modal state needed anymore
@@ -242,20 +267,30 @@ const resetFilters = () => {
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
+          :loading="isExporting"
+          @click="exportData"
         >
           Xuất Dữ Liệu
         </VBtn>
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-upload"
-        >
-          Nhập Dữ Liệu
-        </VBtn>
+        <VTooltip location="top">
+          <template #activator="{ props }">
+            <span v-bind="props">
+              <VBtn
+                variant="outlined"
+                prepend-icon="tabler-upload"
+                disabled
+              >
+                Nhập Dữ Liệu
+              </VBtn>
+            </span>
+          </template>
+          Tính năng đang được phát triển
+        </VTooltip>
         <VBtn
           v-if="$can('create', 'Meeting')"
           color="primary"
           prepend-icon="tabler-plus"
-          :to="{ name: 'meetings-edit' }"
+          :to="{ name: 'meetings-create' }"
         >
           Thêm Cuộc Họp
         </VBtn>
@@ -286,18 +321,37 @@ const resetFilters = () => {
         <!-- Thời gian & Địa điểm -->
         <template #item.start_at="{ item }">
           <div>
-            <div class="font-weight-medium">
-              {{ item.start_at || 'Chưa xác định' }}
+            <div class="d-flex align-center gap-1">
+              <VIcon
+                icon="tabler-clock"
+                size="14"
+                color="primary"
+              />
+              <span class="font-weight-medium">{{ item.start_at || 'Chưa xác định' }}</span>
             </div>
-            <div class="text-caption text-disabled">
-              {{ item.location || 'Phòng họp trực tuyến' }}
+            <div class="d-flex align-center gap-1 mt-1">
+              <VIcon
+                icon="tabler-map-pin"
+                size="14"
+                color="secondary"
+              />
+              <span class="text-caption text-disabled">{{ item.location || 'Phòng họp trực tuyến' }}</span>
             </div>
           </div>
         </template>
 
-        <!-- Người chủ trì -->
-        <template #item.chairperson="{ item }">
-          {{ item.participants?.find(p => ['chairperson', 'chair'].includes(p.meeting_role))?.user?.name || 'N/A' }}
+        <!-- Người tạo -->
+        <template #item.created_by="{ item }">
+          <div class="d-flex align-center gap-2">
+            <VAvatar
+              size="28"
+              color="primary"
+              variant="tonal"
+            >
+              <span class="text-caption font-weight-bold">{{ (item.created_by || 'N/A').charAt(0).toUpperCase() }}</span>
+            </VAvatar>
+            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
+          </div>
         </template>
 
         <!-- Status -->
@@ -327,12 +381,25 @@ const resetFilters = () => {
               v-if="$can('update', 'Meeting')"
               :to="{ name: 'meetings-live-controller', params: { id: item.id } }"
             >
+              <VIcon icon="tabler-player-play" />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Điều hành cuộc họp
+              </VTooltip>
+            </IconBtn>
+
+            <IconBtn
+              v-else-if="$can('read', 'Meeting')"
+              :to="{ name: 'meetings-participant-details', params: { id: item.id } }"
+            >
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"
                 location="top"
               >
-                Xem cuộc họp
+                Xem chi tiết
               </VTooltip>
             </IconBtn>
 
@@ -397,26 +464,27 @@ const resetFilters = () => {
 .stat-overview-card {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 20px 24px;
-  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
+  background: #fff;
+  gap: 16px;
+  padding-block: 20px;
+  padding-inline: 24px;
   transition: box-shadow 0.2s;
 }
 
 .stat-overview-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 6%);
 }
 
 .stat-overview-icon {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  inline-size: 48px;
-  block-size: 48px;
   border-radius: 10px;
-  flex-shrink: 0;
+  block-size: 48px;
+  inline-size: 48px;
 }
 
 .stat-overview-icon.green {
@@ -435,20 +503,20 @@ const resetFilters = () => {
 }
 
 .stat-overview-label {
-  font-size: 0.8rem;
   color: #6b7280;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
 .stat-overview-value {
+  color: #1e1b4b;
   font-size: 1.8rem;
   font-weight: 700;
-  color: #1e1b4b;
   line-height: 1.2;
 }
 
 .stat-overview-desc {
-  font-size: 0.75rem;
   color: #9ca3af;
+  font-size: 0.75rem;
 }
 </style>

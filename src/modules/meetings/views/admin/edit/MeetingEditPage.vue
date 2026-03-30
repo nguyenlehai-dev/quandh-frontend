@@ -4,8 +4,9 @@ import MeetingAttendeesTab from '@/modules/meetings/components/tabs/MeetingAtten
 import MeetingConclusionsTab from '@/modules/meetings/components/tabs/MeetingConclusionsTab.vue'
 import MeetingDocumentsTab from '@/modules/meetings/components/tabs/MeetingDocumentsTab.vue'
 import MeetingVotesTab from '@/modules/meetings/components/tabs/MeetingVotesTab.vue'
-import { createMeeting, fetchMeeting, updateMeeting } from '@/modules/meetings/services/meetingService'
-import { computed, onMounted, ref } from 'vue'
+import { createMeeting, fetchAttendeeGroups, fetchMeeting, fetchMeetingTypes, updateMeeting } from '@/modules/meetings/services/meetingService'
+import { fetchUsers } from '@/modules/user/services/userService'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -39,9 +40,10 @@ const initialFormData = {
   description: '',
   room_name: '',
   location: '',
+  meeting_type_id: null,
   start_at: '',
   end_at: '',
-  status: 'scheduled',
+  status: 'draft',
   agendas: [],
   attendees: [],
 }
@@ -55,22 +57,30 @@ const fetchMeetingDetails = async () => {
     if (res.data) {
       const formatToInput = dateStr => {
         if (!dateStr) return ''
-        const parts = dateStr.split(' ')
-        if (parts.length !== 2) return dateStr
-        const timePart = parts[0]
-        const datePart = parts[1].split('/')
-        if (datePart.length !== 3) return dateStr
 
-        return `${datePart[2]}-${datePart[1]}-${datePart[0]} ${timePart.slice(0, 5)}`
+        // Backend format: "HH:mm:ss DD/MM/YYYY"
+        if (dateStr.includes('/')) {
+          const parts = dateStr.split(' ')
+          if (parts.length !== 2) return dateStr
+          const timePart = parts[0] // HH:mm:ss
+          const datePart = parts[1].split('/') // DD/MM/YYYY
+          if (datePart.length !== 3) return dateStr
+
+          return `${datePart[2]}-${datePart[1]}-${datePart[0]} ${timePart.slice(0, 5)}`
+        }
+
+        // ISO format fallback
+        return dateStr.replace('T', ' ').slice(0, 16)
       }
 
       formData.value = {
         title: res.data.title || '',
+        meeting_type_id: res.data.meeting_type_id || null,
         description: res.data.description || '',
         location: res.data.location || '',
         start_at: formatToInput(res.data.start_at),
         end_at: formatToInput(res.data.end_at),
-        status: res.data.status || 'scheduled',
+        status: res.data.status || 'draft',
         agendas: res.data.agendas || [],
         attendees: res.data.participants || [],
       }
@@ -86,16 +96,102 @@ const fetchMeetingDetails = async () => {
 }
 
 onMounted(() => {
+  loadUsers()
+  loadMeetingTypes()
   if (isEditMode.value) {
     fetchMeetingDetails()
   }
 })
 
+// Load danh sách User để chọn Người phụ trách
+const userList = ref([])
+
+// Load danh sách Meeting Types
+const meetingTypeList = ref([])
+
+const loadMeetingTypes = async () => {
+  try {
+    const res = await fetchMeetingTypes({ limit: 100 })
+
+    meetingTypeList.value = (res.data?.data || res.data || []).map(t => ({
+      value: t.id,
+      title: t.name,
+    }))
+  } catch (e) {
+    console.error('Lỗi khi tải danh sách loại cuộc họp', e)
+  }
+}
+
+const loadUsers = async () => {
+  try {
+    const res = await fetchUsers({ limit: 100 })
+
+    userList.value = (res.data || []).map(u => ({
+      value: u.id,
+      title: u.full_name || u.name || u.email,
+    }))
+  }
+  catch (e) {
+    console.error('Lỗi khi tải danh sách người dùng', e)
+  }
+}
+
+// ===== Phase 3: Auto-fill từ Nhóm người dự họp =====
+const attendeeGroupsForType = ref([])
+const loadingGroups = ref(false)
+const selectedGroupIds = ref([])
+
+const loadAttendeeGroupsForType = async meetingTypeId => {
+  if (!meetingTypeId) {
+    attendeeGroupsForType.value = []
+
+    return
+  }
+  loadingGroups.value = true
+  try {
+    const res = await fetchAttendeeGroups({ meeting_type_id: meetingTypeId, limit: 100 })
+
+    attendeeGroupsForType.value = res.data?.data || res.data || []
+  } catch (e) {
+    console.error('Lỗi khi tải nhóm theo loại cuộc họp', e)
+  } finally {
+    loadingGroups.value = false
+  }
+}
+
+// Watch meeting_type_id thay đổi → load nhóm
+watch(() => formData.value.meeting_type_id, newVal => {
+  selectedGroupIds.value = []
+  loadAttendeeGroupsForType(newVal)
+})
+
+// Auto-fill attendees từ các nhóm đã chọn
+const autoFillFromGroups = () => {
+  const groups = attendeeGroupsForType.value.filter(g => selectedGroupIds.value.includes(g.id))
+  const existingNames = new Set(formData.value.attendees.map(a => a.name?.toLowerCase()))
+
+  groups.forEach(group => {
+    if (!group.members) return
+    group.members.forEach(member => {
+      if (!existingNames.has(member.name?.toLowerCase())) {
+        formData.value.attendees.push({
+          name: member.name,
+          position: 'member',
+          type: 'internal',
+          user_id: member.id,
+        })
+        existingNames.add(member.name?.toLowerCase())
+      }
+    })
+  })
+  showMessage(`Đã thêm thành viên từ ${groups.length} nhóm`, 'success')
+}
+
 const addAgendaItem = () => {
   formData.value.agendas.push({
     title: '',
     duration: 0,
-    presenter_name: '',
+    presenter_id: null,
     start_time: '',
     end_time: '',
   })
@@ -122,6 +218,7 @@ const submitForm = async actionType => {
   if (!formData.value.title) {
     showMessage('Vui lòng nhập tên cuộc họp', 'error')
     activeTab.value = 'general'
+    
     return
   }
 
@@ -132,14 +229,27 @@ const submitForm = async actionType => {
       if (datetimeLocal.length === 16 && datetimeLocal.includes(' ')) {
         return datetimeLocal + ':00'
       }
+      
       return datetimeLocal.replace('T', ' ') + ':00'
     }
 
+    // Clean agendas to only include backend-valid fields
+    const cleanAgendas = (formData.value.agendas || []).map(a => ({
+      ...(a.id ? { id: a.id } : {}),
+      title: a.title,
+      duration: a.duration || null,
+      presenter_id: a.presenter_id || null,
+    }))
+
     const payload = {
-      ...formData.value,
-      start_at: formatToBackend(formData.value.start_at),
-      end_at: formatToBackend(formData.value.end_at),
-      participants: formData.value.attendees,
+      title: formData.value.title,
+      description: formData.value.description || null,
+      location: formData.value.location || null,
+      meeting_type_id: formData.value.meeting_type_id || null,
+      start_at: formatToBackend(formData.value.start_at) || null,
+      end_at: formatToBackend(formData.value.end_at) || null,
+      status: formData.value.status || 'draft',
+      agendas: cleanAgendas.length > 0 ? cleanAgendas : null,
     }
 
     let savedMeetingId = route.params.id
@@ -150,13 +260,14 @@ const submitForm = async actionType => {
     }
     else {
       const resp = await createMeeting(payload)
+
       savedMeetingId = resp.data?.id || resp.id
       showMessage('Đã tạo cuộc họp thành công')
     }
 
     if (actionType === 'save-add') {
       formData.value = JSON.parse(JSON.stringify(initialFormData))
-      router.replace({ name: 'meetings-edit' })
+      router.replace({ name: 'meetings-create' })
     }
     else if (actionType === 'save-edit') {
       if (!isEditMode.value) {
@@ -171,7 +282,24 @@ const submitForm = async actionType => {
   }
   catch (err) {
     console.error('Lỗi khi lưu cuộc họp', err)
-    showMessage('Lỗi khi lưu cuộc họp. Vui lòng kiểm tra lại thông tin.', 'error')
+
+    // Log chi tiết lỗi validation từ backend
+    const errData = err?.response?._data || err?.data
+    if (errData) {
+      console.error('Backend validation errors:', errData)
+    }
+
+    // Extract detailed validation error messages
+    let msg = 'Lỗi khi lưu cuộc họp. Vui lòng kiểm tra lại thông tin.'
+    if (errData?.errors) {
+      const firstErrors = Object.values(errData.errors).map(e => Array.isArray(e) ? e[0] : e)
+
+      msg = firstErrors.join(' | ')
+    } else if (errData?.message) {
+      msg = errData.message
+    }
+
+    showMessage(msg, 'error')
   }
   finally {
     submittingAction.value = null
@@ -189,6 +317,7 @@ const tabsConfig = computed(() => [
 
 const isTabDisabled = tabValue => {
   const tab = tabsConfig.value.find(t => t.value === tabValue)
+  
   return tab?.editOnly && !isEditMode.value
 }
 </script>
@@ -220,7 +349,10 @@ const isTabDisabled = tabValue => {
             style="padding: 24px 32px;"
           >
             <!-- Left side Title -->
-            <div class="d-flex flex-column gap-2" style="max-width: 60%">
+            <div
+              class="d-flex flex-column gap-2"
+              style="max-width: 60%"
+            >
               <div class="d-flex align-center gap-3">
                 <IconBtn
                   variant="outlined"
@@ -229,7 +361,10 @@ const isTabDisabled = tabValue => {
                   style="background-color: white;"
                   :to="{ name: 'meetings-list' }"
                 >
-                  <VIcon icon="tabler-arrow-left" size="20" />
+                  <VIcon
+                    icon="tabler-arrow-left"
+                    size="20"
+                  />
                 </IconBtn>
                 <VChip
                   size="small"
@@ -237,7 +372,11 @@ const isTabDisabled = tabValue => {
                   color="white"
                   style="color: #6366f1; border: 1px solid #c7d2fe; font-weight: 600;"
                 >
-                  <VIcon start size="16" color="#6366f1">
+                  <VIcon
+                    start
+                    size="16"
+                    color="#6366f1"
+                  >
                     tabler-calendar-plus
                   </VIcon> {{ isEditMode ? 'Quản lý cuộc họp' : 'Khởi tạo cuộc họp' }}
                 </VChip>
@@ -299,7 +438,11 @@ const isTabDisabled = tabValue => {
       <!-- ═══════════════════════════════════════════════════════════ -->
       <!-- Tab Bar -->
       <!-- ═══════════════════════════════════════════════════════════ -->
-      <VContainer fluid class="flex-grow-1 px-4 py-0" style="min-height: calc(100vh - 230px);">
+      <VContainer
+        fluid
+        class="flex-grow-1 px-4 py-0"
+        style="min-height: calc(100vh - 230px);"
+      >
         <VCard
           class="mb-4"
           elevation="0"
@@ -320,7 +463,12 @@ const isTabDisabled = tabValue => {
               class="text-subtitle-2 font-weight-bold text-none px-6"
               style="letter-spacing: normal;"
             >
-              <VIcon start size="20">{{ tab.icon }}</VIcon>
+              <VIcon
+                start
+                size="20"
+              >
+                {{ tab.icon }}
+              </VIcon>
               {{ tab.label }}
               <VChip
                 v-if="tab.editOnly && !isEditMode"
@@ -328,7 +476,12 @@ const isTabDisabled = tabValue => {
                 variant="flat"
                 style="background-color: #fef3c7; color: #d97706; font-weight: 600; margin-left: 6px;"
               >
-                <VIcon start size="12">tabler-lock</VIcon>
+                <VIcon
+                  start
+                  size="12"
+                >
+                  tabler-lock
+                </VIcon>
                 Lưu trước
               </VChip>
             </VTab>
@@ -348,11 +501,18 @@ const isTabDisabled = tabValue => {
           <!-- ────────────────────────────────────────────────── -->
           <!-- TAB 1: Thông tin & Lịch trình -->
           <!-- ────────────────────────────────────────────────── -->
-          <VWindowItem value="general" transition="none" reverse-transition="none">
+          <VWindowItem
+            value="general"
+            transition="none"
+            reverse-transition="none"
+          >
             <VForm @submit.prevent="submitForm('save-edit')">
               <VRow>
                 <!-- Left Column: Thông tin chung + Chương trình cuộc họp -->
-                <VCol cols="12" lg="8">
+                <VCol
+                  cols="12"
+                  lg="8"
+                >
                   <!-- Card: Thông tin chung -->
                   <VCard
                     elevation="0"
@@ -360,15 +520,27 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-info-circle" size="20" color="#6366f1" class="rounded" style="background-color: #e0e7ff; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-info-circle"
+                          size="20"
+                          color="#6366f1"
+                          class="rounded"
+                          style="background-color: #e0e7ff; padding: 4px; box-sizing: content-box;"
+                        />
                         Thông tin chung
                       </div>
                     </VCardItem>
                     <VCardText class="pa-5">
                       <VRow>
                         <VCol cols="12">
-                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                          <div
+                            class="text-body-2 font-weight-medium mb-1"
+                            style="color: #334155;"
+                          >
                             Tên cuộc họp <span class="text-error">*</span>
                           </div>
                           <AppTextField
@@ -376,8 +548,31 @@ const isTabDisabled = tabValue => {
                             placeholder="Nhập tên cuộc họp"
                           />
                         </VCol>
-                        <VCol cols="12" md="6">
-                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                        <VCol
+                          cols="12"
+                          md="12"
+                        >
+                          <div
+                            class="text-body-2 font-weight-medium mb-1"
+                            style="color: #334155;"
+                          >
+                            Loại cuộc họp
+                          </div>
+                          <AppSelect
+                            v-model="formData.meeting_type_id"
+                            :items="meetingTypeList"
+                            placeholder="Chọn loại cuộc họp"
+                            clearable
+                          />
+                        </VCol>
+                        <VCol
+                          cols="12"
+                          md="6"
+                        >
+                          <div
+                            class="text-body-2 font-weight-medium mb-1"
+                            style="color: #334155;"
+                          >
                             Thời gian bắt đầu <span class="text-error">*</span>
                           </div>
                           <AppDateTimePicker
@@ -386,8 +581,14 @@ const isTabDisabled = tabValue => {
                             :config="dateTimeConfig"
                           />
                         </VCol>
-                        <VCol cols="12" md="6">
-                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                        <VCol
+                          cols="12"
+                          md="6"
+                        >
+                          <div
+                            class="text-body-2 font-weight-medium mb-1"
+                            style="color: #334155;"
+                          >
                             Thời gian kết thúc <span class="text-error">*</span>
                           </div>
                           <AppDateTimePicker
@@ -397,7 +598,10 @@ const isTabDisabled = tabValue => {
                           />
                         </VCol>
                         <VCol cols="12">
-                          <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                          <div
+                            class="text-body-2 font-weight-medium mb-1"
+                            style="color: #334155;"
+                          >
                             Nội dung tóm tắt
                           </div>
                           <AppTextarea
@@ -417,8 +621,17 @@ const isTabDisabled = tabValue => {
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
                       <div class="d-flex align-center justify-space-between flex-wrap gap-4">
-                        <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                          <VIcon icon="tabler-clipboard-list" size="20" color="#3b82f6" class="rounded" style="background-color: #dbeafe; padding: 4px; box-sizing: content-box;" />
+                        <div
+                          class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                          style="color: #475569; font-size: 0.95rem;"
+                        >
+                          <VIcon
+                            icon="tabler-clipboard-list"
+                            size="20"
+                            color="#3b82f6"
+                            class="rounded"
+                            style="background-color: #dbeafe; padding: 4px; box-sizing: content-box;"
+                          />
                           Chương trình cuộc họp
                           <VChip
                             v-if="formData.agendas.length > 0"
@@ -452,9 +665,18 @@ const isTabDisabled = tabValue => {
                           <div class="agenda-edit-number">
                             {{ index + 1 }}
                           </div>
-                          <VRow class="flex-grow-1 mx-0" style="background: #f8fafc; border-radius: 8px; padding: 12px;">
-                            <VCol cols="12" md="3" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Bắt đầu</div>
+                          <VRow
+                            class="flex-grow-1 mx-0"
+                            style="background: #f8fafc; border-radius: 8px; padding: 12px;"
+                          >
+                            <VCol
+                              cols="12"
+                              md="3"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Bắt đầu
+                              </div>
                               <AppDateTimePicker
                                 v-model="agenda.start_time"
                                 density="compact"
@@ -462,8 +684,14 @@ const isTabDisabled = tabValue => {
                                 :config="timeConfig"
                               />
                             </VCol>
-                            <VCol cols="12" md="3" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Kết thúc</div>
+                            <VCol
+                              cols="12"
+                              md="3"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Kết thúc
+                              </div>
                               <AppDateTimePicker
                                 v-model="agenda.end_time"
                                 density="compact"
@@ -471,20 +699,34 @@ const isTabDisabled = tabValue => {
                                 :config="timeConfig"
                               />
                             </VCol>
-                            <VCol cols="12" md="3" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Nội dung, bài trình bày</div>
+                            <VCol
+                              cols="12"
+                              md="3"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Nội dung, bài trình bày
+                              </div>
                               <AppTextField
                                 v-model="agenda.title"
                                 density="compact"
                                 placeholder="Nội dung..."
                               />
                             </VCol>
-                            <VCol cols="12" md="3" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Người phụ trách</div>
-                              <AppTextField
-                                v-model="agenda.presenter_name"
+                            <VCol
+                              cols="12"
+                              md="3"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Người phụ trách
+                              </div>
+                              <AppAutocomplete
+                                v-model="agenda.presenter_id"
+                                :items="userList"
                                 density="compact"
-                                placeholder="Tên PT"
+                                placeholder="Chọn người phụ trách"
+                                clearable
                               />
                             </VCol>
                           </VRow>
@@ -494,17 +736,43 @@ const isTabDisabled = tabValue => {
                             variant="tonal"
                             @click="removeAgendaItem(index)"
                           >
-                            <VIcon icon="tabler-trash" size="20" />
+                            <VIcon
+                              icon="tabler-trash"
+                              size="20"
+                            />
                           </IconBtn>
                         </div>
                       </template>
 
-                      <div v-else class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg" style="background-color: #f8fafc; border: 2px dashed #e2e8f0;">
-                        <VAvatar color="#e0e7ff" size="56" variant="flat" class="mb-4">
-                          <VIcon icon="tabler-clipboard-list" size="28" color="#6366f1" />
+                      <div
+                        v-else
+                        class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg"
+                        style="background-color: #f8fafc; border: 2px dashed #e2e8f0;"
+                      >
+                        <VAvatar
+                          color="#e0e7ff"
+                          size="56"
+                          variant="flat"
+                          class="mb-4"
+                        >
+                          <VIcon
+                            icon="tabler-clipboard-list"
+                            size="28"
+                            color="#6366f1"
+                          />
                         </VAvatar>
-                        <div class="text-body-1 font-weight-bold mb-1" style="color: #475569;">Chưa có nội dung lịch trình</div>
-                        <div class="text-body-2 mb-4" style="color: #94a3b8;">Bấm nút bên dưới để bắt đầu xếp lịch cuộc họp</div>
+                        <div
+                          class="text-body-1 font-weight-bold mb-1"
+                          style="color: #475569;"
+                        >
+                          Chưa có nội dung lịch trình
+                        </div>
+                        <div
+                          class="text-body-2 mb-4"
+                          style="color: #94a3b8;"
+                        >
+                          Bấm nút bên dưới để bắt đầu xếp lịch cuộc họp
+                        </div>
                         <VBtn
                           variant="flat"
                           size="small"
@@ -520,7 +788,10 @@ const isTabDisabled = tabValue => {
                 </VCol>
 
                 <!-- Right Column: Địa điểm & Trạng thái + Tóm tắt -->
-                <VCol cols="12" lg="4">
+                <VCol
+                  cols="12"
+                  lg="4"
+                >
                   <!-- Địa điểm & Trạng thái -->
                   <VCard
                     elevation="0"
@@ -528,13 +799,25 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-map-pin" size="20" color="#f97316" class="rounded" style="background-color: #ffedd5; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-map-pin"
+                          size="20"
+                          color="#f97316"
+                          class="rounded"
+                          style="background-color: #ffedd5; padding: 4px; box-sizing: content-box;"
+                        />
                         Địa điểm & Trạng thái
                       </div>
                     </VCardItem>
                     <VCardText class="pa-5">
-                      <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                      <div
+                        class="text-body-2 font-weight-medium mb-1"
+                        style="color: #334155;"
+                      >
                         Địa điểm họp <span class="text-error">*</span>
                       </div>
                       <AppTextField
@@ -543,16 +826,19 @@ const isTabDisabled = tabValue => {
                         class="mb-6"
                       />
 
-                      <div class="text-body-2 font-weight-medium mb-1" style="color: #334155;">
+                      <div
+                        class="text-body-2 font-weight-medium mb-1"
+                        style="color: #334155;"
+                      >
                         Trạng thái
                       </div>
                       <AppSelect
                         v-model="formData.status"
                         :items="[
-                          { title: 'Bản nháp (Draft)', value: 'draft' },
-                          { title: 'Đã lên lịch (Scheduled)', value: 'scheduled' },
-                          { title: 'Đang diễn ra (Active)', value: 'active' },
-                          { title: 'Đã kết thúc (Completed)', value: 'completed' },
+                          { title: 'Nháp (Draft)', value: 'draft' },
+                          { title: 'Kích hoạt (Active)', value: 'active' },
+                          { title: 'Đang họp (In Progress)', value: 'in_progress' },
+                          { title: 'Kết thúc (Completed)', value: 'completed' },
                         ]"
                         placeholder="Chọn trạng thái"
                       />
@@ -565,37 +851,100 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-info-square-rounded" size="20" color="#0ea5e9" class="rounded" style="background-color: #e0f2fe; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-info-square-rounded"
+                          size="20"
+                          color="#0ea5e9"
+                          class="rounded"
+                          style="background-color: #e0f2fe; padding: 4px; box-sizing: content-box;"
+                        />
                         Hướng dẫn nhanh
                       </div>
                     </VCardItem>
                     <VCardText class="pa-5 d-flex flex-column gap-4">
                       <div class="d-flex align-start gap-3">
-                        <VAvatar color="#dcfce7" size="32" variant="flat" class="flex-shrink-0 mt-1">
-                          <span class="font-weight-bold text-caption" style="color: #16a34a;">1</span>
+                        <VAvatar
+                          color="#dcfce7"
+                          size="32"
+                          variant="flat"
+                          class="flex-shrink-0 mt-1"
+                        >
+                          <span
+                            class="font-weight-bold text-caption"
+                            style="color: #16a34a;"
+                          >1</span>
                         </VAvatar>
                         <div>
-                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Điền thông tin cơ bản</div>
-                          <div class="text-caption" style="color: #64748b;">Nhập tên, thời gian, địa điểm cuộc họp</div>
+                          <div
+                            class="text-body-2 font-weight-bold"
+                            style="color: #334155;"
+                          >
+                            Điền thông tin cơ bản
+                          </div>
+                          <div
+                            class="text-caption"
+                            style="color: #64748b;"
+                          >
+                            Nhập tên, thời gian, địa điểm cuộc họp
+                          </div>
                         </div>
                       </div>
                       <div class="d-flex align-start gap-3">
-                        <VAvatar color="#dbeafe" size="32" variant="flat" class="flex-shrink-0 mt-1">
-                          <span class="font-weight-bold text-caption" style="color: #3b82f6;">2</span>
+                        <VAvatar
+                          color="#dbeafe"
+                          size="32"
+                          variant="flat"
+                          class="flex-shrink-0 mt-1"
+                        >
+                          <span
+                            class="font-weight-bold text-caption"
+                            style="color: #3b82f6;"
+                          >2</span>
                         </VAvatar>
                         <div>
-                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Xếp lịch trình</div>
-                          <div class="text-caption" style="color: #64748b;">Thêm các nội dung trình bày và thời lượng</div>
+                          <div
+                            class="text-body-2 font-weight-bold"
+                            style="color: #334155;"
+                          >
+                            Xếp lịch trình
+                          </div>
+                          <div
+                            class="text-caption"
+                            style="color: #64748b;"
+                          >
+                            Thêm các nội dung trình bày và thời lượng
+                          </div>
                         </div>
                       </div>
                       <div class="d-flex align-start gap-3">
-                        <VAvatar color="#ede9fe" size="32" variant="flat" class="flex-shrink-0 mt-1">
-                          <span class="font-weight-bold text-caption" style="color: #8b5cf6;">3</span>
+                        <VAvatar
+                          color="#ede9fe"
+                          size="32"
+                          variant="flat"
+                          class="flex-shrink-0 mt-1"
+                        >
+                          <span
+                            class="font-weight-bold text-caption"
+                            style="color: #8b5cf6;"
+                          >3</span>
                         </VAvatar>
                         <div>
-                          <div class="text-body-2 font-weight-bold" style="color: #334155;">Lưu & Bổ sung</div>
-                          <div class="text-caption" style="color: #64748b;">Sau khi lưu, bạn có thể thêm tài liệu, đại biểu, biểu quyết</div>
+                          <div
+                            class="text-body-2 font-weight-bold"
+                            style="color: #334155;"
+                          >
+                            Lưu & Bổ sung
+                          </div>
+                          <div
+                            class="text-caption"
+                            style="color: #64748b;"
+                          >
+                            Sau khi lưu, bạn có thể thêm tài liệu, đại biểu, biểu quyết
+                          </div>
                         </div>
                       </div>
                     </VCardText>
@@ -608,7 +957,11 @@ const isTabDisabled = tabValue => {
           <!-- ────────────────────────────────────────────────── -->
           <!-- TAB 2: Tài liệu đính kèm -->
           <!-- ────────────────────────────────────────────────── -->
-          <VWindowItem value="documents" transition="none" reverse-transition="none">
+          <VWindowItem
+            value="documents"
+            transition="none"
+            reverse-transition="none"
+          >
             <template v-if="isEditMode">
               <VRow>
                 <VCol cols="12">
@@ -617,13 +970,25 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-paperclip" size="20" color="#10b981" class="rounded" style="background-color: #d1fae5; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-paperclip"
+                          size="20"
+                          color="#10b981"
+                          class="rounded"
+                          style="background-color: #d1fae5; padding: 4px; box-sizing: content-box;"
+                        />
                         Quản lý Tài liệu cuộc họp
                       </div>
                     </VCardItem>
                     <VCardText class="pa-5">
-                      <MeetingDocumentsTab :meeting-id="route.params.id" />
+                      <MeetingDocumentsTab
+                        :meeting-id="route.params.id"
+                        :meeting-type-id="formData.meeting_type_id"
+                      />
                     </VCardText>
                   </VCard>
                 </VCol>
@@ -641,7 +1006,11 @@ const isTabDisabled = tabValue => {
           <!-- ────────────────────────────────────────────────── -->
           <!-- TAB 3: Thành phần tham dự -->
           <!-- ────────────────────────────────────────────────── -->
-          <VWindowItem value="attendees" transition="none" reverse-transition="none">
+          <VWindowItem
+            value="attendees"
+            transition="none"
+            reverse-transition="none"
+          >
             <VRow>
               <VCol cols="12">
                 <VCard
@@ -650,8 +1019,17 @@ const isTabDisabled = tabValue => {
                 >
                   <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
                     <div class="d-flex align-center justify-space-between flex-wrap gap-4">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-users-group" size="20" color="#8b5cf6" class="rounded" style="background-color: #ede9fe; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-users-group"
+                          size="20"
+                          color="#8b5cf6"
+                          class="rounded"
+                          style="background-color: #ede9fe; padding: 4px; box-sizing: content-box;"
+                        />
                         Thành phần tham dự
                       </div>
                       <VBtn
@@ -668,6 +1046,88 @@ const isTabDisabled = tabValue => {
                   </VCardItem>
 
                   <VCardText class="pa-5">
+                    <!-- Thêm nhanh từ nhóm (khi có meeting_type_id) -->
+                    <template v-if="!isEditMode && attendeeGroupsForType.length > 0">
+                      <VCard
+                        variant="outlined"
+                        class="mb-5"
+                        style="border-color: #c7d2fe; border-radius: 10px; overflow: hidden;"
+                      >
+                        <div
+                          class="d-flex align-center gap-2 px-4 py-3"
+                          style="background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);"
+                        >
+                          <VIcon
+                            icon="tabler-bolt"
+                            size="20"
+                            color="#6366f1"
+                          />
+                          <span
+                            class="font-weight-bold text-body-2"
+                            style="color: #4338ca;"
+                          >
+                            Thêm nhanh từ nhóm người dự họp
+                          </span>
+                          <VSpacer />
+                          <VChip
+                            size="x-small"
+                            variant="flat"
+                            style="background: #6366f1; color: white;"
+                          >
+                            {{ attendeeGroupsForType.length }} nhóm
+                          </VChip>
+                        </div>
+                        <div class="pa-4">
+                          <div class="d-flex flex-wrap gap-3 mb-4">
+                            <VCheckbox
+                              v-for="group in attendeeGroupsForType"
+                              :key="group.id"
+                              v-model="selectedGroupIds"
+                              :value="group.id"
+                              density="compact"
+                              hide-details
+                            >
+                              <template #label>
+                                <div class="d-flex align-center gap-2">
+                                  <span class="text-body-2 font-weight-medium">{{ group.name }}</span>
+                                  <VChip
+                                    size="x-small"
+                                    color="info"
+                                    variant="tonal"
+                                  >
+                                    {{ group.members?.length || 0 }} người
+                                  </VChip>
+                                </div>
+                              </template>
+                            </VCheckbox>
+                          </div>
+                          <VBtn
+                            variant="flat"
+                            size="small"
+                            color="primary"
+                            prepend-icon="tabler-users-plus"
+                            :disabled="selectedGroupIds.length === 0"
+                            style="border-radius: 20px; text-transform: none; font-weight: 600;"
+                            @click="autoFillFromGroups"
+                          >
+                            Thêm {{ selectedGroupIds.length }} nhóm vào danh sách
+                          </VBtn>
+                        </div>
+                      </VCard>
+                    </template>
+
+                    <template v-if="!isEditMode && loadingGroups">
+                      <div class="d-flex align-center justify-center pa-4 mb-4">
+                        <VProgressCircular
+                          indeterminate
+                          size="24"
+                          color="primary"
+                          class="me-3"
+                        />
+                        <span class="text-body-2 text-disabled">Đang tải nhóm...</span>
+                      </div>
+                    </template>
+
                     <!-- Edit mode: Sử dụng MeetingAttendeesTab -->
                     <template v-if="isEditMode">
                       <MeetingAttendeesTab :meeting-id="route.params.id" />
@@ -681,20 +1141,38 @@ const isTabDisabled = tabValue => {
                           :key="index"
                           class="agenda-edit-row"
                         >
-                          <div class="agenda-edit-number" style="color: #8b5cf6; background: #ede9fe;">
+                          <div
+                            class="agenda-edit-number"
+                            style="color: #8b5cf6; background: #ede9fe;"
+                          >
                             {{ index + 1 }}
                           </div>
-                          <VRow class="flex-grow-1 mx-0" style="background: #f8fafc; border-radius: 8px; padding: 12px;">
-                            <VCol cols="12" md="4" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Họ và tên</div>
+                          <VRow
+                            class="flex-grow-1 mx-0"
+                            style="background: #f8fafc; border-radius: 8px; padding: 12px;"
+                          >
+                            <VCol
+                              cols="12"
+                              md="4"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Họ và tên
+                              </div>
                               <AppTextField
                                 v-model="attendee.name"
                                 density="compact"
                                 placeholder="Ví dụ: Nguyễn Văn A"
                               />
                             </VCol>
-                            <VCol cols="12" md="4" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Chức vụ / Vị trí họp</div>
+                            <VCol
+                              cols="12"
+                              md="4"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Chức vụ / Vị trí họp
+                              </div>
                               <AppSelect
                                 v-model="attendee.position"
                                 :items="[
@@ -706,8 +1184,14 @@ const isTabDisabled = tabValue => {
                                 density="compact"
                               />
                             </VCol>
-                            <VCol cols="12" md="4" class="py-1">
-                              <div class="text-caption text-disabled mb-1 font-weight-medium">Kiểu đại biểu</div>
+                            <VCol
+                              cols="12"
+                              md="4"
+                              class="py-1"
+                            >
+                              <div class="text-caption text-disabled mb-1 font-weight-medium">
+                                Kiểu đại biểu
+                              </div>
                               <AppSelect
                                 v-model="attendee.type"
                                 :items="[
@@ -724,16 +1208,42 @@ const isTabDisabled = tabValue => {
                             variant="tonal"
                             @click="removeAttendeeItem(index)"
                           >
-                            <VIcon icon="tabler-trash" size="20" />
+                            <VIcon
+                              icon="tabler-trash"
+                              size="20"
+                            />
                           </IconBtn>
                         </div>
                       </template>
-                      <div v-else class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg" style="background-color: #f8fafc; border: 2px dashed #e2e8f0;">
-                        <VAvatar color="#ede9fe" size="56" variant="flat" class="mb-4">
-                          <VIcon icon="tabler-users-group" size="28" color="#8b5cf6" />
+                      <div
+                        v-else
+                        class="empty-state-card d-flex flex-column align-center justify-center pa-8 rounded-lg"
+                        style="background-color: #f8fafc; border: 2px dashed #e2e8f0;"
+                      >
+                        <VAvatar
+                          color="#ede9fe"
+                          size="56"
+                          variant="flat"
+                          class="mb-4"
+                        >
+                          <VIcon
+                            icon="tabler-users-group"
+                            size="28"
+                            color="#8b5cf6"
+                          />
                         </VAvatar>
-                        <div class="text-body-1 font-weight-bold mb-1" style="color: #475569;">Chưa có thành phần tham dự</div>
-                        <div class="text-body-2 mb-4" style="color: #94a3b8;">Bấm nút bên dưới để bổ sung đại biểu</div>
+                        <div
+                          class="text-body-1 font-weight-bold mb-1"
+                          style="color: #475569;"
+                        >
+                          Chưa có thành phần tham dự
+                        </div>
+                        <div
+                          class="text-body-2 mb-4"
+                          style="color: #94a3b8;"
+                        >
+                          Bấm nút bên dưới để bổ sung đại biểu
+                        </div>
                         <VBtn
                           variant="flat"
                           size="small"
@@ -754,7 +1264,11 @@ const isTabDisabled = tabValue => {
           <!-- ────────────────────────────────────────────────── -->
           <!-- TAB 4: Biểu quyết -->
           <!-- ────────────────────────────────────────────────── -->
-          <VWindowItem value="voting" transition="none" reverse-transition="none">
+          <VWindowItem
+            value="voting"
+            transition="none"
+            reverse-transition="none"
+          >
             <template v-if="isEditMode">
               <VRow>
                 <VCol cols="12">
@@ -763,8 +1277,17 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-checkbox" size="20" color="#f59e0b" class="rounded" style="background-color: #fef3c7; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-checkbox"
+                          size="20"
+                          color="#f59e0b"
+                          class="rounded"
+                          style="background-color: #fef3c7; padding: 4px; box-sizing: content-box;"
+                        />
                         Quản lý Biểu Quyết
                       </div>
                     </VCardItem>
@@ -787,7 +1310,11 @@ const isTabDisabled = tabValue => {
           <!-- ────────────────────────────────────────────────── -->
           <!-- TAB 5: Kết luận cuộc họp -->
           <!-- ────────────────────────────────────────────────── -->
-          <VWindowItem value="conclusions" transition="none" reverse-transition="none">
+          <VWindowItem
+            value="conclusions"
+            transition="none"
+            reverse-transition="none"
+          >
             <template v-if="isEditMode">
               <VRow>
                 <VCol cols="12">
@@ -796,8 +1323,17 @@ const isTabDisabled = tabValue => {
                     style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
                   >
                     <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
-                      <div class="d-flex align-center gap-2 font-weight-bold text-uppercase" style="color: #475569; font-size: 0.95rem;">
-                        <VIcon icon="tabler-file-check" size="20" color="#14b8a6" class="rounded" style="background-color: #ccfbf1; padding: 4px; box-sizing: content-box;" />
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-file-check"
+                          size="20"
+                          color="#14b8a6"
+                          class="rounded"
+                          style="background-color: #ccfbf1; padding: 4px; box-sizing: content-box;"
+                        />
                         Quản lý Kết Luận
                       </div>
                     </VCardItem>
@@ -882,9 +1418,10 @@ const EditModeRequired = {
 .agenda-edit-row {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 12px 0;
   border-block-end: 1px dashed #e2e8f0;
+  gap: 16px;
+  padding-block: 12px;
+  padding-inline: 0;
 }
 
 .agenda-edit-row:last-child {
@@ -893,17 +1430,17 @@ const EditModeRequired = {
 
 .agenda-edit-number {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  inline-size: 32px;
-  block-size: 32px;
   border-radius: 50%;
   background: #e0e7ff;
+  box-shadow: 0 2px 4px rgb(0, 0, 0, 5%);
   color: #6366f1;
-  font-weight: 700;
   font-size: 0.9rem;
-  flex-shrink: 0;
+  font-weight: 700;
+  block-size: 32px;
+  inline-size: 32px;
   margin-block-start: 18px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 </style>

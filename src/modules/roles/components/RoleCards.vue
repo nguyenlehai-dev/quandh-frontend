@@ -45,6 +45,18 @@ const editPermission = item => {
 const onRoleSaved = () => {
   fetchRoles()
 }
+
+const deleteRole = async item => {
+  if (confirm(`Bạn có chắc chắn muốn xóa vai trò "${item.role}" không?`)) {
+    try {
+      await $api(`/roles/${item.id}`, { method: 'DELETE' })
+      fetchRoles()
+    } catch (err) {
+      console.error('Delete role error:', err)
+      alert(err.message || 'Có lỗi xảy ra khi xóa vai trò.')
+    }
+  }
+}
 </script>
 
 <template>
@@ -97,6 +109,7 @@ const onRoleSaved = () => {
                 size="small"
                 variant="text"
                 color="error"
+                @click="deleteRole(item)"
               >
                 <VIcon
                   icon="tabler-trash"

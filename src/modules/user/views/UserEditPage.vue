@@ -9,6 +9,7 @@ const userId = computed(() => route.params.id)
 const isLoading = ref(true)
 const isSavingDraft = ref(false)
 const isSavingExit = ref(false)
+const snackbar = ref({ show: false, text: '', color: 'success' })
 
 // Data refs
 const userDetail = ref({
@@ -74,16 +75,16 @@ onMounted(() => {
 const onRoleToggle = roleId => {
   const isSelected = selectedRoles.value.includes(roleId)
   if (isSelected) {
-    if (!roleAssignments.value[roleId]) {
+    if (!roleAssignments.value[roleId] || roleAssignments.value[roleId].length === 0) {
       const r = roles.value.find(x => x.id === roleId)
       if (r && r.organization_id) {
-        roleAssignments.value[roleId] = [r.organization_id]
+        roleAssignments.value = { ...roleAssignments.value, [roleId]: [r.organization_id] }
       } else {
-        roleAssignments.value[roleId] = []
+        roleAssignments.value = { ...roleAssignments.value, [roleId]: [] }
       }
     }
   } else {
-    roleAssignments.value[roleId] = []
+    roleAssignments.value = { ...roleAssignments.value, [roleId]: [] }
   }
 }
 
@@ -121,9 +122,22 @@ const saveUser = async (goBack = false) => {
 
     if (goBack) {
       router.push({ name: 'apps-user-list' })
+    } else {
+      snackbar.value = { show: true, text: 'Lưu thông tin thành công!', color: 'success' }
     }
   } catch (err) {
     console.error('Save error', err)
+    let msg = 'Có lỗi xảy ra khi lưu thông tin.'
+    
+    if (err.data?.errors) {
+      msg = Object.values(err.data.errors).flat().join('\\n')
+    } else if (err.data?.message) {
+      msg = err.data.message
+    } else if (err.message) {
+      msg = err.message
+    }
+    
+    snackbar.value = { show: true, text: msg, color: 'error' }
   } finally {
     isSavingDraft.value = false
     isSavingExit.value = false
@@ -382,6 +396,15 @@ const goBack = () => {
       size="40"
     />
   </div>
+
+  <VSnackbar
+    v-model="snackbar.show"
+    :color="snackbar.color"
+    :timeout="4000"
+    location="top right"
+  >
+    {{ snackbar.text }}
+  </VSnackbar>
 </template>
 
 <style scoped>

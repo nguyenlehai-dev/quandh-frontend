@@ -48,6 +48,10 @@ export const exportUsers = params => {
   return $api(`${API_BASE}/export`, { params, responseType: 'blob' })
 }
 
+export const downloadUserTemplate = () => {
+  return $api(`${API_BASE}/template`, { responseType: 'blob' })
+}
+
 export const importUsers = file => {
   const formData = new FormData()
 

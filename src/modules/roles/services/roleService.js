@@ -39,6 +39,10 @@ export const exportRoles = params => {
   return $api(`${API_BASE}/export`, { params, responseType: 'blob' })
 }
 
+export const downloadRoleTemplate = () => {
+  return $api(`${API_BASE}/template`, { responseType: 'blob' })
+}
+
 export const importRoles = file => {
   const formData = new FormData()
 

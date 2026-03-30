@@ -126,10 +126,10 @@ const headers = [
 
           <VDataTable
             v-else
+            v-model:page="page"
             :headers="headers"
             :items="documents"
             :items-per-page="itemsPerPage"
-            v-model:page="page"
             :search="searchDoc"
             class="text-no-wrap document-table"
             hover

@@ -18,11 +18,8 @@ const refForm = ref()
 const fullName = ref('')
 const userName = ref('')
 const email = ref('')
-const company = ref('')
-const country = ref()
-const contact = ref('')
-const role = ref()
-const plan = ref()
+const password = ref('')
+const passwordConfirm = ref('')
 const status = ref()
 
 // 👉 drawer close
@@ -37,18 +34,19 @@ const closeNavigationDrawer = () => {
 const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
+      if (password.value !== passwordConfirm.value) {
+        alert("Mật khẩu xác nhận không khớp")
+        
+        return
+      }
+      
       emit('userData', {
-        id: 0,
-        fullName: fullName.value,
-        company: company.value,
-        role: role.value,
-        country: country.value,
-        contact: contact.value,
+        name: fullName.value,
+        user_name: userName.value,
         email: email.value,
-        currentPlan: plan.value,
-        status: status.value,
-        avatar: '',
-        billing: 'Auto Debit',
+        password: password.value,
+        password_confirmation: passwordConfirm.value,
+        status: status.value || 'active',
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -122,57 +120,25 @@ const handleDrawerModelValueUpdate = val => {
                 />
               </VCol>
 
-              <!-- 👉 company -->
+              <!-- 👉 Password -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="company"
+                  v-model="password"
                   :rules="[requiredValidator]"
-                  label="Company"
-                  placeholder="PixInvent"
+                  label="Password"
+                  type="password"
+                  placeholder="********"
                 />
               </VCol>
 
-              <!-- 👉 Country -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="country"
-                  label="Select Country"
-                  placeholder="Select Country"
-                  :rules="[requiredValidator]"
-                  :items="['USA', 'UK', 'India', 'Australia']"
-                />
-              </VCol>
-
-              <!-- 👉 Contact -->
+              <!-- 👉 Confirm Password -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="contact"
-                  type="number"
+                  v-model="passwordConfirm"
                   :rules="[requiredValidator]"
-                  label="Contact"
-                  placeholder="+1-541-754-3010"
-                />
-              </VCol>
-
-              <!-- 👉 Role -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="role"
-                  label="Select Role"
-                  placeholder="Select Role"
-                  :rules="[requiredValidator]"
-                  :items="['Admin', 'Author', 'Editor', 'Maintainer', 'Subscriber']"
-                />
-              </VCol>
-
-              <!-- 👉 Plan -->
-              <VCol cols="12">
-                <AppSelect
-                  v-model="plan"
-                  label="Select Plan"
-                  placeholder="Select Plan"
-                  :rules="[requiredValidator]"
-                  :items="['Basic', 'Company', 'Enterprise', 'Team']"
+                  label="Confirm Password"
+                  type="password"
+                  placeholder="********"
                 />
               </VCol>
 

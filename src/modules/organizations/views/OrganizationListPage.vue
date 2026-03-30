@@ -1,6 +1,6 @@
 <script setup>
 import AddEditOrganizationDrawer from '@/components/dialogs/AddEditOrganizationDrawer.vue'
-import { exportOrganizations, importOrganizations } from '../services/organizationService'
+import { downloadOrganizationTemplate, exportOrganizations, importOrganizations } from '../services/organizationService'
 
 const searchQuery = ref('')
 const selectedStatus = ref()
@@ -172,15 +172,22 @@ const handleExport = async () => {
       status: selectedStatus.value,
       sort_by: sortBy.value,
       sort_order: orderBy.value,
+      page: page.value,
+      limit: itemsPerPage.value,
     })
 
-    const url = window.URL.createObjectURL(blob)
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
     const a = document.createElement('a')
 
     a.href = url
     a.download = `organizations_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
     a.click()
-    window.URL.revokeObjectURL(url)
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
   }
   catch (err) {
     console.error('Export error:', err)
@@ -212,17 +219,92 @@ const handleImport = async () => {
     isImporting.value = false
   }
 }
+
+// ─── Download Template ──────────────────────────
+const isDownloadingTemplate = ref(false)
+
+const handleDownloadTemplate = async () => {
+  isDownloadingTemplate.value = true
+  try {
+    const blob = await downloadOrganizationTemplate()
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = 'organizations_template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+  catch (err) {
+    console.error('Download template error:', err)
+  }
+  finally {
+    isDownloadingTemplate.value = false
+  }
+}
 </script>
 
 <template>
   <div>
+    <!-- 👉 Stats Widgets -->
+    <div class="d-flex mb-6">
+      <VRow>
+        <VCol
+          v-for="(data, idx) in widgetData"
+          :key="idx"
+          cols="12"
+          md="4"
+          sm="6"
+        >
+          <VCard>
+            <VCardText>
+              <div class="d-flex justify-space-between">
+                <div class="d-flex flex-column gap-y-1">
+                  <div class="text-body-1 text-high-emphasis">
+                    {{ data.title }}
+                  </div>
+                  <h4 class="text-h4">
+                    {{ data.value }}
+                  </h4>
+                </div>
+                <VAvatar
+                  :color="data.iconColor"
+                  variant="tonal"
+                  rounded
+                  size="42"
+                >
+                  <VIcon
+                    :icon="data.icon"
+                    size="26"
+                  />
+                </VAvatar>
+              </div>
+            </VCardText>
+          </VCard>
+        </VCol>
+      </VRow>
+    </div>
+
+    <!-- 👉 Organization Data Table -->
     <VCard>
       <!-- 👉 Header with Filter Title & Actions -->
       <VCardItem class="pb-4">
         <template #prepend>
           <div class="d-flex align-center">
-            <VIcon icon="tabler-filter" color="primary" size="24" class="me-2" />
-            <h5 class="text-h5 text-primary mb-0 font-weight-medium">Bộ lọc</h5>
+            <VIcon
+              icon="tabler-filter"
+              color="primary"
+              size="24"
+              class="me-2"
+            />
+            <h5 class="text-h5 text-primary mb-0 font-weight-medium">
+              Bộ lọc
+            </h5>
           </div>
         </template>
         
@@ -243,8 +325,8 @@ const handleImport = async () => {
               variant="outlined"
               color="info"
               prepend-icon="tabler-file-export"
-              @click="handleExport"
               :loading="isExporting"
+              @click="handleExport"
             >
               Xuất Dữ Liệu
             </VBtn>
@@ -377,9 +459,21 @@ const handleImport = async () => {
         <template #item.updated_at="{ item }">
           <div class="d-flex flex-column gap-y-1">
             <span class="text-body-2 font-weight-medium text-primary">
-              <VAvatar color="primary" size="24" class="me-1">
-                <VIcon size="14" icon="tabler-shield-check" v-if="item.editor?.role === 'Quản trị hệ thống'" />
-                <VIcon size="14" icon="tabler-user" v-else />
+              <VAvatar
+                color="primary"
+                size="24"
+                class="me-1"
+              >
+                <VIcon
+                  v-if="item.editor?.role === 'Quản trị hệ thống'"
+                  size="14"
+                  icon="tabler-shield-check"
+                />
+                <VIcon
+                  v-else
+                  size="14"
+                  icon="tabler-user"
+                />
               </VAvatar>
               {{ item.editor?.name || 'Quản trị hệ thống' }}
             </span>
@@ -393,17 +487,23 @@ const handleImport = async () => {
           <div class="d-flex justify-center gap-2">
             <IconBtn
               v-if="$can('update', 'Organization')"
-              @click="openEditDialog(item)"
               color="info"
+              @click="openEditDialog(item)"
             >
-              <VIcon icon="tabler-pencil" size="20" />
+              <VIcon
+                icon="tabler-pencil"
+                size="20"
+              />
             </IconBtn>
             <IconBtn
               v-if="$can('delete', 'Organization')"
-              @click="deleteOrganization(item.id)"
               color="error"
+              @click="deleteOrganization(item.id)"
             >
-              <VIcon icon="tabler-trash" size="20" />
+              <VIcon
+                icon="tabler-trash"
+                size="20"
+              />
             </IconBtn>
           </div>
         </template>
@@ -431,6 +531,22 @@ const handleImport = async () => {
     >
       <VCard title="Nhập tổ chức từ Excel">
         <VCardText>
+          <div class="mb-5">
+            <VBtn
+              variant="tonal"
+              color="success"
+              size="small"
+              prepend-icon="tabler-download"
+              :loading="isDownloadingTemplate"
+              @click="handleDownloadTemplate"
+            >
+              Tải File Mẫu
+            </VBtn>
+            <div class="text-caption mt-1 text-disabled">
+              * Vui lòng tải file mẫu về, điền dữ liệu và upload lại hệ thống.
+            </div>
+          </div>
+          
           <VFileInput
             v-model="importFile"
             label="Chọn file Excel"

@@ -141,9 +141,7 @@ const formatDateTime = raw => {
                   class="d-flex align-center gap-2 text-caption font-weight-medium"
                   style="color: #64748b;"
                 >
-                  <span
-                    v-if="item.author"
-                  >Phụ trách: <span style="color: #475569;">{{ item.author }}</span></span>
+                  <span v-if="item.author">Phụ trách: <span style="color: #475569;">{{ item.author }}</span></span>
                   <span
                     v-if="item.author && item.time"
                     style="color: #cbd5e1;"

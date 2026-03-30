@@ -38,8 +38,9 @@ const loadGlobalSettings = async () => {
   if (cachedLogo) {
     const imgNode = h('img', { 
       src: cachedLogo, 
-      style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;' 
+      style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;', 
     })
+
     themeConfig.app.logo = imgNode
     initialLayoutConfig.app.logo = imgNode
     activeLayoutConfig.app.logo = imgNode
@@ -59,10 +60,12 @@ const loadGlobalSettings = async () => {
       
       if (logo && logo !== cachedLogo) {
         localStorage.setItem('app_logo', logo)
+
         const imgNode = h('img', { 
           src: logo, 
-          style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;' 
+          style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;', 
         })
+
         themeConfig.app.logo = imgNode
         initialLayoutConfig.app.logo = imgNode
         activeLayoutConfig.app.logo = imgNode
@@ -74,7 +77,11 @@ const loadGlobalSettings = async () => {
     console.warn('Failed to load global settings', err)
   }
 }
+
+import { fetchMe } from '@/services/auth'
+
 loadGlobalSettings()
+fetchMe()
 </script>
 
 <template>

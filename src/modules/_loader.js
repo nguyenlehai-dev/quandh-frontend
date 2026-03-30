@@ -62,14 +62,10 @@ export function getModuleNavigation() {
   // 1. Hồ sơ cá nhân (đã gỡ bỏ theo yêu cầu)
 
   // 2. Bảng điều khiển
-  const dashboardGroup = {
-    title: 'Bảng điều khiển',
-    icon: { icon: 'tabler-layout-dashboard' },
-    children: [
-      { title: 'Tổng quan hệ thống', to: 'dashboards-crm' },
-      { title: 'Tổng quan nghiệp vụ', to: 'meetings-business-overview' },
-    ],
-  }
+  const dashboardNav = [
+    { title: 'Tổng quan hệ thống', to: 'dashboards-crm', icon: { icon: 'tabler-layout-dashboard' } },
+    { title: 'Tổng quan nghiệp vụ', to: 'meetings-business-overview', icon: { icon: 'tabler-briefcase' } },
+  ]
 
   // 3. Quản lý cuộc họp (từ meetings module)
   const meetingsNav = getModNav('meetings')
@@ -80,27 +76,26 @@ export function getModuleNavigation() {
   const rolesNav = getModNav('roles')
   const settingsNav = getModNav('system-settings')
 
-  const systemGroup = {
-    title: 'Quản lý hệ thống',
-    icon: { icon: 'tabler-settings-2' },
-    children: [
-      orgNav ? { ...orgNav } : null,
-      userNav ? { ...userNav } : null,
-      {
-        title: 'Nhật ký hoạt động',
-        icon: { icon: 'tabler-history' },
-        to: 'system-activity-logs',
-      },
-      rolesNav ? { ...rolesNav } : null,
-      settingsNav ? { ...settingsNav } : null,
-    ].filter(Boolean),
-  }
+  const systemNav = [
+    orgNav,
+    userNav,
+    {
+      title: 'Nhật ký hoạt động',
+      icon: { icon: 'tabler-history' },
+      to: 'system-activity-logs',
+    },
+    rolesNav,
+    settingsNav,
+  ].filter(Boolean)
 
   return [
-    dashboardGroup,
-    meetingsNav,
-    systemGroup,
-  ].filter(Boolean)
+    { heading: 'Bảng điều khiển' },
+    ...dashboardNav,
+    { heading: 'Quản lý cuộc họp' },
+    ...(Array.isArray(meetingsNav) ? meetingsNav : (meetingsNav ? [meetingsNav] : [])),
+    { heading: 'Quản lý hệ thống' },
+    ...systemNav,
+  ]
 }
 
 /**

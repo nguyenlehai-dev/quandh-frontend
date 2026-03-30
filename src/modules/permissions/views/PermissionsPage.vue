@@ -1,4 +1,5 @@
 <script setup>
+import { downloadPermissionTemplate, importPermissions } from '../services/permissionService'
 /* eslint-disable-next-line lines-around-comment */
 // ─── State ──────────────────────────────────────
 const search = ref('')
@@ -164,19 +165,75 @@ const handleExport = async () => {
   isExporting.value = true
   try {
     const res = await $api('/permissions/export', { responseType: 'blob' })
-    const url = window.URL.createObjectURL(res)
+    const safeBlob = res instanceof Blob ? res : new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
     const a = document.createElement('a')
 
     a.href = url
     a.download = `permissions_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
     a.click()
-    window.URL.revokeObjectURL(url)
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
   }
   catch (err) {
     console.error('Export permissions error:', err)
   }
   finally {
     isExporting.value = false
+  }
+}
+
+// ─── Import ─────────────────────────────────────
+const isImportDialogVisible = ref(false)
+const importFile = ref(null)
+const isImporting = ref(false)
+
+const handleImport = async () => {
+  if (!importFile.value) return
+  isImporting.value = true
+  try {
+    await importPermissions(importFile.value)
+    isImportDialogVisible.value = false
+    importFile.value = null
+    fetchPermissions()
+    fetchStats()
+  }
+  catch (err) {
+    console.error('Import error:', err)
+  }
+  finally {
+    isImporting.value = false
+  }
+}
+
+// ─── Download Template ──────────────────────────
+const isDownloadingTemplate = ref(false)
+
+const handleDownloadTemplate = async () => {
+  isDownloadingTemplate.value = true
+  try {
+    const blob = await downloadPermissionTemplate()
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = 'permissions_template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+  catch (err) {
+    console.error('Download template error:', err)
+  }
+  finally {
+    isDownloadingTemplate.value = false
   }
 }
 
@@ -295,16 +352,28 @@ const headers = [
               />
               <span class="text-h6 font-weight-bold">Bộ lọc</span>
             </div>
-            <VBtn
-              v-if="$can('export', 'Permission')"
-              variant="tonal"
-              color="secondary"
-              prepend-icon="tabler-upload"
-              :loading="isExporting"
-              @click="handleExport"
-            >
-              Xuất Excel
-            </VBtn>
+            <div class="d-flex align-center gap-2">
+              <VBtn
+                v-if="$can('import', 'Permission')"
+                variant="tonal"
+                color="info"
+                prepend-icon="tabler-download"
+                @click="isImportDialogVisible = true"
+              >
+                Nhập Excel
+              </VBtn>
+
+              <VBtn
+                v-if="$can('export', 'Permission')"
+                variant="tonal"
+                color="secondary"
+                prepend-icon="tabler-upload"
+                :loading="isExporting"
+                @click="handleExport"
+              >
+                Xuất Excel
+              </VBtn>
+            </div>
           </VCardText>
 
           <VCardText class="pt-0 pb-4">
@@ -445,6 +514,56 @@ const headers = [
       :permission-description="editingPermissionDescription"
       @saved="onPermissionSaved"
     />
+
+    <!-- 👉 Import Dialog -->
+    <VDialog
+      v-model="isImportDialogVisible"
+      max-width="500"
+    >
+      <VCard title="Nhập quyền hạn từ Excel">
+        <VCardText>
+          <div class="mb-5">
+            <VBtn
+              variant="tonal"
+              color="success"
+              size="small"
+              prepend-icon="tabler-download"
+              :loading="isDownloadingTemplate"
+              @click="handleDownloadTemplate"
+            >
+              Tải File Mẫu
+            </VBtn>
+            <div class="text-caption mt-1 text-disabled">
+              * Vui lòng tải file mẫu về, điền dữ liệu và upload lại hệ thống.
+            </div>
+          </div>
+          
+          <VFileInput
+            v-model="importFile"
+            label="Chọn file Excel"
+            accept=".xlsx,.xls,.csv"
+            prepend-icon="tabler-file-spreadsheet"
+          />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="tonal"
+            @click="isImportDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            color="primary"
+            :loading="isImporting"
+            :disabled="!importFile"
+            @click="handleImport"
+          >
+            Nhập
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 

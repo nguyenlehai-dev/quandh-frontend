@@ -1,7 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/useUserStore'
-import { exportUsers, importUsers } from '../services/userService'
+import { downloadUserTemplate, exportUsers, importUsers } from '../services/userService'
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -58,6 +58,12 @@ const getRoleName = roleId => {
   const r = roles.value.find(x => x.id === roleId)
   
   return r ? r.name : roleId
+}
+
+const getOrgName = orgId => {
+  const o = organizations.value.find(x => x.id === orgId)
+  
+  return o ? o.name : orgId
 }
 
 const formatDate = dateString => {
@@ -214,6 +220,7 @@ const defaultUserForm = {
 }
 
 const userFormData = ref({ ...defaultUserForm })
+const userFormRef = ref()
 
 const openAddUserForm = () => {
   isEditing.value = false
@@ -237,6 +244,17 @@ const openEditUserForm = item => {
 }
 
 const onSubmitUserForm = async () => {
+  const { valid } = await userFormRef.value?.validate() ?? { valid: true }
+  if (!valid) return
+
+  if (!isEditing.value || userFormData.value.password) {
+    if (userFormData.value.password !== userFormData.value.password_confirmation) {
+      alert("Mật khẩu xác nhận không khớp!")
+      
+      return
+    }
+  }
+
   try {
     const payload = { ...userFormData.value }
     if (isEditing.value && !payload.password) {
@@ -257,6 +275,11 @@ const onSubmitUserForm = async () => {
     fetchStats()
   }
   catch (err) {
+    if (err.response?._data?.errors) {
+      alert("Lỗi nhập liệu:\n" + Object.values(err.response._data.errors).map(x => x.join("\n")).join("\n"))
+    } else {
+      alert("Lỗi thêm cán bộ: " + (err.message || ""))
+    }
     console.error('Submit user form error:', err)
   }
 }
@@ -309,15 +332,22 @@ const handleExport = async () => {
       status: selectedStatus.value,
       sort_by: sortBy.value,
       sort_order: orderBy.value,
+      page: page.value,
+      limit: itemsPerPage.value,
     })
 
-    const url = window.URL.createObjectURL(blob)
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
     const a = document.createElement('a')
 
     a.href = url
     a.download = `users_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
     a.click()
-    window.URL.revokeObjectURL(url)
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
   }
   catch (err) {
     console.error('Export error:', err)
@@ -347,6 +377,34 @@ const handleImport = async () => {
   }
   finally {
     isImporting.value = false
+  }
+}
+
+// ─── Download Template ──────────────────────────
+const isDownloadingTemplate = ref(false)
+
+const handleDownloadTemplate = async () => {
+  isDownloadingTemplate.value = true
+  try {
+    const blob = await downloadUserTemplate()
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = 'users_template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+  catch (err) {
+    console.error('Download template error:', err)
+  }
+  finally {
+    isDownloadingTemplate.value = false
   }
 }
 </script>
@@ -630,7 +688,7 @@ const handleImport = async () => {
                   color="info"
                   class="rounded"
                 >
-                  {{ getRoleName(orgId) /* It should actually be getOrgName, but wait, the API gives org.name or org_id? Let's check.*/ }}
+                  {{ getOrgName(orgId) }}
                 </VChip>
               </div>
             </div>
@@ -729,7 +787,10 @@ const handleImport = async () => {
     >
       <VCard :title="isEditing ? 'Sửa Cán bộ' : 'Thêm Cán bộ mới'">
         <VCardText>
-          <VForm @submit.prevent="onSubmitUserForm">
+          <VForm
+            ref="userFormRef"
+            @submit.prevent="onSubmitUserForm"
+          >
             <VRow>
               <VCol cols="12">
                 <AppTextField
@@ -823,6 +884,22 @@ const handleImport = async () => {
     >
       <VCard title="Nhập dữ liệu từ Excel">
         <VCardText>
+          <div class="mb-5">
+            <VBtn
+              variant="tonal"
+              color="success"
+              size="small"
+              prepend-icon="tabler-download"
+              :loading="isDownloadingTemplate"
+              @click="handleDownloadTemplate"
+            >
+              Tải File Mẫu
+            </VBtn>
+            <div class="text-caption mt-1 text-disabled">
+              * Vui lòng tải file mẫu về, điền dữ liệu và upload lại hệ thống.
+            </div>
+          </div>
+          
           <VFileInput
             v-model="importFile"
             label="Chọn file Excel"

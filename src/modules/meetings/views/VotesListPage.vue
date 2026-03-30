@@ -1,9 +1,13 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
+import { fetchMeetingTypes, exportVotes } from '@/modules/meetings/services/meetingService'
+import { downloadBlob } from '@/utils/downloadHelper'
 
 const { t } = useI18n()
 
 const searchQuery = ref('')
+const meetingTypeId = ref(null)
+const meetingTypes = ref([])
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
@@ -14,18 +18,30 @@ const updateOptions = options => {
   orderBy.value = options.sortBy[0]?.order
 }
 
+onMounted(async () => {
+  try {
+    const res = await fetchMeetingTypes({ limit: 100 })
+    const data = res.data?.data || res.data || []
+
+    meetingTypes.value = data.map(i => ({ value: i.id, title: i.name }))
+  } catch (err) {
+    console.error('Failed to load meeting types', err)
+  }
+})
+
 const headers = [
   { title: 'STT', key: 'index', sortable: false, width: 60 },
   { title: 'Tên biểu quyết', key: 'title' },
-  { title: 'Cuộc họp', key: 'meeting' },
+  { title: 'Cuộc họp', key: 'meeting_title' },
   { title: 'Trạng thái', key: 'status' },
   { title: 'Kết quả', key: 'result' },
   { title: 'Thao tác', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meeting-votes', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-votings', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    meeting_type_id: computed(() => meetingTypeId.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -33,6 +49,26 @@ const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/me
 
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
+
+const isExporting = ref(false)
+
+const exportData = async () => {
+  isExporting.value = true
+  try {
+    const res = await exportVotes({
+      search: searchQuery.value || undefined,
+      meeting_type_id: meetingTypeId.value || undefined,
+      limit: itemsPerPage.value,
+      page: page.value,
+    })
+
+    downloadBlob(res, 'danh-sach-bieu-quyet.xlsx')
+  } catch (error) {
+    console.error('Lỗi khi xuất dữ liệu:', error)
+  } finally {
+    isExporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -63,6 +99,21 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
               density="compact"
             />
           </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loại cuộc họp
+            </div>
+            <AppSelect
+              v-model="meetingTypeId"
+              :items="meetingTypes"
+              placeholder="Tất cả loại cuộc họp"
+              density="compact"
+              clearable
+            />
+          </VCol>
         </VRow>
       </div>
     </div>
@@ -85,14 +136,10 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
+          :loading="isExporting"
+          @click="exportData"
         >
           Xuất Dữ Liệu
-        </VBtn>
-        <VBtn
-          color="primary"
-          prepend-icon="tabler-plus"
-        >
-          Thêm Mới
         </VBtn>
       </div>
     </div>
@@ -125,34 +172,13 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn>
+            <IconBtn :to="{ name: 'meetings-edit', params: { id: item.meeting_id || 0 }, query: { tab: 'votes' } }">
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"
                 location="top"
               >
-                Xem chi tiết
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon icon="tabler-pencil" />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Sửa
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon
-                icon="tabler-trash"
-                color="error"
-              />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Xóa
+                Vào cuộc họp chứa biểu quyết này
               </VTooltip>
             </IconBtn>
           </div>

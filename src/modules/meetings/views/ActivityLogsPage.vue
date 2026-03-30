@@ -231,13 +231,18 @@ const handleExport = async () => {
     if (!response.ok) throw new Error('Export failed')
 
     const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
     const a = document.createElement('a')
 
     a.href = url
     a.download = `nhat_ky_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
     a.click()
-    window.URL.revokeObjectURL(url)
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
   } catch (err) {
     console.error('Export error:', err)
   } finally {

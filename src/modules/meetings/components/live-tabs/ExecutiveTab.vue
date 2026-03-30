@@ -202,10 +202,10 @@ const reqHeaders = [
 
             <VDataTable
               v-else
+              v-model:page="reqPage"
               :headers="reqHeaders"
               :items="speechRequests"
               :items-per-page="reqItemsPerPage"
-              v-model:page="reqPage"
               class="text-no-wrap custom-header-table"
               hover
             >
@@ -339,10 +339,10 @@ const reqHeaders = [
 
             <VDataTable
               v-else
+              v-model:page="histPage"
               :headers="reqHeaders"
               :items="speechHistory"
               :items-per-page="histItemsPerPage"
-              v-model:page="histPage"
               class="text-no-wrap custom-header-table"
               hover
             >

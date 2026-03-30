@@ -53,6 +53,10 @@ export const exportOrganizations = params => {
   return $api(`${API_BASE}/export`, { params, responseType: 'blob' })
 }
 
+export const downloadOrganizationTemplate = () => {
+  return $api(`${API_BASE}/template`, { responseType: 'blob' })
+}
+
 export const importOrganizations = file => {
   const formData = new FormData()
 

@@ -176,9 +176,16 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
     style="user-select: none; border: 1px solid rgba(var(--v-border-color), 0.5); height: 40px; min-width: 280px; max-width: 400px; background-color: rgb(var(--v-theme-surface))"
     @click="isAppSearchBarVisible = !isAppSearchBarVisible; Shepherd.activeTour?.cancel()"
   >
-    <VIcon icon="tabler-search" size="20" class="text-disabled" />
+    <VIcon
+      icon="tabler-search"
+      size="20"
+      class="text-disabled"
+    />
 
-    <span class="ms-3 text-disabled font-weight-regular" style="font-size: 14px">
+    <span
+      class="ms-3 text-disabled font-weight-regular"
+      style="font-size: 14px"
+    >
       Tìm kiếm
     </span>
 
@@ -188,7 +195,10 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
       class="meta-key text-disabled font-weight-medium d-none d-md-flex align-center justify-center ms-2"
       style="font-size: 12px; height: 22px; padding: 0 6px"
     >
-      <span class="me-1" style="font-size: 10px;">⌘</span>K
+      <span
+        class="me-1"
+        style="font-size: 10px;"
+      >⌘</span>K
     </span>
   </div>
 

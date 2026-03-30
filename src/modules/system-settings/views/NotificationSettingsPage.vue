@@ -1,4 +1,7 @@
 <script setup>
+import { ref, onMounted } from 'vue'
+import SettingsLayout from './SettingsLayout.vue'
+
 const settings = ref({})
 const loading = ref(false)
 const saving = ref(false)
@@ -39,7 +42,7 @@ onMounted(() => fetchSettings())
 </script>
 
 <template>
-  <div>
+  <SettingsLayout>
     <VCard>
       <VCardText class="d-flex align-center flex-wrap gap-4">
         <h5 class="text-h5">
@@ -142,5 +145,5 @@ onMounted(() => fetchSettings())
         </VRow>
       </VCardText>
     </VCard>
-  </div>
+  </SettingsLayout>
 </template>

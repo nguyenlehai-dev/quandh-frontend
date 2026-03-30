@@ -3,6 +3,7 @@ export const routes = [
     path: '/profile',
     name: 'user-profile',
     component: () => import('../views/ProfilePage.vue'),
+    meta: { action: 'read', subject: 'Auth' },
   },
   {
     path: '/apps/user/list',
@@ -20,6 +21,6 @@ export const routes = [
     path: '/apps/user/edit/:id',
     name: 'apps-user-edit-id',
     component: () => import('../views/UserEditPage.vue'),
-    meta: { action: 'update', subject: 'User' },
+    meta: { action: 'read', subject: 'Auth' },
   },
 ]

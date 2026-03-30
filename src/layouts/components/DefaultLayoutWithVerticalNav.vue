@@ -20,9 +20,7 @@ import { VerticalNavLayout } from '@layouts'
   <VerticalNavLayout :nav-items="navItems">
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div
-        class="d-flex h-100 align-center w-100 gap-4"
-      >
+      <div class="d-flex h-100 align-center w-100 gap-4">
         <IconBtn
           id="vertical-nav-toggle-btn"
           class="ms-n3 d-lg-none"
@@ -38,7 +36,10 @@ import { VerticalNavLayout } from '@layouts'
 
         <VSpacer />
 
-        <div class="d-flex h-100 align-center" style="gap: 4px;">
+        <div
+          class="d-flex h-100 align-center"
+          style="gap: 4px;"
+        >
           <OrgSwitcher />
 
           <NavBarI18n

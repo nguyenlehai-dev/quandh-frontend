@@ -11,51 +11,27 @@ const logout = async () => {
   await authLogout(router)
 }
 
+// Chuyển tổ chức: xóa org cookie → redirect sang trang chọn
+const clearOrgAndSwitch = () => {
+  useCookie('currentOrganizationId').value = null
+  router.push('/select-organization')
+}
+
 const userProfileList = [
   { type: 'divider' },
   {
     type: 'navItem',
     icon: 'tabler-user',
-    title: 'Profile',
+    title: 'Hồ sơ cá nhân',
     to: {
-      name: 'apps-user-view-id',
-      params: { id: 21 },
+      name: 'user-profile',
     },
   },
   {
     type: 'navItem',
-    icon: 'tabler-settings',
-    title: 'Settings',
-    to: {
-      name: 'pages-account-settings-tab',
-      params: { tab: 'account' },
-    },
-  },
-  {
-    type: 'navItem',
-    icon: 'tabler-file-dollar',
-    title: 'Billing Plan',
-    to: {
-      name: 'pages-account-settings-tab',
-      params: { tab: 'billing-plans' },
-    },
-    badgeProps: {
-      color: 'error',
-      content: '4',
-    },
-  },
-  { type: 'divider' },
-  {
-    type: 'navItem',
-    icon: 'tabler-currency-dollar',
-    title: 'Pricing',
-    to: { name: 'pages-pricing' },
-  },
-  {
-    type: 'navItem',
-    icon: 'tabler-question-mark',
-    title: 'FAQ',
-    to: { name: 'pages-faq' },
+    icon: 'tabler-building-community',
+    title: 'Chuyển Tổ Chức',
+    action: 'switchOrg',
   },
 ]
 </script>
@@ -122,10 +98,13 @@ const userProfileList = [
 
               <div>
                 <h6 class="text-h6 font-weight-medium">
-                  {{ userData.fullName || userData.username }}
+                  {{ userData.name || userData.user_name }}
                 </h6>
-                <VListItemSubtitle class="text-capitalize text-disabled">
-                  {{ userData.role }}
+                <VListItemSubtitle
+                  class="text-capitalize text-disabled"
+                  style="white-space: normal;"
+                >
+                  {{ userData.assignments?.map(a => a.role_name).join(', ') || 'Người dùng' }}
                 </VListItemSubtitle>
               </div>
             </div>
@@ -138,7 +117,8 @@ const userProfileList = [
             >
               <VListItem
                 v-if="item.type === 'navItem'"
-                :to="item.to"
+                :to="item.to || undefined"
+                @click="item.action === 'switchOrg' ? clearOrgAndSwitch() : undefined"
               >
                 <template #prepend>
                   <VIcon
@@ -148,17 +128,6 @@ const userProfileList = [
                 </template>
 
                 <VListItemTitle>{{ item.title }}</VListItemTitle>
-
-                <template
-                  v-if="item.badgeProps"
-                  #append
-                >
-                  <VBadge
-                    rounded="sm"
-                    class="me-3"
-                    v-bind="item.badgeProps"
-                  />
-                </template>
               </VListItem>
 
               <VDivider
@@ -175,7 +144,7 @@ const userProfileList = [
                 append-icon="tabler-logout"
                 @click="logout"
               >
-                Logout
+                Đăng Xuất
               </VBtn>
             </div>
           </PerfectScrollbar>

@@ -1,6 +1,6 @@
 <script setup>
 import RoleCards from '../components/RoleCards.vue'
-import { exportRoles, importRoles } from '../services/roleService'
+import { downloadRoleTemplate, exportRoles, importRoles } from '../services/roleService'
 
 // ─── Stats ──────────────────────────────────────
 const stats = ref({ total: 0, active: 0, inactive: 0 })
@@ -31,13 +31,18 @@ const handleExport = async () => {
   isExporting.value = true
   try {
     const blob = await exportRoles()
-    const url = window.URL.createObjectURL(blob)
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
     const a = document.createElement('a')
 
     a.href = url
     a.download = `roles_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
     a.click()
-    window.URL.revokeObjectURL(url)
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
   }
   catch (err) {
     console.error('Export error:', err)
@@ -66,6 +71,34 @@ const handleImport = async () => {
   }
   finally {
     isImporting.value = false
+  }
+}
+
+// ─── Download Template ──────────────────────────
+const isDownloadingTemplate = ref(false)
+
+const handleDownloadTemplate = async () => {
+  isDownloadingTemplate.value = true
+  try {
+    const blob = await downloadRoleTemplate()
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = 'roles_template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+  catch (err) {
+    console.error('Download template error:', err)
+  }
+  finally {
+    isDownloadingTemplate.value = false
   }
 }
 </script>
@@ -130,6 +163,43 @@ const handleImport = async () => {
 
       <!-- 👉 Roles Cards -->
       <VCol cols="12">
+        <div class="d-flex mb-6">
+          <VRow>
+            <VCol
+              v-for="(data, idx) in widgetData"
+              :key="idx"
+              cols="12"
+              md="4"
+              sm="6"
+            >
+              <VCard>
+                <VCardText>
+                  <div class="d-flex justify-space-between">
+                    <div class="d-flex flex-column gap-y-1">
+                      <div class="text-body-1 text-high-emphasis">
+                        {{ data.title }}
+                      </div>
+                      <h4 class="text-h4">
+                        {{ data.value }}
+                      </h4>
+                    </div>
+                    <VAvatar
+                      :color="data.iconColor"
+                      variant="tonal"
+                      rounded
+                      size="42"
+                    >
+                      <VIcon
+                        :icon="data.icon"
+                        size="26"
+                      />
+                    </VAvatar>
+                  </div>
+                </VCardText>
+              </VCard>
+            </VCol>
+          </VRow>
+        </div>
         <RoleCards />
       </VCol>
 
@@ -142,6 +212,22 @@ const handleImport = async () => {
       >
         <VCard title="Nhập vai trò từ Excel">
           <VCardText>
+            <div class="mb-5">
+              <VBtn
+                variant="tonal"
+                color="success"
+                size="small"
+                prepend-icon="tabler-download"
+                :loading="isDownloadingTemplate"
+                @click="handleDownloadTemplate"
+              >
+                Tải File Mẫu
+              </VBtn>
+              <div class="text-caption mt-1 text-disabled">
+                * Vui lòng tải file mẫu về, điền dữ liệu và upload lại hệ thống.
+              </div>
+            </div>
+            
             <VFileInput
               v-model="importFile"
               label="Chọn file Excel"

@@ -1,7 +1,11 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
+import { fetchMeetingTypes, exportDocuments } from '@/modules/meetings/services/meetingService'
+import { downloadBlob } from '@/utils/downloadHelper'
 
 const searchQuery = ref('')
+const meetingTypeId = ref(null)
+const meetingTypes = ref([])
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
@@ -12,18 +16,31 @@ const updateOptions = options => {
   orderBy.value = options.sortBy[0]?.order
 }
 
+onMounted(async () => {
+  try {
+    const res = await fetchMeetingTypes({ limit: 100 })
+    const data = res.data?.data || res.data || []
+
+    meetingTypes.value = data.map(i => ({ value: i.id, title: i.name }))
+  } catch (err) {
+    console.error('Failed to load meeting types', err)
+  }
+})
+
 const headers = [
   { title: 'STT', key: 'index', sortable: false, width: 60 },
   { title: 'Tên tài liệu', key: 'title' },
-  { title: 'Loại tài liệu', key: 'type' },
-  { title: 'Cuộc họp', key: 'meeting' },
-  { title: 'Ngày tải lên', key: 'created_at' },
+  { title: 'Loại tài liệu', key: 'document_type_name' },
+  { title: 'Cuộc họp', key: 'meeting_title' },
+  { title: 'Người đăng', key: 'created_by' },
+  { title: 'Ngày đăng', key: 'created_at' },
   { title: 'Thao tác', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meeting-documents', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-documents', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    meeting_type_id: computed(() => meetingTypeId.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -31,6 +48,26 @@ const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/me
 
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
+
+const isExporting = ref(false)
+
+const exportData = async () => {
+  isExporting.value = true
+  try {
+    const res = await exportDocuments({
+      search: searchQuery.value || undefined,
+      meeting_type_id: meetingTypeId.value || undefined,
+      limit: itemsPerPage.value,
+      page: page.value,
+    })
+
+    downloadBlob(res, 'danh-sach-tai-lieu.xlsx')
+  } catch (error) {
+    console.error('Lỗi khi xuất dữ liệu:', error)
+  } finally {
+    isExporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -61,6 +98,21 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
               density="compact"
             />
           </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loại cuộc họp
+            </div>
+            <AppSelect
+              v-model="meetingTypeId"
+              :items="meetingTypes"
+              placeholder="Tất cả loại cuộc họp"
+              density="compact"
+              clearable
+            />
+          </VCol>
         </VRow>
       </div>
     </div>
@@ -83,14 +135,10 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
+          :loading="isExporting"
+          @click="exportData"
         >
           Xuất Dữ Liệu
-        </VBtn>
-        <VBtn
-          color="primary"
-          prepend-icon="tabler-plus"
-        >
-          Thêm Mới
         </VBtn>
       </div>
     </div>
@@ -111,50 +159,47 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
           {{ (page - 1) * itemsPerPage + index + 1 }}
         </template>
 
-        <template #item.type="{ item }">
-          <VChip
-            size="small"
-            color="info"
-            variant="tonal"
+        <template #item.document_type_name="{ item }">
+          {{ item.document_type?.name || '---' }}
+        </template>
+
+        <template #item.created_by="{ item }">
+          {{ item.created_by || '---' }}
+        </template>
+
+        <template #item.meeting_title="{ item }">
+          <span
+            v-if="item.meeting_title"
+            class="font-weight-medium text-primary"
           >
-            {{ item.type || 'Tài liệu' }}
-          </VChip>
+            {{ item.meeting_title }}
+          </span>
+          <span
+            v-else
+            class="text-disabled"
+          >
+            ---
+          </span>
         </template>
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn>
+            <IconBtn
+              v-if="item.meeting_id"
+              :to="{ name: 'meetings-participant-details', params: { id: item.meeting_id }, query: { tab: 'documents' } }"
+            >
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"
                 location="top"
               >
-                Xem chi tiết
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon icon="tabler-pencil" />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Sửa
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon
-                icon="tabler-trash"
-                color="error"
-              />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Xóa
+                Vào cuộc họp chứa tài liệu này
               </VTooltip>
             </IconBtn>
           </div>
         </template>
+
+        <!-- removed old slots -->
 
         <template #bottom>
           <div class="d-flex align-center justify-space-between pa-4">

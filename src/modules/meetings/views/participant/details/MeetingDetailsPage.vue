@@ -1,6 +1,7 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import { createPersonalNote, fetchMeeting, fetchPersonalNotes, updatePersonalNote } from '@/modules/meetings/services/meetingService'
+import { createPersonalNote, fetchMeeting, fetchPersonalNotes, updatePersonalNote, selfCheckinMeetingParticipant, fetchAvailableDelegates } from '@/modules/meetings/services/meetingService'
+
 import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
 import { watchDebounced } from '@vueuse/core'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -18,6 +19,59 @@ const personalNotes = ref('')
 const personalNoteId = ref(null)
 const isSavingNote = ref(false)
 const lastSaved = ref(null)
+
+// Current User State & Self Checkin
+const userData = useCookie('userData')
+const currentUserParticipant = computed(() => {
+  if (!meeting.value?.participants || !userData.value) return null
+
+  return meeting.value.participants.find(p => p.user_id === userData.value.id)
+})
+
+const isCheckinSubmitting = ref(false)
+const isAbsentDialogOpen = ref(false)
+const absenceReason = ref('')
+const isDelegateDialogOpen = ref(false)
+const delegatedToId = ref(null)
+const availableUsers = ref([])
+
+const loadAvailableUsers = async () => {
+  if (availableUsers.value.length > 0) return
+  if (!meeting.value?.id) return
+  try {
+    const res = await fetchAvailableDelegates(meeting.value.id)
+    availableUsers.value = res.data || []
+  } catch (error) {
+    console.error('Failed to load users for delegation:', error)
+  }
+}
+
+const handleSelfCheckin = async (status) => {
+  if (!meeting.value?.id) return
+  isCheckinSubmitting.value = true
+  
+  const payload = { attendance_status: status }
+  if (status === 'absent') payload.absence_reason = absenceReason.value
+  if (status === 'delegated') payload.delegated_to_id = delegatedToId.value
+
+  try {
+    const res = await selfCheckinMeetingParticipant(meeting.value.id, payload)
+    
+    // Update local state
+    if (currentUserParticipant.value) {
+      Object.assign(currentUserParticipant.value, res.data.data)
+    }
+    
+    // Close dialogs
+    isAbsentDialogOpen.value = false
+    isDelegateDialogOpen.value = false
+  } catch (error) {
+    console.error('Checkin failed:', error)
+  } finally {
+    isCheckinSubmitting.value = false
+  }
+}
+
 
 // Voting Modal (nhận event qua WebSocket hoặc mở thủ công)
 const isVotingModalOpen = ref(false)
@@ -462,39 +516,59 @@ const getSecretary = () => {
                   />
                   Chương trình cuộc họp
                 </div>
-                <div class="d-flex gap-2">
-                  <VBtn
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    prepend-icon="tabler-user-check"
-                  >
-                    Điểm Danh
-                  </VBtn>
-                  <VBtn
-                    size="small"
-                    color="success"
-                    variant="outlined"
-                    prepend-icon="tabler-users-plus"
-                  >
-                    Gán Tham Dự
-                  </VBtn>
-                  <VBtn
-                    size="small"
-                    color="warning"
-                    variant="outlined"
-                    prepend-icon="tabler-arrow-autofit-right"
-                  >
-                    Gán Ủy Quyền
-                  </VBtn>
-                  <VBtn
-                    size="small"
-                    color="error"
-                    variant="outlined"
-                    prepend-icon="tabler-user-x"
-                  >
-                    Báo Vắng
-                  </VBtn>
+                <div class="d-flex gap-2" v-if="currentUserParticipant">
+                  <template v-if="currentUserParticipant.attendance_status === 'pending' || !currentUserParticipant.attendance_status">
+                    <VBtn
+                      size="small"
+                      color="primary"
+                      prepend-icon="tabler-user-check"
+                      :loading="isCheckinSubmitting"
+                      @click="handleSelfCheckin('present')"
+                    >
+                      Báo Có Mặt
+                    </VBtn>
+                    <VBtn
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      prepend-icon="tabler-user-x"
+                      @click="isAbsentDialogOpen = true"
+                    >
+                      Báo Vắng
+                    </VBtn>
+                    <VBtn
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      prepend-icon="tabler-arrow-autofit-right"
+                      @click="() => { loadAvailableUsers(); isDelegateDialogOpen = true; }"
+                    >
+                      Ủy Quyền
+                    </VBtn>
+                  </template>
+                  <template v-else>
+                    <VChip
+                      v-if="currentUserParticipant.attendance_status === 'present'"
+                      color="success"
+                      prepend-icon="tabler-check"
+                    >
+                      Đã báo có mặt
+                    </VChip>
+                    <VChip
+                      v-else-if="currentUserParticipant.attendance_status === 'absent'"
+                      color="error"
+                      prepend-icon="tabler-user-x"
+                    >
+                      Đã báo vắng
+                    </VChip>
+                    <VChip
+                      v-else-if="currentUserParticipant.attendance_status === 'delegated'"
+                      color="warning"
+                      prepend-icon="tabler-arrow-autofit-right"
+                    >
+                      Đã ủy quyền
+                    </VChip>
+                  </template>
                 </div>
               </div>
 
@@ -1401,6 +1475,89 @@ const getSecretary = () => {
           @click="submitVote"
         >
           Gửi biểu quyết
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- ===== ABSENT MODAL ===== -->
+  <VDialog v-model="isAbsentDialogOpen" max-width="500">
+    <VCard>
+      <VCardTitle class="text-h5 pa-5">
+        <VIcon icon="tabler-user-x" class="me-2 text-error" />
+        Báo vắng mặt
+      </VCardTitle>
+      <VDivider />
+      <VCardText class="pa-5">
+        <p class="mb-4">Vui lòng nhập lý do vắng mặt để thông báo cho ban tổ chức.</p>
+        <VTextarea
+          v-model="absenceReason"
+          label="Lý do vắng mặt"
+          variant="outlined"
+          rows="3"
+        />
+      </VCardText>
+      <VDivider />
+      <VCardActions class="pa-5">
+        <VSpacer />
+        <VBtn
+          color="secondary"
+          variant="tonal"
+          @click="isAbsentDialogOpen = false"
+        >
+          Hủy
+        </VBtn>
+        <VBtn
+          color="error"
+          variant="elevated"
+          :loading="isCheckinSubmitting"
+          :disabled="!absenceReason.trim()"
+          @click="handleSelfCheckin('absent')"
+        >
+          Xác nhận báo vắng
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- ===== DELEGATE MODAL ===== -->
+  <VDialog v-model="isDelegateDialogOpen" max-width="500">
+    <VCard>
+      <VCardTitle class="text-h5 pa-5">
+        <VIcon icon="tabler-arrow-autofit-right" class="me-2 text-warning" />
+        Ủy quyền tham dự
+      </VCardTitle>
+      <VDivider />
+      <VCardText class="pa-5">
+        <p class="mb-4">Chọn người mà bạn muốn ủy quyền tham dự cuộc họp này thay cho bạn.</p>
+        <VSelect
+          v-model="delegatedToId"
+          :items="availableUsers"
+          item-title="name"
+          item-value="id"
+          label="Người được ủy quyền"
+          variant="outlined"
+          :loading="availableUsers.length === 0"
+        />
+      </VCardText>
+      <VDivider />
+      <VCardActions class="pa-5">
+        <VSpacer />
+        <VBtn
+          color="secondary"
+          variant="tonal"
+          @click="isDelegateDialogOpen = false"
+        >
+          Hủy
+        </VBtn>
+        <VBtn
+          color="warning"
+          variant="elevated"
+          :loading="isCheckinSubmitting"
+          :disabled="!delegatedToId"
+          @click="handleSelfCheckin('delegated')"
+        >
+          Ủy quyền
         </VBtn>
       </VCardActions>
     </VCard>

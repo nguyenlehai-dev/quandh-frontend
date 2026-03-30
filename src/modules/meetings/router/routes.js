@@ -6,12 +6,17 @@ export const routes = [
     meta: { action: 'read', subject: 'Meeting' },
   },
   {
-    path: '/activity-logs',
-    name: 'system-activity-logs',
-    component: () => import('../views/ActivityLogsPage.vue'),
+    path: '/meetings',
+    redirect: { name: 'meetings-list' },
   },
   {
-    path: '/meetings',
+    path: '/meetings/my-calendar',
+    name: 'meetings-my-calendar',
+    component: () => import('../views/MyCalendarPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/list',
     name: 'meetings-list',
     component: () => import('../views/MeetingListPage.vue'),
     meta: { action: 'read', subject: 'Meeting' },
@@ -26,7 +31,7 @@ export const routes = [
     path: '/meetings/documents',
     name: 'meetings-documents-list',
     component: () => import('../views/DocumentsListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
+    meta: { action: 'read', subject: 'Document' },
   },
   {
     path: '/meetings/conclusions',
@@ -38,25 +43,25 @@ export const routes = [
     path: '/meetings/attendees',
     name: 'meetings-attendees-list',
     component: () => import('../views/AttendeesListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
+    meta: { action: 'read', subject: 'MeetingParticipant' },
   },
   {
     path: '/meetings/attendee-groups',
     name: 'meetings-attendee-groups',
     component: () => import('../views/AttendeeGroupListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
+    meta: { action: 'read', subject: 'AttendeeGroup' },
   },
   {
     path: '/meetings/document-types',
     name: 'meetings-document-types',
     component: () => import('../views/DocumentTypeListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
+    meta: { action: 'read', subject: 'DocumentType' },
   },
   {
     path: '/meetings/meeting-types',
     name: 'meetings-meeting-types',
     component: () => import('../views/MeetingTypeListPage.vue'),
-    meta: { action: 'read', subject: 'Meeting' },
+    meta: { action: 'read', subject: 'MeetingType' },
   },
   {
     path: '/meetings/live/:id',
@@ -65,7 +70,13 @@ export const routes = [
     meta: { action: 'read', subject: 'Meeting' },
   },
   {
-    path: '/meetings/edit/:id?',
+    path: '/meetings/create',
+    name: 'meetings-create',
+    component: () => import('../views/admin/edit/MeetingEditPage.vue'),
+    meta: { action: 'create', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/edit/:id',
     name: 'meetings-edit',
     component: () => import('../views/admin/edit/MeetingEditPage.vue'),
     meta: { action: 'update', subject: 'Meeting' },
@@ -82,4 +93,41 @@ export const routes = [
     component: () => import('../views/participant/details/MeetingDetailsPage.vue'),
     meta: { action: 'read', subject: 'Meeting' },
   },
+  {
+    path: '/categories/issuing-agencies',
+    name: 'categories-issuing-agencies',
+    component: () => import('../views/IssuingAgencyListPage.vue'),
+    meta: { action: 'read', subject: 'IssuingAgency' },
+  },
+  {
+    path: '/categories/issuing-levels',
+    name: 'categories-issuing-levels',
+    component: () => import('../views/IssuingLevelListPage.vue'),
+    meta: { action: 'read', subject: 'IssuingLevel' },
+  },
+  {
+    path: '/categories/document-fields',
+    name: 'categories-document-fields',
+    component: () => import('../views/DocumentFieldListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentField' },
+  },
+  {
+    path: '/categories/document-signers',
+    name: 'categories-document-signers',
+    component: () => import('../views/DocumentSignerListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentSigner' },
+  },
+  {
+    path: '/news/posts',
+    name: 'news-posts-list',
+    component: () => import('../views/PostListPage.vue'),
+    meta: { action: 'read', subject: 'Post' },
+  },
+  {
+    path: '/news/post-categories',
+    name: 'news-post-categories',
+    component: () => import('../views/PostCategoryListPage.vue'),
+    meta: { action: 'read', subject: 'PostCategory' },
+  },
 ]
+

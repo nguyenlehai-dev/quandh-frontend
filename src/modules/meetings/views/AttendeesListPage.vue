@@ -1,4 +1,6 @@
 <script setup>
+import { exportAttendees } from '@/modules/meetings/services/meetingService'
+import { downloadBlob } from '@/utils/downloadHelper'
 import '@/modules/meetings/assets/meeting-styles.css'
 
 const searchQuery = ref('')
@@ -14,14 +16,14 @@ const updateOptions = options => {
 
 const headers = [
   { title: 'STT', key: 'index', sortable: false, width: 60 },
-  { title: 'Họ và tên', key: 'name' },
+  { title: 'Họ và tên', key: 'user_name' },
   { title: 'Chức vụ', key: 'position' },
-  { title: 'Email', key: 'email' },
-  { title: 'Loại đại biểu', key: 'type' },
+  { title: 'Email', key: 'user_email' },
+  { title: 'Cuộc họp', key: 'meeting_title' },
   { title: 'Thao tác', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meeting-attendees', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-participants', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     limit: itemsPerPage,
@@ -31,6 +33,25 @@ const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/me
 
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
+
+const isExporting = ref(false)
+
+const exportData = async () => {
+  isExporting.value = true
+  try {
+    const res = await exportAttendees({
+      search: searchQuery.value || undefined,
+      limit: itemsPerPage.value,
+      page: page.value,
+    })
+
+    downloadBlob(res, 'nguoi-du-hop.xlsx')
+  } catch (error) {
+    console.error('Lỗi khi xuất dữ liệu:', error)
+  } finally {
+    isExporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -83,14 +104,10 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
+          :loading="isExporting"
+          @click="exportData"
         >
           Xuất Dữ Liệu
-        </VBtn>
-        <VBtn
-          color="primary"
-          prepend-icon="tabler-plus"
-        >
-          Thêm Mới
         </VBtn>
       </div>
     </div>
@@ -111,6 +128,31 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
           {{ (page - 1) * itemsPerPage + index + 1 }}
         </template>
 
+        <template #item.user_name="{ item }">
+          <span class="font-weight-medium text-high-emphasis">
+            {{ item.user_name || '---' }}
+          </span>
+        </template>
+
+        <template #item.user_email="{ item }">
+          {{ item.user_email || '---' }}
+        </template>
+
+        <template #item.meeting_title="{ item }">
+          <span
+            v-if="item.meeting_title"
+            class="font-weight-medium text-primary"
+          >
+            {{ item.meeting_title }}
+          </span>
+          <span
+            v-else
+            class="text-disabled"
+          >
+            ---
+          </span>
+        </template>
+
         <template #item.type="{ item }">
           <VChip
             size="small"
@@ -123,34 +165,16 @@ const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn>
+            <IconBtn
+              v-if="item.meeting_id"
+              :to="{ name: 'meetings-participant-details', params: { id: item.meeting_id }, query: { tab: 'participants' } }"
+            >
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"
                 location="top"
               >
-                Xem chi tiết
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon icon="tabler-pencil" />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Sửa
-              </VTooltip>
-            </IconBtn>
-            <IconBtn>
-              <VIcon
-                icon="tabler-trash"
-                color="error"
-              />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Xóa
+                Vào cuộc họp chứa người này
               </VTooltip>
             </IconBtn>
           </div>

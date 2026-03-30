@@ -210,7 +210,7 @@ export default class ApiService {
     err.response.data.code = status
 
     if (status === 401 && router.currentRoute.value.name !== 'login') {
-      if (api !== '/auth/me') {
+      if (api !== '/user') {
         // Lưu trang hiện tại để redirect sau login
         localStorage.setItem('history_link', window.location.pathname)
 
@@ -228,7 +228,8 @@ export default class ApiService {
       console.warn('[403] Forbidden:', api)
     }
     else if (status === 404) {
-      return router.push('/404')
+      err.response.data.code = 404
+      console.warn('[404] Not Found:', api)
     }
     else if (status === 422) {
       err.response.data.code = 422

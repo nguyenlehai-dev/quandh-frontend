@@ -1,5 +1,12 @@
 <script setup>
 import PermissionsPage from '@/modules/permissions/views/PermissionsPage.vue'
+
+definePage({
+  meta: {
+    action: 'read',
+    subject: 'Permission',
+  },
+})
 </script>
 
 <template>

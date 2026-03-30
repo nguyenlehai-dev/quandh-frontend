@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 export default {
   title: 'Email',
   compose: 'Compose',
