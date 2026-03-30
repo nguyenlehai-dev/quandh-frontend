@@ -1,3 +1,28 @@
+import { ability } from '@/plugins/casl/ability'
+
+const postLoginRouteCandidates = [
+  { name: 'system-dashboard' },
+  { name: 'meetings-business-overview' },
+  { name: 'meetings-my-calendar', action: 'read', subject: 'Meeting' },
+  { name: 'system-organizations', action: 'read', subject: 'Organization' },
+  { name: 'apps-user-list', action: 'read', subject: 'User' },
+  { name: 'apps-roles', action: 'read', subject: 'Role' },
+  { name: 'apps-permissions', action: 'read', subject: 'Permission' },
+  { name: 'system-settings-general', action: 'read', subject: 'SystemSetting' },
+  { name: 'user-profile', action: 'read', subject: 'Auth' },
+]
+
+const getDefaultAuthorizedRoute = () => {
+  const firstAllowedRoute = postLoginRouteCandidates.find(route => {
+    if (!(route.action && route.subject))
+      return true
+
+    return ability.can(route.action, route.subject)
+  })
+
+  return { name: firstAllowedRoute?.name || 'user-profile' }
+}
+
 // 👉 Redirects
 export const redirects = [
   // ℹ️ We are redirecting to different pages based on role.
@@ -10,7 +35,7 @@ export const redirects = [
       const userData = useCookie('userData')
       
       if (userData.value)
-        return { name: 'dashboards-crm' }
+        return getDefaultAuthorizedRoute()
       
       return { name: 'login', query: to.query }
     },

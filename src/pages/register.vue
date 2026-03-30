@@ -1,8 +1,9 @@
 <script setup>
-import { VForm } from 'vuetify/components/VForm'
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
+import { register as authRegister } from '@/services/auth'
+import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
+import { VForm } from 'vuetify/components/VForm'
 import authV2RegisterIllustrationBorderedDark from '@images/pages/auth-v2-register-illustration-bordered-dark.png'
 import authV2RegisterIllustrationBorderedLight from '@images/pages/auth-v2-register-illustration-bordered-light.png'
 import authV2RegisterIllustrationDark from '@images/pages/auth-v2-register-illustration-dark.png'
@@ -20,14 +21,71 @@ definePage({
   },
 })
 
-const form = ref({
-  username: '',
-  email: '',
-  password: '',
-  privacyPolicies: false,
+const router = useRouter()
+const refVForm = ref()
+const isLoading = ref(false)
+const isPasswordVisible = ref(false)
+const isConfirmPasswordVisible = ref(false)
+const successMessage = ref('')
+const generalError = ref('')
+const errors = ref({
+  name: undefined,
+  user_name: undefined,
+  email: undefined,
+  password: undefined,
+  password_confirmation: undefined,
 })
 
-const isPasswordVisible = ref(false)
+const form = ref({
+  name: '',
+  user_name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+})
+
+const handleRegister = async () => {
+  isLoading.value = true
+  successMessage.value = ''
+  generalError.value = ''
+  errors.value = {
+    name: undefined,
+    user_name: undefined,
+    email: undefined,
+    password: undefined,
+    password_confirmation: undefined,
+  }
+
+  try {
+    const res = await authRegister(form.value)
+
+    successMessage.value = res?.message || 'Đăng ký thành công. Vui lòng đăng nhập.'
+
+    setTimeout(() => {
+      router.push('/login')
+    }, 1200)
+  }
+  catch (err) {
+    if (err?.code === 404)
+      generalError.value = 'API hiện chưa mở endpoint /auth/register.'
+    else if (err?.errors) {
+      errors.value = { ...errors.value, ...err.errors }
+      generalError.value = err?.message || 'Dữ liệu đăng ký chưa hợp lệ.'
+    }
+    else
+      generalError.value = err?.data?.message || err?.message || 'Không thể đăng ký tài khoản.'
+  }
+  finally {
+    isLoading.value = false
+  }
+}
+
+const onSubmit = () => {
+  refVForm.value?.validate().then(({ valid: isValid }) => {
+    if (isValid)
+      handleRegister()
+  })
+}
 </script>
 
 <template>
@@ -83,106 +141,116 @@ const isPasswordVisible = ref(false)
       >
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Adventure starts here 🚀
+            Tạo tài khoản mới
           </h4>
           <p class="mb-0">
-            Make your app management easy and fun!
+            FE sẽ gọi `POST /auth/register`. Nếu API của anh chưa mở endpoint này, màn hình sẽ trả lỗi rõ ràng.
           </p>
         </VCardText>
 
         <VCardText>
-          <VForm @submit.prevent="() => {}">
+          <VForm
+            ref="refVForm"
+            @submit.prevent="onSubmit"
+          >
             <VRow>
-              <!-- Username -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="form.username"
+                  v-model="form.name"
+                  label="Họ và tên"
                   :rules="[requiredValidator]"
-                  autofocus
-                  label="Username"
-                  placeholder="Johndoe"
+                  :error-messages="errors.name"
                 />
               </VCol>
 
-              <!-- email -->
+              <VCol cols="12">
+                <AppTextField
+                  v-model="form.user_name"
+                  label="Tên đăng nhập"
+                  :rules="[requiredValidator]"
+                  :error-messages="errors.user_name"
+                />
+              </VCol>
+
               <VCol cols="12">
                 <AppTextField
                   v-model="form.email"
-                  :rules="[requiredValidator, emailValidator]"
                   label="Email"
                   type="email"
-                  placeholder="johndoe@email.com"
+                  :rules="[requiredValidator, emailValidator]"
+                  :error-messages="errors.email"
                 />
               </VCol>
 
-              <!-- password -->
               <VCol cols="12">
                 <AppTextField
                   v-model="form.password"
+                  label="Mật khẩu"
                   :rules="[requiredValidator]"
-                  label="Password"
-                  placeholder="············"
                   :type="isPasswordVisible ? 'text' : 'password'"
-                  autocomplete="password"
+                  :error-messages="errors.password"
                   :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
+              </VCol>
 
-                <div class="d-flex align-center my-6">
-                  <VCheckbox
-                    id="privacy-policy"
-                    v-model="form.privacyPolicies"
-                    inline
-                  />
-                  <VLabel
-                    for="privacy-policy"
-                    style="opacity: 1;"
-                  >
-                    <span class="me-1 text-high-emphasis">I agree to</span>
-                    <a
-                      href="javascript:void(0)"
-                      class="text-primary"
-                    >privacy policy & terms</a>
-                  </VLabel>
-                </div>
+              <VCol cols="12">
+                <AppTextField
+                  v-model="form.password_confirmation"
+                  label="Xác nhận mật khẩu"
+                  :rules="[requiredValidator]"
+                  :type="isConfirmPasswordVisible ? 'text' : 'password'"
+                  :error-messages="errors.password_confirmation"
+                  :append-inner-icon="isConfirmPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
+                  @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
+                />
+              </VCol>
 
+              <VCol
+                v-if="successMessage"
+                cols="12"
+              >
+                <VAlert
+                  type="success"
+                  variant="tonal"
+                >
+                  {{ successMessage }}
+                </VAlert>
+              </VCol>
+
+              <VCol
+                v-if="generalError"
+                cols="12"
+              >
+                <VAlert
+                  type="error"
+                  variant="tonal"
+                >
+                  {{ generalError }}
+                </VAlert>
+              </VCol>
+
+              <VCol cols="12">
                 <VBtn
                   block
                   type="submit"
+                  :loading="isLoading"
                 >
-                  Sign up
+                  Đăng ký
                 </VBtn>
               </VCol>
 
-              <!-- create account -->
-              <VCol
-                cols="12"
-                class="text-center text-base"
-              >
-                <span class="d-inline-block">Already have an account?</span>
-                <RouterLink
-                  class="text-primary ms-1 d-inline-block"
-                  :to="{ name: 'login' }"
-                >
-                  Sign in instead
-                </RouterLink>
-              </VCol>
-
-              <VCol
-                cols="12"
-                class="d-flex align-center"
-              >
-                <VDivider />
-                <span class="mx-4">or</span>
-                <VDivider />
-              </VCol>
-
-              <!-- auth providers -->
               <VCol
                 cols="12"
                 class="text-center"
               >
-                <AuthProvider />
+                <span class="text-disabled">Đã có tài khoản?</span>
+                <RouterLink
+                  class="text-primary ms-1"
+                  :to="{ name: 'login' }"
+                >
+                  Quay lại đăng nhập
+                </RouterLink>
               </VCol>
             </VRow>
           </VForm>

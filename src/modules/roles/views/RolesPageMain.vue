@@ -3,13 +3,14 @@ import RoleCards from '../components/RoleCards.vue'
 import { downloadRoleTemplate, exportRoles, importRoles } from '../services/roleService'
 
 // ─── Stats ──────────────────────────────────────
-const stats = ref({ total: 0, active: 0, inactive: 0 })
+const stats = ref({ total: 0, admin: 0, user: 0 })
+const roleCardsRef = ref()
 
 const fetchStats = async () => {
   try {
     const res = await $api('/roles/stats')
 
-    stats.value = res.data ?? { total: 0, active: 0, inactive: 0 }
+    stats.value = res.data ?? { total: 0, admin: 0, user: 0 }
   }
   catch (err) {
     console.error('Fetch role stats error:', err)
@@ -20,8 +21,8 @@ onMounted(() => fetchStats())
 
 const widgetData = computed(() => [
   { title: 'Tổng vai trò', value: stats.value.total ?? 0, icon: 'tabler-shield', iconColor: 'primary' },
-  { title: 'Đang hoạt động', value: stats.value.active ?? 0, icon: 'tabler-shield-check', iconColor: 'success' },
-  { title: 'Không hoạt động', value: stats.value.inactive ?? 0, icon: 'tabler-shield-off', iconColor: 'warning' },
+  { title: 'Vai trò quản trị', value: stats.value.admin ?? 0, icon: 'tabler-shield-check', iconColor: 'success' },
+  { title: 'Vai trò người dùng', value: stats.value.user ?? 0, icon: 'tabler-users-group', iconColor: 'warning' },
 ])
 
 // ─── Export ─────────────────────────────────────
@@ -61,10 +62,13 @@ const handleImport = async () => {
   if (!importFile.value) return
   isImporting.value = true
   try {
-    await importRoles(importFile.value)
+    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
+
+    await importRoles(file)
     isImportDialogVisible.value = false
     importFile.value = null
-    fetchStats()
+    await fetchStats()
+    await roleCardsRef.value?.refreshRoles?.()
   }
   catch (err) {
     console.error('Import error:', err)
@@ -200,7 +204,10 @@ const handleDownloadTemplate = async () => {
             </VCol>
           </VRow>
         </div>
-        <RoleCards />
+        <RoleCards
+          ref="roleCardsRef"
+          @changed="fetchStats"
+        />
       </VCol>
 
 

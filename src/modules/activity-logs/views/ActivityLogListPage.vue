@@ -11,6 +11,7 @@ const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref('created_at')
 const orderBy = ref('desc')
+const selectedRows = ref([])
 
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key || 'created_at'
@@ -64,6 +65,8 @@ const fetchLogs = async () => {
   }
   catch (err) {
     console.error('Fetch logs error:', err)
+    logs.value = []
+    totalLogs.value = 0
   }
   finally {
     loading.value = false
@@ -166,6 +169,37 @@ const handleExport = async () => {
   }
 }
 
+const isBulkDeleting = ref(false)
+
+const handleBulkDelete = async () => {
+  if (!selectedRows.value.length) return
+
+  const confirmed = window.confirm(`Xác nhận xóa ${selectedRows.value.length} nhật ký đã chọn?`)
+
+  if (!confirmed) return
+
+  isBulkDeleting.value = true
+  try {
+    await $api('/log-activities/bulk-delete', {
+      method: 'POST',
+      body: {
+        ids: selectedRows.value,
+      },
+    })
+
+    selectedRows.value = []
+    await fetchLogs()
+    await fetchStats()
+  }
+  catch (err) {
+    console.error('Bulk delete logs error:', err)
+    alert('Xóa hàng loạt thất bại!')
+  }
+  finally {
+    isBulkDeleting.value = false
+  }
+}
+
 const resolveMethodColor = method => {
   if (method === 'GET') return 'info'
   if (method === 'POST') return 'success'
@@ -263,9 +297,39 @@ const resolveStatusColor = status => {
 
       <VDivider />
 
+      <template v-if="selectedRows.length > 0">
+        <VCardText class="d-flex align-center gap-3 flex-wrap">
+          <span class="text-body-1 font-weight-medium">
+            Đã chọn {{ selectedRows.length }} nhật ký
+          </span>
+          <VSpacer />
+          <VBtn
+            v-if="$can('bulkDestroy', 'ActivityLog')"
+            color="error"
+            variant="tonal"
+            prepend-icon="tabler-trash"
+            size="small"
+            :loading="isBulkDeleting"
+            @click="handleBulkDelete"
+          >
+            Xóa hàng loạt
+          </VBtn>
+          <VBtn
+            variant="text"
+            size="small"
+            @click="selectedRows = []"
+          >
+            Bỏ chọn
+          </VBtn>
+        </VCardText>
+
+        <VDivider />
+      </template>
+
       <!-- SECTION datatable -->
       <VDataTableServer
         v-model:items-per-page="itemsPerPage"
+        v-model:model-value="selectedRows"
         v-model:page="page"
         :items="logs"
         item-value="id"
@@ -273,6 +337,7 @@ const resolveStatusColor = status => {
         :headers="headers"
         :loading="loading"
         class="text-no-wrap"
+        show-select
         @update:options="updateOptions"
       >
         <!-- STT -->

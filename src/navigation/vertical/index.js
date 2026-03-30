@@ -9,7 +9,11 @@
 import { getModuleNavigation } from '@/modules/_loader'
 import nonModuleItems from './non-module-items'
 
-export default [
-  ...getModuleNavigation(),
-  ...nonModuleItems,
-]
+export function getVerticalNavItems() {
+  return [
+    ...getModuleNavigation(),
+    ...nonModuleItems,
+  ]
+}
+
+export default getVerticalNavItems()

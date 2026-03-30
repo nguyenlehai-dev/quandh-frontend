@@ -1,145 +1,217 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import VueApexCharts from 'vue3-apexcharts'
 import { useTheme } from 'vuetify'
 
 const vuetifyTheme = useTheme()
 
-// =======================
-// MOCK DATA
-// =======================
+const loading = ref(false)
+const usersStats = ref({ total: 0, active: 0, inactive: 0 })
+const organizationsStats = ref({ total: 0, active: 0, inactive: 0 })
+const rolesStats = ref({ total: 0, admin: 0, user: 0 })
+const activityStats = ref({ total: 0, view: 0, create: 0, update: 0, delete: 0 })
+const logs = ref([])
 
-const systemStats = ref([
+const fetchDashboard = async () => {
+  loading.value = true
+
+  try {
+    const [
+      usersResponse,
+      organizationsResponse,
+      rolesResponse,
+      activityResponse,
+      logsResponse,
+    ] = await Promise.all([
+      $api('/users/stats'),
+      $api('/organizations/stats'),
+      $api('/roles/stats'),
+      $api('/log-activities/stats'),
+      $api('/log-activities', {
+        params: {
+          limit: 50,
+          page: 1,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        },
+      }),
+    ])
+
+    usersStats.value = usersResponse.data ?? usersStats.value
+    organizationsStats.value = organizationsResponse.data ?? organizationsStats.value
+    rolesStats.value = rolesResponse.data ?? rolesStats.value
+    activityStats.value = activityResponse.data ?? activityStats.value
+    logs.value = logsResponse.data ?? []
+  }
+  catch (error) {
+    console.error('Fetch system dashboard error:', error)
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDashboard()
+})
+
+const systemStats = computed(() => [
   {
-    title: 'Số Người Dùng',
-    count: '1,245',
-    trend: '+12%',
-    trendType: 'up',
+    title: 'Người dùng',
+    count: usersStats.value.total ?? 0,
+    subtitle: `${usersStats.value.active ?? 0} đang hoạt động`,
     icon: 'tabler-users',
     color: 'primary',
   },
   {
-    title: 'Số Tổ Chức',
-    count: '34',
-    trend: '+2',
-    trendType: 'up',
+    title: 'Tổ chức',
+    count: organizationsStats.value.total ?? 0,
+    subtitle: `${organizationsStats.value.active ?? 0} đang hoạt động`,
     icon: 'tabler-building',
     color: 'info',
   },
   {
-    title: 'Lượt Truy Cập (Hôm nay)',
-    count: '8,430',
-    trend: '+18.4%',
-    trendType: 'up',
-    icon: 'tabler-login',
+    title: 'Vai trò',
+    count: rolesStats.value.total ?? 0,
+    subtitle: `${rolesStats.value.admin ?? 0} quản trị / ${rolesStats.value.user ?? 0} người dùng`,
+    icon: 'tabler-shield-lock',
     color: 'success',
   },
   {
-    title: 'Cảnh Báo Lỗi',
-    count: '3',
-    trend: '-5',
-    trendType: 'down', // down is actually good for errors
-    icon: 'tabler-alert-triangle',
-    color: 'error',
+    title: 'Nhật ký hoạt động',
+    count: activityStats.value.total ?? 0,
+    subtitle: 'Theo bộ lọc mặc định toàn hệ thống',
+    icon: 'tabler-history',
+    color: 'warning',
   },
 ])
 
-const topUsers = ref([
-  { avatar: null, name: 'Nguyễn Lê Hải', role: 'Super Admin', activityScore: 98, color: 'success' },
-  { avatar: null, name: 'Trần Văn Biền', role: 'Chuyên viên điều hành', activityScore: 85, color: 'primary' },
-  { avatar: null, name: 'Lê Thế Ngọc', role: 'Quản trị viên Tổ chức', activityScore: 72, color: 'info' },
-  { avatar: null, name: 'Ngô Ngọc Quỳnh', role: 'Đại biểu', activityScore: 65, color: 'warning' },
-  { avatar: null, name: 'Bùi Anh Tuấn', role: 'Thư ký cuộc họp', activityScore: 50, color: 'secondary' },
+const actionLabels = ['Xem', 'Tạo', 'Cập nhật', 'Xóa']
+
+const actionCounts = computed(() => [
+  activityStats.value.view ?? 0,
+  activityStats.value.create ?? 0,
+  activityStats.value.update ?? 0,
+  activityStats.value.delete ?? 0,
 ])
 
-const recentLogs = ref([
-  { time: '10 phút trước', user: 'Nguyễn Lê Hải', action: 'Tạo mới cuộc họp Giao ban', module: 'Cuộc họp', ip: '192.168.1.1' },
-  { time: '1 tiếng trước', user: 'Lê Thế Ngọc', action: 'Thêm người dùng mới', module: 'Người dùng', ip: '113.167.24.5' },
-  { time: '2 tiếng trước', user: 'Trần Văn Biền', action: 'Phân quyền Quản trị viên', module: 'Vai trò & Quyền hạn', ip: '10.0.0.8' },
-  { time: 'Hôm qua', user: 'System', action: 'Sao lưu cơ sở dữ liệu tự động', module: 'Hệ thống', ip: 'localhost' },
-  { time: 'Hôm qua', user: 'Bùi Anh Tuấn', action: 'Tải lên tài liệu QĐ123.pdf', module: 'Tài liệu', ip: '192.168.1.102' },
-])
+const actionSeries = computed(() => [{
+  name: 'Số lượt',
+  data: actionCounts.value,
+}])
 
-// =======================
-// CHARTS CONFIGURATION
-// =======================
-const areaChartSeries = [{
-  name: 'Lượt thao tác',
-  data: [120, 340, 250, 480, 400, 680, 520, 800, 750, 1100, 950, 1400],
-}]
-
-const areaChartConfig = computed(() => {
+const barChartConfig = computed(() => {
   const currentTheme = vuetifyTheme.current.value
-  
+
   return {
     chart: {
-      type: 'area',
+      type: 'bar',
       parentHeightOffset: 0,
       toolbar: { show: false },
       fontFamily: 'inherit',
     },
-    dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 3 },
-    colors: [currentTheme.colors.primary],
-    fill: {
-      type: 'gradient',
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.4,
-        opacityTo: 0.05,
-        stops: [0, 90, 100],
+    plotOptions: {
+      bar: {
+        columnWidth: '40%',
+        borderRadius: 6,
       },
     },
-    xaxis: {
-      categories: ['Thg 1', 'Thg 2', 'Thg 3', 'Thg 4', 'Thg 5', 'Thg 6', 'Thg 7', 'Thg 8', 'Thg 9', 'Thg 10', 'Thg 11', 'Thg 12'],
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: { style: { colors: 'rgba(0,0,0,0.6)', fontFamily: 'inherit' } },
-    },
-    yaxis: {
-      labels: { style: { colors: 'rgba(0,0,0,0.6)', fontFamily: 'inherit' } },
-    },
-    grid: { show: true, strokeDashArray: 5, borderColor: 'rgba(0,0,0,0.1)' },
-  }
-})
-
-const donutChartSeries = [45, 30, 15, 10]
-
-const donutChartConfig = computed(() => {
-  const currentTheme = vuetifyTheme.current.value
-  
-  return {
-    chart: { type: 'donut', fontFamily: 'inherit' },
-    labels: ['Tạo mới', 'Cập nhật', 'Xóa', 'Đăng nhập'],
     colors: [
       currentTheme.colors.primary,
       currentTheme.colors.success,
       currentTheme.colors.warning,
-      currentTheme.colors.info,
+      currentTheme.colors.error,
     ],
-    stroke: { width: 0 },
+    dataLabels: { enabled: false },
+    xaxis: {
+      categories: actionLabels,
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+    },
+    legend: { show: false },
+    grid: { borderColor: 'rgba(0,0,0,0.08)', strokeDashArray: 6 },
+  }
+})
+
+const donutChartConfig = computed(() => {
+  const currentTheme = vuetifyTheme.current.value
+
+  return {
+    chart: { type: 'donut', fontFamily: 'inherit' },
+    labels: actionLabels,
+    colors: [
+      currentTheme.colors.primary,
+      currentTheme.colors.success,
+      currentTheme.colors.warning,
+      currentTheme.colors.error,
+    ],
+    stroke: { width: 4, colors: ['#fff'] },
     dataLabels: { enabled: false },
     legend: { position: 'bottom' },
     plotOptions: {
       pie: {
         donut: {
-          size: '70%',
+          size: '72%',
           labels: {
             show: true,
-            name: { fontSize: '1rem', fontFamily: 'inherit' },
-            value: { fontSize: '1.2rem', fontFamily: 'inherit', fontWeight: 'bold' },
-            total: { show: true, fontSize: '1rem', label: 'Tổng thao tác' },
+            total: {
+              show: true,
+              label: 'Tổng log',
+              formatter: () => `${activityStats.value.total ?? 0}`,
+            },
           },
         },
       },
     },
   }
 })
+
+const recentLogs = computed(() => logs.value.slice(0, 5))
+
+const topUsers = computed(() => {
+  const palette = ['primary', 'success', 'info', 'warning', 'secondary']
+  const aggregated = logs.value.reduce((map, item) => {
+    const userName = item.user_name
+    if (!userName || userName === 'Guest') {
+      return map
+    }
+
+    if (!map[userName]) {
+      map[userName] = {
+        name: userName,
+        count: 0,
+        latestAction: item.description || item.route || 'Không có mô tả',
+      }
+    }
+
+    map[userName].count += 1
+
+    return map
+  }, {})
+
+  return Object.values(aggregated)
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 5)
+    .map((item, index) => ({
+      ...item,
+      color: palette[index % palette.length],
+      score: Math.min(item.count * 10, 100),
+    }))
+})
+
+const formatDate = value => {
+  if (!value) return 'N/A'
+
+  return value
+}
 </script>
 
 <template>
   <div>
-    <!-- Header -->
     <div class="d-flex align-center justify-space-between mb-6">
       <div class="d-flex align-center gap-3">
         <VAvatar
@@ -158,19 +230,20 @@ const donutChartConfig = computed(() => {
             Tổng quan Hệ thống
           </h4>
           <div class="text-body-2 text-disabled">
-            Theo dõi tức thời tình trạng máy chủ và hoạt động người dùng trên hệ thống
+            Dữ liệu thật từ người dùng, tổ chức, vai trò và nhật ký hoạt động
           </div>
         </div>
       </div>
+
       <VBtn
         color="primary"
-        prepend-icon="tabler-report"
+        prepend-icon="tabler-history"
+        :to="{ name: 'system-activity-logs' }"
       >
-        Xuất Báo Cáo
+        Xem nhật ký
       </VBtn>
     </div>
 
-    <!-- Quick Stats Cards -->
     <VRow class="mb-4">
       <VCol
         v-for="stat in systemStats"
@@ -179,7 +252,7 @@ const donutChartConfig = computed(() => {
         sm="6"
         md="3"
       >
-        <VCard>
+        <VCard :loading="loading">
           <VCardText class="d-flex align-center gap-4">
             <VAvatar
               :color="stat.color"
@@ -196,18 +269,11 @@ const donutChartConfig = computed(() => {
               <div class="text-body-2 text-disabled mb-1">
                 {{ stat.title }}
               </div>
-              <div class="d-flex align-center gap-2">
-                <span class="text-h4 font-weight-bold">{{ stat.count }}</span>
-                <span 
-                  class="text-body-2 font-weight-medium"
-                  :class="stat.trendType === 'up' ? (stat.color === 'error' ? 'text-error' : 'text-success') : (stat.color === 'error' ? 'text-success' : 'text-error')"
-                >
-                  <VIcon
-                    :icon="stat.trendType === 'up' ? 'tabler-arrow-up-right' : 'tabler-arrow-down-right'"
-                    size="16"
-                  />
-                  {{ stat.trend }}
-                </span>
+              <div class="text-h4 font-weight-bold">
+                {{ stat.count }}
+              </div>
+              <div class="text-caption text-disabled mt-1">
+                {{ stat.subtitle }}
               </div>
             </div>
           </VCardText>
@@ -215,43 +281,42 @@ const donutChartConfig = computed(() => {
       </VCol>
     </VRow>
 
-    <!-- Charts Row -->
     <VRow class="mb-4 match-height">
-      <!-- Activity Area Chart -->
       <VCol
         cols="12"
         md="8"
       >
-        <VCard title="Biểu đồ hoạt động hệ thống (Năm 2026)">
-          <template #subtitle>
-            Thống kê số lượng thao tác theo tháng của toàn bộ ứng dụng
-          </template>
+        <VCard
+          title="Phân bổ thao tác hệ thống"
+          subtitle="Tổng hợp từ nhật ký hoạt động hiện có"
+          :loading="loading"
+        >
           <VCardText>
             <VueApexCharts
-              type="area"
+              type="bar"
               height="320"
-              :options="areaChartConfig"
-              :series="areaChartSeries"
+              :options="barChartConfig"
+              :series="actionSeries"
             />
           </VCardText>
         </VCard>
       </VCol>
 
-      <!-- Distribution Donut Chart -->
       <VCol
         cols="12"
         md="4"
       >
-        <VCard title="Phân bổ Hành động">
-          <template #subtitle>
-            Tỉ lệ các loại thao tác API diễn ra
-          </template>
-          <VCardText class="d-flex align-center justify-center h-100">
+        <VCard
+          title="Tỉ lệ thao tác"
+          subtitle="Tương quan giữa xem, tạo, sửa và xóa"
+          :loading="loading"
+        >
+          <VCardText class="d-flex align-center justify-center">
             <VueApexCharts
               type="donut"
-              height="300"
+              height="320"
               :options="donutChartConfig"
-              :series="donutChartSeries"
+              :series="actionCounts"
             />
           </VCardText>
         </VCard>
@@ -259,16 +324,16 @@ const donutChartConfig = computed(() => {
     </VRow>
 
     <VRow class="mb-4">
-      <!-- Top Users -->
       <VCol
         cols="12"
         md="4"
       >
         <VCard
-          title="Top Tài Khoản Năng Nổ Nhất"
-          subtitle="Theo dõi xếp hạng điểm hoạt động"
+          title="Người dùng thao tác nhiều"
+          subtitle="Tổng hợp từ 50 log gần nhất"
+          :loading="loading"
         >
-          <VCardText>
+          <VCardText v-if="topUsers.length">
             <VList
               lines="two"
               rounded
@@ -282,26 +347,26 @@ const donutChartConfig = computed(() => {
               >
                 <template #prepend>
                   <VAvatar
-                    color="secondary"
+                    :color="user.color"
                     variant="tonal"
                     rounded
                   >
                     <span class="text-h6 font-weight-bold">{{ user.name.charAt(0) }}</span>
                   </VAvatar>
                 </template>
-                
+
                 <VListItemTitle class="font-weight-medium mb-1">
                   {{ user.name }}
                 </VListItemTitle>
-                <VListItemSubtitle class="text-disabled">
-                  {{ user.role }}
+                <VListItemSubtitle class="text-disabled text-truncate">
+                  {{ user.latestAction }}
                 </VListItemSubtitle>
 
                 <template #append>
                   <div class="d-flex flex-column align-end">
-                    <span class="text-body-2 font-weight-medium mb-1 text-high-emphasis">Điểm: {{ user.activityScore }}</span>
+                    <span class="text-body-2 font-weight-medium mb-1 text-high-emphasis">{{ user.count }} lượt</span>
                     <VProgressLinear
-                      :model-value="user.activityScore"
+                      :model-value="user.score"
                       :color="user.color"
                       height="6"
                       rounded
@@ -312,28 +377,35 @@ const donutChartConfig = computed(() => {
               </VListItem>
             </VList>
           </VCardText>
+          <VCardText
+            v-else
+            class="text-center text-disabled py-8"
+          >
+            Chưa có đủ dữ liệu nhật ký để xếp hạng.
+          </VCardText>
         </VCard>
       </VCol>
 
-      <!-- Recent System Logs -->
       <VCol
         cols="12"
         md="8"
       >
         <VCard
-          title="Nhật ký truy vết Hệ thống Toàn cầu"
-          subtitle="5 hoạt động mới nhất được hệ thống ghi nhận"
+          title="Nhật ký gần nhất"
+          subtitle="5 hoạt động mới nhất của hệ thống"
+          :loading="loading"
         >
           <template #append>
             <VBtn
               variant="tonal"
               color="primary"
               size="small"
-              to="/activity-logs"
+              :to="{ name: 'system-activity-logs' }"
             >
-              Xem tất cả Log
+              Xem tất cả
             </VBtn>
           </template>
+
           <VCardText class="pa-0">
             <VTable class="text-no-wrap">
               <thead>
@@ -345,23 +417,32 @@ const donutChartConfig = computed(() => {
                     Người thực hiện
                   </th>
                   <th class="text-uppercase text-caption font-weight-bold">
-                    Module
+                    Route
                   </th>
                   <th class="text-uppercase text-caption font-weight-bold">
                     Hành động
                   </th>
                   <th class="text-uppercase text-caption font-weight-bold text-center">
-                    Địa chỉ IP
+                    IP
                   </th>
                 </tr>
               </thead>
               <tbody>
+                <tr v-if="!recentLogs.length && !loading">
+                  <td
+                    colspan="5"
+                    class="text-center py-8 text-disabled"
+                  >
+                    Chưa có dữ liệu nhật ký.
+                  </td>
+                </tr>
                 <tr
-                  v-for="(log, idx) in recentLogs"
-                  :key="idx"
+                  v-for="log in recentLogs"
+                  v-else
+                  :key="log.id"
                 >
                   <td class="text-body-2 text-disabled whitespace-nowrap">
-                    {{ log.time }}
+                    {{ formatDate(log.created_at) }}
                   </td>
                   <td class="font-weight-medium">
                     <div class="d-flex align-center gap-2">
@@ -370,9 +451,9 @@ const donutChartConfig = computed(() => {
                         color="primary"
                         variant="tonal"
                       >
-                        <span class="text-xs">{{ log.user.substring(0,2) }}</span>
+                        <span class="text-xs">{{ (log.user_name || 'G').substring(0, 2) }}</span>
                       </VAvatar>
-                      {{ log.user }}
+                      {{ log.user_name || 'Guest' }}
                     </div>
                   </td>
                   <td>
@@ -381,17 +462,17 @@ const donutChartConfig = computed(() => {
                       color="secondary"
                       variant="tonal"
                     >
-                      {{ log.module }}
+                      {{ log.route || 'N/A' }}
                     </VChip>
                   </td>
                   <td
                     class="text-body-2 text-high-emphasis text-truncate"
-                    style="max-width: 200px;"
+                    style="max-width: 260px;"
                   >
-                    {{ log.action }}
+                    {{ log.description || 'Không có mô tả' }}
                   </td>
                   <td class="text-center text-body-2 text-disabled font-monospace">
-                    {{ log.ip }}
+                    {{ log.ip_address || 'N/A' }}
                   </td>
                 </tr>
               </tbody>

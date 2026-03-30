@@ -406,7 +406,7 @@ const resolveStatusVariant = status => {
                       size="16"
                       color="disabled"
                     />
-                    <span>{{ meeting.start_time ? new Date(meeting.start_time).toLocaleString('vi-VN') : 'Chưa xếp lịch' }}</span>
+                    <span>{{ meeting.start_at || 'Chưa xếp lịch' }}</span>
                   </div>
                 </td>
                 <td>

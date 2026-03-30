@@ -31,6 +31,12 @@ const roleAssignments = ref({})
 // Array of checked role IDs
 const selectedRoles = ref([])
 
+const getRoleName = roleId => {
+  const role = roles.value.find(item => item.id === roleId)
+
+  return role?.name || `#${roleId}`
+}
+
 const fetchInitialData = async () => {
   isLoading.value = true
   try {
@@ -93,6 +99,22 @@ const saveUser = async (goBack = false) => {
   else isSavingDraft.value = true
   
   try {
+    const invalidAssignments = selectedRoles.value.filter(roleId => {
+      const assignedOrganizations = roleAssignments.value[roleId] || []
+
+      return assignedOrganizations.length === 0
+    })
+
+    if (invalidAssignments.length) {
+      snackbar.value = {
+        show: true,
+        text: `Vai trò ${invalidAssignments.map(getRoleName).join(', ')} phải có ít nhất một tổ chức.`,
+        color: 'error',
+      }
+
+      return
+    }
+
     const assignmentsList = selectedRoles.value.map(roleId => ({
       role_id: roleId,
       organization_ids: roleAssignments.value[roleId] || [],
@@ -327,7 +349,7 @@ const goBack = () => {
                         multiple
                         chips
                         closable-chips
-                        placeholder="Chọn tổ chức (hoặc Tất cả)"
+                        placeholder="Chọn ít nhất một tổ chức"
                         density="compact"
                         hide-details
                       />

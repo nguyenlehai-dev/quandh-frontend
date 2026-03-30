@@ -1,5 +1,5 @@
 <script setup>
-import navItems from '@/navigation/horizontal'
+import { getHorizontalNavItems } from '@/navigation/horizontal'
 import { themeConfig } from '@themeConfig'
 
 // Components
@@ -13,6 +13,8 @@ import OrgSwitcher from '@/layouts/components/OrgSwitcher.vue'
 import NavBarI18n from '@core/components/I18n.vue'
 import { HorizontalNavLayout } from '@layouts'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
+
+const navItems = computed(() => getHorizontalNavItems())
 </script>
 
 <template>

@@ -456,12 +456,12 @@ const headers = [
               </div>
               <VChip
                 v-else-if="!isGroupRow(item)"
-                color="info"
+                color="secondary"
                 size="small"
                 label
                 class="font-weight-medium"
               >
-                Quản trị viên hệ thống
+                Chưa gán vai trò
               </VChip>
               <span
                 v-else

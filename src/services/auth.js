@@ -14,6 +14,33 @@ const USER_KEY = 'userData'
 const ABILITY_KEY = 'userAbilityRules'
 const ORG_KEY = 'currentOrganizationId'
 const ORGS_KEY = 'availableOrganizations'
+const FETCH_ME_SYNC_WINDOW = 5000
+
+let fetchMePromise = null
+let lastFetchMeAt = 0
+
+const clearClientSession = () => {
+  useCookie(TOKEN_KEY).value = null
+  useCookie(USER_KEY).value = null
+  useCookie(ORG_KEY).value = null
+  localStorage.removeItem(ABILITY_KEY)
+  localStorage.removeItem(ORGS_KEY)
+  ability.update([])
+}
+
+export const register = async payload => {
+  const res = await api.callApi({
+    method: 'POST',
+    url: '/auth/register',
+    param: payload,
+  })
+
+  if (res.errors || res.code || res.success === false) {
+    throw res
+  }
+
+  return res.data || res
+}
 
 /**
  * Login
@@ -102,20 +129,25 @@ export const switchOrganization = async orgId => {
  * Xóa tất cả cookies → reset CASL → redirect /login
  */
 export const logout = async router => {
-  // Xóa cookies
-  useCookie(TOKEN_KEY).value = null
-  useCookie(USER_KEY).value = null
-  localStorage.removeItem(ABILITY_KEY)
-  localStorage.removeItem(ORGS_KEY)
-  useCookie(ORG_KEY).value = null
+  try {
+    if (useCookie(TOKEN_KEY).value) {
+      await api.callApi({
+        method: 'POST',
+        url: '/auth/logout',
+        param: {},
+      })
+    }
+  }
+  catch (err) {
+    console.warn('Logout API failed', err)
+  }
+
+  clearClientSession()
 
   // Redirect trước rồi mới reset ability (tránh flickering nav menu)
   if (router) {
     await router.push('/login')
   }
-
-  // Reset CASL abilities
-  ability.update([])
 }
 
 /**
@@ -143,7 +175,7 @@ export const setCurrentOrganization = orgId => {
  * Fetch lại thông tin user & quyền hạn mới nhất từ Server
  * Thường gọi khi ứng dụng vửa khởi tạo (reload / F5)
  */
-export const fetchMe = async () => {
+export const fetchMe = async ({ force = false } = {}) => {
   if (!isAuthenticated()) return null
 
   // Middleware set.permissions.team yêu cầu X-Organization-Id header.
@@ -151,44 +183,64 @@ export const fetchMe = async () => {
   const orgId = useCookie('currentOrganizationId').value
   if (!orgId) return null
 
-  try {
-    const res = await api.callApi({
-      method: 'GET',
-      url: '/user',
-    })
-
-    if (res.errors || res.code || res.success === false) {
-      return null
-    }
-
-    const data = res.data || res
-
-    if (data) {
-      // 1. Cập nhật quyền
-      const userAbilityRules = data.abilities || []
-      
-      userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
-      userAbilityRules.push({ action: 'read', subject: 'Auth' })
-      
-      localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
-      ability.update(userAbilityRules)
-
-      // 2. Cập nhật User
-      if (data.user) {
-        useCookie(USER_KEY).value = data.user
-      }
-
-      // 3. Cập nhật Organizations
-      if (data.available_organizations) {
-        localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
-      }
-      
-      return data
-    }
-  } catch (err) {
-    console.warn('Fetch auth/me failed', err)
+  const now = Date.now()
+  if (!force && now - lastFetchMeAt < FETCH_ME_SYNC_WINDOW) {
+    return null
   }
 
-  return null
-}
+  if (fetchMePromise) {
+    return fetchMePromise
+  }
 
+  fetchMePromise = (async () => {
+    try {
+      const res = await api.callApi({
+        method: 'GET',
+        url: '/user',
+      })
+
+      if (res.errors || res.code || res.success === false) {
+        return null
+      }
+
+      const data = res.data || res
+
+      if (data) {
+        // 1. Cập nhật quyền
+        const userAbilityRules = data.abilities || []
+        
+        userAbilityRules.push({ action: 'read', subject: 'Dashboard' })
+        userAbilityRules.push({ action: 'read', subject: 'Auth' })
+        
+        localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
+        ability.update(userAbilityRules)
+
+        // 2. Cập nhật User
+        if (data.user) {
+          useCookie(USER_KEY).value = data.user
+        }
+
+        // 3. Cập nhật Organizations
+        if (data.available_organizations) {
+          localStorage.setItem(ORGS_KEY, JSON.stringify(data.available_organizations))
+        }
+
+        lastFetchMeAt = Date.now()
+
+        return data
+      }
+      
+      return null
+    }
+    catch (err) {
+      console.warn('Fetch auth/me failed', err)
+
+      return null
+    }
+    finally {
+      fetchMePromise = null
+    }
+  })()
+
+  return fetchMePromise
+}

@@ -23,10 +23,15 @@ const currentOrgName = computed(() => {
 
 const showSwitcher = computed(() => organizations.value.length >= 1)
 
-// Chuyển sang trang chọn tổ chức — xóa cookie org để guard redirect đúng
+// Chuyển sang trang chọn tổ chức và giữ lại org hiện tại trong query để preselect.
 const handleSwitchOrg = () => {
+  const previousOrgId = currentOrgId.value ? String(currentOrgId.value) : undefined
+
   currentOrgId.value = null
-  router.push('/select-organization')
+  router.push({
+    path: '/select-organization',
+    query: previousOrgId ? { current_org: previousOrgId } : {},
+  })
 }
 </script>
 

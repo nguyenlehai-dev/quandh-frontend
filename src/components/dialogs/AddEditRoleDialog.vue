@@ -27,6 +27,7 @@ const emit = defineEmits([
 const allPermissions = ref([])
 const loadingPermissions = ref(false)
 const saving = ref(false)
+const submitError = ref('')
 
 const fetchPermissions = async () => {
   loadingPermissions.value = true
@@ -38,6 +39,7 @@ const fetchPermissions = async () => {
       .map(p => ({
         id: p.id,
         name: p.name,
+        guardName: p.guard_name ?? 'api',
         description: p.description || p.name,
         parentId: p.parent_id,
         checked: false,
@@ -56,6 +58,7 @@ const isSelectAll = ref(false)
 const role = ref('')
 const roleId = ref(null)
 const roleScope = ref('admin')
+const roleGuardName = ref('api')
 const refPermissionForm = ref()
 
 const scopeOptions = [
@@ -63,12 +66,13 @@ const scopeOptions = [
   { title: 'Ngoài quản trị', value: 'user' },
 ]
 
-const checkedCount = computed(() => allPermissions.value.filter(p => p.checked).length)
-const isIndeterminate = computed(() => checkedCount.value > 0 && checkedCount.value < allPermissions.value.length)
+const availablePermissions = computed(() => allPermissions.value.filter(p => p.guardName === roleGuardName.value))
+const checkedCount = computed(() => availablePermissions.value.filter(p => p.checked).length)
+const isIndeterminate = computed(() => checkedCount.value > 0 && checkedCount.value < availablePermissions.value.length)
 
 // Select all toggle
 watch(isSelectAll, val => {
-  allPermissions.value.forEach(p => {
+  availablePermissions.value.forEach(p => {
     p.checked = val
   })
 })
@@ -79,7 +83,7 @@ watch(isIndeterminate, () => {
 })
 
 watch(() => checkedCount.value, count => {
-  if (count === allPermissions.value.length && count > 0)
+  if (count === availablePermissions.value.length && count > 0)
     isSelectAll.value = true
 })
 
@@ -106,7 +110,7 @@ const applyScopePreset = scope => {
   const preset = scopePresets[scope]
   if (!preset) return
 
-  allPermissions.value.forEach(p => {
+  availablePermissions.value.forEach(p => {
     const dotIndex = p.name.indexOf('.')
     const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
     const action = dotIndex > -1 ? p.name.substring(dotIndex + 1) : ''
@@ -174,7 +178,7 @@ const actionLabelMap = {
 const permissionGroups = computed(() => {
   const groups = {}
 
-  allPermissions.value.forEach(p => {
+  availablePermissions.value.forEach(p => {
     // Split "users.index" → prefix="users", action="index"
     const dotIndex = p.name.indexOf('.')
     const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
@@ -220,6 +224,7 @@ const toggleGroup = (group, val) => {
 // When dialog opens, fetch permissions and populate form
 watch(() => props.isDialogVisible, async visible => {
   if (visible) {
+    submitError.value = ''
     await fetchPermissions()
 
     if (props.rolePermissions?.name) {
@@ -227,6 +232,7 @@ watch(() => props.isDialogVisible, async visible => {
       role.value = props.rolePermissions.name
       roleId.value = props.rolePermissions.id
       roleScope.value = props.rolePermissions.scope || 'admin'
+      roleGuardName.value = props.rolePermissions.guard_name || 'api'
 
       const existingNames = (props.rolePermissions.permissions || []).map(p => p.name || p)
 
@@ -239,6 +245,10 @@ watch(() => props.isDialogVisible, async visible => {
       role.value = ''
       roleId.value = null
       roleScope.value = 'admin'
+      roleGuardName.value = 'api'
+      allPermissions.value.forEach(p => {
+        p.checked = false
+      })
       applyScopePreset('admin')
     }
   }
@@ -248,8 +258,9 @@ const onSubmit = async () => {
   if (!role.value) return
 
   saving.value = true
+  submitError.value = ''
   try {
-    const selectedIds = allPermissions.value.filter(p => p.checked).map(p => p.id)
+    const selectedIds = availablePermissions.value.filter(p => p.checked).map(p => p.id)
 
     if (roleId.value) {
       await $api(`/roles/${roleId.value}`, {
@@ -257,6 +268,8 @@ const onSubmit = async () => {
         body: {
           name: role.value,
           scope: roleScope.value,
+          // eslint-disable-next-line camelcase
+          guard_name: roleGuardName.value,
           // eslint-disable-next-line camelcase
           permission_ids: selectedIds,
         },
@@ -268,6 +281,8 @@ const onSubmit = async () => {
         body: {
           name: role.value,
           scope: roleScope.value,
+          // eslint-disable-next-line camelcase
+          guard_name: roleGuardName.value,
           // eslint-disable-next-line camelcase
           permission_ids: selectedIds,
         },
@@ -281,6 +296,7 @@ const onSubmit = async () => {
   }
   catch (err) {
     console.error('Save role error:', err)
+    submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || 'Không thể cập nhật vai trò.'
   }
   finally {
     saving.value = false
@@ -290,6 +306,7 @@ const onSubmit = async () => {
 const onReset = () => {
   emit('update:isDialogVisible', false)
   isSelectAll.value = false
+  submitError.value = ''
   refPermissionForm.value?.reset()
 }
 </script>
@@ -331,6 +348,15 @@ const onReset = () => {
         style="max-block-size: 65vh; overflow-y: auto;"
       >
         <VForm ref="refPermissionForm">
+          <VAlert
+            v-if="submitError"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+          >
+            {{ submitError }}
+          </VAlert>
+
           <!-- ─── Role name + Scope ─────────────── -->
           <VRow class="mb-6">
             <VCol
@@ -356,6 +382,15 @@ const onReset = () => {
             </VCol>
           </VRow>
 
+          <VAlert
+            v-if="roleGuardName !== 'api'"
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+          >
+            Vai trò này đang dùng guard <strong>{{ roleGuardName }}</strong>. Dialog chỉ hiển thị permission cùng guard để tránh lỗi cập nhật.
+          </VAlert>
+
           <!-- ─── Permission section ────────────── -->
           <h5 class="text-h5 font-weight-bold mb-4">
             Phân quyền
@@ -368,6 +403,15 @@ const onReset = () => {
           />
 
           <template v-else>
+            <VAlert
+              v-if="availablePermissions.length === 0"
+              type="info"
+              variant="tonal"
+              class="mb-4"
+            >
+              Không có permission nào thuộc guard <strong>{{ roleGuardName }}</strong>.
+            </VAlert>
+
             <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
               <span class="text-h6 font-weight-bold">Quyền Quản trị viên</span>
               <VCheckbox

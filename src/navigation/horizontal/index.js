@@ -4,6 +4,10 @@
 // Giong voi vertical navigation nhung danh cho layout horizontal
 import { getModuleNavigation } from '@/modules/_loader'
 
-export default [
-  ...getModuleNavigation(),
-]
+export function getHorizontalNavItems() {
+  return [
+    ...getModuleNavigation(),
+  ]
+}
+
+export default getHorizontalNavItems()

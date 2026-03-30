@@ -1,7 +1,12 @@
+<script setup>
+const defaultCopyright = `© ${new Date().getFullYear()} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng`
+const copyrightText = localStorage.getItem('app_copyright') || defaultCopyright
+</script>
+
 <template>
   <div class="system-footer">
     <div class="footer-text">
-      &copy; {{ new Date().getFullYear() }} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng
+      {{ copyrightText }}
     </div>
     <div class="d-md-flex gap-x-6 d-none footer-links">
       <a href="#">Bản quyền</a>

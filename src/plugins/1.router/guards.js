@@ -1,7 +1,8 @@
 import { canNavigate } from '@layouts/plugins/casl'
+import { fetchMe } from '@/services/auth'
 
 export const setupGuards = router => {
-  router.beforeEach(to => {
+  router.beforeEach(async to => {
     /*
      * If it's a public route, continue navigation. This kind of pages are allowed to visited by login & non-login users.
      * Examples of public routes are, 404, under maintenance, etc.
@@ -13,6 +14,23 @@ export const setupGuards = router => {
      * Check if user is logged in by checking if token & user data exists in cookies
      */
     const isLoggedIn = !!(useCookie('userData').value && useCookie('accessToken').value)
+    const currentOrgId = useCookie('currentOrganizationId').value
+
+    if (to.path === '/select-organization') {
+      if (!isLoggedIn) {
+        return {
+          name: 'login',
+          query: {
+            ...to.query,
+            to: undefined,
+          },
+        }
+      }
+
+      if (currentOrgId) {
+        return '/'
+      }
+    }
 
     /*
      * If user is logged in and is trying to access login like page, redirect to home
@@ -31,10 +49,12 @@ export const setupGuards = router => {
      * → redirect sang trang chọn tổ chức (trừ khi đang ở trang đó rồi)
      */
     if (isLoggedIn) {
-      const currentOrgId = useCookie('currentOrganizationId').value
-
       if (!currentOrgId && to.path !== '/select-organization') {
         return '/select-organization'
+      }
+
+      if (currentOrgId) {
+        await fetchMe()
       }
     }
 

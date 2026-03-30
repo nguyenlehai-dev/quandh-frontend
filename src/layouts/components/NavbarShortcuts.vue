@@ -1,8 +1,8 @@
 <script setup>
-import navItems from '@/navigation/vertical'
+import { getVerticalNavItems } from '@/navigation/vertical'
 
 const shortcuts = computed(() => {
-  return navItems
+  return getVerticalNavItems()
     .filter(item => item.title && !item.heading && (item.to || item.children?.length))
     .map(item => {
       // Get the destination route (either direct or the first child)

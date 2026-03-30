@@ -37,7 +37,7 @@ export default class ApiService {
     }
   }
 
-  authHeader() {
+  authHeader(api = '') {
     const accessToken = useCookie('accessToken').value
     const orgId = useCookie('currentOrganizationId').value
 
@@ -48,7 +48,7 @@ export default class ApiService {
     if (accessToken)
       headers.Authorization = `Bearer ${accessToken}`
 
-    if (orgId)
+    if (orgId && !api.includes('/auth/'))
       headers['X-Organization-Id'] = String(orgId)
 
     return headers
@@ -56,7 +56,7 @@ export default class ApiService {
 
   get(api, param) {
     return axios.get(URL + api, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
       params: param,
     })
       .then(res => {
@@ -73,7 +73,7 @@ export default class ApiService {
     api = this.joinParamToUrl(api, param)
 
     return axios.get(URL + api, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
       responseType,
     })
       .then(res => {
@@ -89,7 +89,7 @@ export default class ApiService {
       api = this.joinParamToUrl(api, param)
 
     return axios.delete(URL + api, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
       data: param,
     })
       .then(res => {
@@ -102,7 +102,7 @@ export default class ApiService {
 
   post(api, data) {
     return axios.post(URL + api, data, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
     })
       .then(res => {
         return res.data
@@ -116,7 +116,7 @@ export default class ApiService {
     data.append('_method', 'PUT')
 
     return axios.post(URL + api, data, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
     })
       .then(res => {
         return res.data
@@ -128,7 +128,7 @@ export default class ApiService {
 
   put(api, data) {
     return axios.put(URL + api, data, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
     })
       .then(res => {
         return res.data
@@ -140,7 +140,7 @@ export default class ApiService {
 
   upload(api, data) {
     return axios.post(URL + api, data, {
-      headers: Object.assign(this.authHeader(), {
+      headers: Object.assign(this.authHeader(api), {
         'Content-Type': 'multipart/form-data',
       }),
     })
@@ -154,7 +154,7 @@ export default class ApiService {
 
   image(api, param) {
     return fetch(URL + api + '/' + param.id, {
-      headers: this.authHeader(),
+      headers: this.authHeader(api),
     })
   }
 
@@ -219,6 +219,7 @@ export default class ApiService {
         useCookie('userData').value = null
         localStorage.removeItem('userAbilityRules')
         useCookie('currentOrganizationId').value = null
+        localStorage.removeItem('availableOrganizations')
 
         return router.push('/login')
       }

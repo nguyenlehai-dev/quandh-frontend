@@ -19,7 +19,7 @@ const tabsData = [
   { value: 'social', icon: 'tabler-share', title: 'Mạng xã hội', disabled: true },
   { value: 'api', icon: 'tabler-api', title: 'Kết nối API ngoài', disabled: true },
   { value: 'shortcut', icon: 'tabler-keyboard', title: 'Phím tắt', disabled: true },
-  { value: 'system-settings-notifications', icon: 'tabler-file-text', title: 'Cấu hình Nhật ký', disabled: false },
+  { value: 'system-settings-notifications', icon: 'tabler-mail', title: 'Cấu hình thông báo', disabled: false },
 ]
 </script>
 

@@ -1,18 +1,31 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { cookieRef } from '@layouts/stores/config'
+import { getI18n } from '@/plugins/i18n'
 import SettingsLayout from './SettingsLayout.vue'
 
 const loading = ref(false)
 const saving = ref(false)
 
 const settings = ref({
-  copyright: 'Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng',
-  designed_by: 'Danatec',
-  language: 'Tiếng Việt',
-  time_format: '24h (HH:MM)',
+  copyright: '',
+  designed_by: '',
+  language: 'vi',
+  time_format: 'H:i:s d/m/Y',
   icon: '',
   logo: '',
 })
+
+const languageOptions = [
+  { title: 'Tiếng Việt', value: 'vi' },
+  { title: 'English', value: 'en' },
+]
+
+const timeFormatOptions = [
+  { title: '24 giờ - 31/12/2026 23:59:59', value: 'H:i:s d/m/Y' },
+  { title: '24 giờ - 2026-12-31 23:59', value: 'Y-m-d H:i' },
+  { title: '12 giờ - 31/12/2026 11:59 PM', value: 'h:i A d/m/Y' },
+]
 
 // Avatar file upload references
 const refFaviconInput = ref()
@@ -45,10 +58,26 @@ const saveSettings = async () => {
     if (settings.value.logo) {
       localStorage.setItem('app_logo', settings.value.logo)
     }
+    else {
+      localStorage.removeItem('app_logo')
+    }
     
     if (settings.value.icon) {
       localStorage.setItem('app_icon', settings.value.icon)
     }
+    else {
+      localStorage.removeItem('app_icon')
+    }
+
+    if (settings.value.copyright) {
+      localStorage.setItem('app_copyright', settings.value.copyright)
+    }
+    else {
+      localStorage.removeItem('app_copyright')
+    }
+
+    cookieRef('language', 'vi').value = settings.value.language
+    getI18n().global.locale.value = settings.value.language
     
     // Tải lại trang sau nửa giây để app render lại toàn bộ logo & favicon từ cache
     setTimeout(() => {
@@ -158,7 +187,7 @@ onMounted(() => fetchSettings())
             <AppSelect
               v-model="settings.language"
               label="Ngôn ngữ"
-              :items="['Tiếng Việt', 'English']"
+              :items="languageOptions"
             />
           </VCol>
           <VCol
@@ -168,7 +197,7 @@ onMounted(() => fetchSettings())
             <AppSelect
               v-model="settings.time_format"
               label="Định Dạng Thời Gian"
-              :items="['24h (HH:MM)', '12h (hh:mm A)']"
+              :items="timeFormatOptions"
             />
           </VCol>
         </VRow>

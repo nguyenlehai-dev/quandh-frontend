@@ -32,20 +32,31 @@ const selectedOrgId = ref(null)
 onMounted(() => {
   try {
     const raw = localStorage.getItem('availableOrganizations')
+    const currentIdCookie = useCookie('currentOrganizationId').value
+    const requestedOrgId = Number(route.query.current_org)
+
+    if (currentIdCookie) {
+      router.replace('/')
+
+      return
+    }
+
     if (raw) {
       availableOrganizations.value = JSON.parse(raw)
 
-      const currentIdCookie = useCookie('currentOrganizationId').value
+      const hasRequestedOrg = availableOrganizations.value.some(org => org.id === requestedOrgId)
 
-      selectedOrgId.value = currentIdCookie ? Number(currentIdCookie) : availableOrganizations.value[0]?.id
+      selectedOrgId.value = hasRequestedOrg
+        ? requestedOrgId
+        : availableOrganizations.value[0]?.id
     }
   } catch (err) {
     console.warn(err)
   }
 
-  // If there are no orgs available, redirect to login or dashboard
+  // Session đã đăng nhập nhưng không còn danh sách org hợp lệ -> quay về login để đăng nhập lại sạch.
   if (!availableOrganizations.value || availableOrganizations.value.length === 0) {
-    router.replace('/')
+    router.replace('/login')
   }
 })
 

@@ -3,6 +3,8 @@
 // Tu dong scan tat ca modules/[name]/index.js bang Vite import.meta.glob.
 // Khi them module moi, chi can tao folder trong modules/ voi index.js
 // -> he thong tu nhan dien, khong can sua bat ky file nao khac.
+import { can } from '@layouts/plugins/casl'
+
 const moduleFiles = import.meta.glob('./*/index.js', { eager: true })
 
 // Danh sách các module không tải vào app (demo hoặc chưa dùng tới)
@@ -51,6 +53,37 @@ function getModNav(name) {
   return mod?.navigation || null
 }
 
+function normalizeNavItems(nav) {
+  if (!nav) return []
+  return Array.isArray(nav) ? nav : [nav]
+}
+
+function isNavItemVisible(item) {
+  if (!item || item.heading) return false
+
+  if (item.children?.length) {
+    const hasVisibleChild = item.children.some(child => isNavItemVisible(child))
+    if (!(item.action && item.subject))
+      return hasVisibleChild
+
+    return can(item.action, item.subject) && hasVisibleChild
+  }
+
+  return can(item.action, item.subject)
+}
+
+function buildSection(heading, items) {
+  const normalizedItems = normalizeNavItems(items)
+
+  if (!normalizedItems.some(item => isNavItemVisible(item)))
+    return []
+
+  return [
+    { heading },
+    ...normalizedItems,
+  ]
+}
+
 /**
  * Build cây menu sidebar theo cấu trúc chuẩn:
  * 1. Hồ sơ cá nhân
@@ -59,42 +92,34 @@ function getModNav(name) {
  * 4. Quản lý hệ thống (từ các system modules)
  */
 export function getModuleNavigation() {
-  // 1. Hồ sơ cá nhân (đã gỡ bỏ theo yêu cầu)
-
-  // 2. Bảng điều khiển
+  // 1. Bảng điều khiển: luôn hiện cho mọi user
   const dashboardNav = [
-    { title: 'Tổng quan hệ thống', to: 'dashboards-crm', icon: { icon: 'tabler-layout-dashboard' } },
+    { title: 'Tổng quan hệ thống', to: 'system-dashboard', icon: { icon: 'tabler-layout-dashboard' } },
     { title: 'Tổng quan nghiệp vụ', to: 'meetings-business-overview', icon: { icon: 'tabler-briefcase' } },
   ]
 
-  // 3. Quản lý cuộc họp (từ meetings module)
-  const meetingsNav = getModNav('meetings')
+  // 2. Quản lý cuộc họp (từ meetings module)
+  const meetingsNav = normalizeNavItems(getModNav('meetings'))
 
-  // 4. Quản lý hệ thống
+  // 3. Quản lý hệ thống
   const orgNav = getModNav('organizations')
   const userNav = getModNav('user')
+  const activityLogNav = getModNav('activity-logs')
   const rolesNav = getModNav('roles')
   const settingsNav = getModNav('system-settings')
 
   const systemNav = [
     orgNav,
     userNav,
-    {
-      title: 'Nhật ký hoạt động',
-      icon: { icon: 'tabler-history' },
-      to: 'system-activity-logs',
-    },
+    activityLogNav,
     rolesNav,
     settingsNav,
   ].filter(Boolean)
 
   return [
-    { heading: 'Bảng điều khiển' },
-    ...dashboardNav,
-    { heading: 'Quản lý cuộc họp' },
-    ...(Array.isArray(meetingsNav) ? meetingsNav : (meetingsNav ? [meetingsNav] : [])),
-    { heading: 'Quản lý hệ thống' },
-    ...systemNav,
+    ...buildSection('Bảng điều khiển', dashboardNav),
+    ...buildSection('Quản lý cuộc họp', meetingsNav),
+    ...buildSection('Quản lý hệ thống', systemNav),
   ]
 }
 

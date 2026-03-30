@@ -1,8 +1,12 @@
 <script setup>
 import girlUsingMobile from '@images/pages/girl-using-mobile.png'
+import { fetchRole } from '../services/roleService'
+
+const emit = defineEmits(['changed'])
 
 const roles = ref([])
 const loading = ref(false)
+const editingRole = ref(false)
 
 const fetchRoles = async () => {
   loading.value = true
@@ -13,6 +17,7 @@ const fetchRoles = async () => {
       id: role.id,
       role: role.name,
       scope: role.scope ?? 'admin',
+      guardName: role.guard_name ?? 'api',
       totalUsers: role.users_count ?? 0,
       permissions: role.permissions ?? [],
     }))
@@ -27,23 +32,45 @@ const fetchRoles = async () => {
 }
 
 onMounted(() => fetchRoles())
+defineExpose({ refreshRoles: fetchRoles })
 
 const isRoleDialogVisible = ref(false)
 const roleDetail = ref({ id: null, name: '', permissions: [] })
 const isAddRoleDialogVisible = ref(false)
 
-const editPermission = item => {
-  isRoleDialogVisible.value = true
-  roleDetail.value = {
-    id: item.id,
-    name: item.role,
-    scope: item.scope,
-    permissions: item.permissions,
+const editPermission = async item => {
+  editingRole.value = true
+  try {
+    const res = await fetchRole(item.id)
+    const detail = res.data ?? res
+
+    roleDetail.value = {
+      id: detail.id,
+      name: detail.name,
+      scope: detail.scope ?? item.scope,
+      guard_name: detail.guard_name ?? item.guardName ?? 'api',
+      permissions: detail.permissions ?? item.permissions ?? [],
+    }
+  }
+  catch (err) {
+    console.error('Fetch role detail error:', err)
+    roleDetail.value = {
+      id: item.id,
+      name: item.role,
+      scope: item.scope,
+      guard_name: item.guardName ?? 'api',
+      permissions: item.permissions,
+    }
+  }
+  finally {
+    editingRole.value = false
+    isRoleDialogVisible.value = true
   }
 }
 
 const onRoleSaved = () => {
   fetchRoles()
+  emit('changed')
 }
 
 const deleteRole = async item => {
@@ -51,6 +78,7 @@ const deleteRole = async item => {
     try {
       await $api(`/roles/${item.id}`, { method: 'DELETE' })
       fetchRoles()
+      emit('changed')
     } catch (err) {
       console.error('Delete role error:', err)
       alert(err.message || 'Có lỗi xảy ra khi xóa vai trò.')
@@ -103,7 +131,7 @@ const deleteRole = async item => {
                 class="text-info font-weight-medium text-body-2 text-decoration-none"
                 @click="editPermission(item)"
               >
-                Chỉnh sửa vai trò
+                {{ editingRole && roleDetail.id === item.id ? 'Đang tải...' : 'Chỉnh sửa vai trò' }}
               </a>
               <IconBtn
                 size="small"

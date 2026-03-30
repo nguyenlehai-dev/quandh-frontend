@@ -1,5 +1,5 @@
 <script setup>
-import navItems from '@/navigation/vertical'
+import { getVerticalNavItems } from '@/navigation/vertical'
 import { themeConfig } from '@themeConfig'
 
 // Components
@@ -14,6 +14,8 @@ import NavBarI18n from '@core/components/I18n.vue'
 
 // @layouts plugin
 import { VerticalNavLayout } from '@layouts'
+
+const navItems = computed(() => getVerticalNavItems())
 </script>
 
 <template>

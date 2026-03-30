@@ -19,6 +19,7 @@ const headers = [
   { title: 'STT', key: 'index', sortable: false, width: '70px' },
   { title: 'TÊN TỔ CHỨC', key: 'name' },
   { title: 'TỔ CHỨC CẤP CAO', key: 'parent' },
+  { title: 'TRẠNG THÁI', key: 'status', sortable: false, width: '140px' },
   { title: 'CẬP NHẬT', key: 'updated_at' },
   { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center', width: '120px' },
 ]
@@ -454,6 +455,17 @@ const handleDownloadTemplate = async () => {
           <div class="text-body-2">
             {{ item.parent?.name || '—' }}
           </div>
+        </template>
+
+        <template #item.status="{ item }">
+          <VChip
+            label
+            size="small"
+            variant="tonal"
+            :color="resolveStatusVariant(item.status).color"
+          >
+            {{ resolveStatusVariant(item.status).text }}
+          </VChip>
         </template>
 
         <template #item.updated_at="{ item }">

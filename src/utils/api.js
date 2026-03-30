@@ -1,9 +1,6 @@
 import { ofetch } from 'ofetch'
 
-// Auth routes không cần Organization header
-const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
-
-const isAuthRoute = url => AUTH_ROUTES.some(route => url.includes(route))
+const isAuthRoute = url => url.includes('/auth/')
 
 // Flag to prevent cascading 401 redirects
 let isRedirecting = false
@@ -17,8 +14,8 @@ export const $api = ofetch.create({
     if (accessToken)
       options.headers.set('Authorization', `Bearer ${accessToken}`)
 
-    // Multi-org header (trừ auth routes)
-    const orgId = useCookie('currentOrganizationId').value || 1
+    // Chỉ gửi org header khi user đã chọn org hợp lệ
+    const orgId = useCookie('currentOrganizationId').value
     if (orgId && !isAuthRoute(String(request)))
       options.headers.set('X-Organization-Id', String(orgId))
   },
@@ -35,6 +32,7 @@ export const $api = ofetch.create({
       useCookie('accessToken').value = null
       useCookie('userData').value = null
       useCookie('currentOrganizationId').value = null
+      localStorage.removeItem('availableOrganizations')
 
       // KHÔNG xóa userAbilityRules ở đây
       // Chỉ xóa khi user chủ động logout

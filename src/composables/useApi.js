@@ -19,7 +19,7 @@ export const useApi = createFetch({
         }
       }
       
-      const orgId = useCookie('currentOrganizationId').value || 1
+      const orgId = useCookie('currentOrganizationId').value
       if (orgId && !url.includes('/auth/')) {
         options.headers = {
           ...options.headers,
@@ -52,6 +52,7 @@ export const useApi = createFetch({
         useCookie('userData').value = null
         localStorage.removeItem('userAbilityRules')
         useCookie('currentOrganizationId').value = null
+        localStorage.removeItem('availableOrganizations')
         
         // Prevent infinite reload loop if already on login
         if (window.location.pathname !== '/login') {

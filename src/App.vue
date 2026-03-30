@@ -1,4 +1,5 @@
 <script setup>
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from 'vuetify'
 import ScrollToTop from '@core/components/ScrollToTop.vue'
 import initCore from '@core/initCore'
@@ -7,6 +8,8 @@ import {
   useConfigStore,
 } from '@core/stores/config'
 import { hexToRgb } from '@core/utils/colorConverter'
+import { cookieRef } from '@layouts/stores/config'
+import { getI18n } from '@/plugins/i18n'
 
 const { global } = useTheme()
 
@@ -21,6 +24,9 @@ import { layoutConfig as activeLayoutConfig } from '@layouts'
 
 // Load global logo and favicon dynamically
 const loadGlobalSettings = async () => {
+  const languageCookie = cookieRef('language', themeConfig.app.i18n.defaultLocale)
+  const supportedLocales = new Set(themeConfig.app.i18n.langConfig.map(lang => lang.i18nLang))
+
   // 1. Load from localStorage instantly to avoid flicker
   const cachedLogo = localStorage.getItem('app_logo')
   const cachedIcon = localStorage.getItem('app_icon')
@@ -50,7 +56,7 @@ const loadGlobalSettings = async () => {
   try {
     const res = await $api('/settings/public')
     if (res?.data?.general) {
-      const { icon, logo, copyright, language, time_format } = res.data.general
+      const { icon, logo, copyright, language } = res.data.general
       
       if (icon && icon !== cachedIcon) {
         localStorage.setItem('app_icon', icon)
@@ -70,8 +76,18 @@ const loadGlobalSettings = async () => {
         initialLayoutConfig.app.logo = imgNode
         activeLayoutConfig.app.logo = imgNode
       }
-      
-      // We can also cache other formatting preferences if needed
+
+      if (copyright) {
+        localStorage.setItem('app_copyright', copyright)
+      }
+      else {
+        localStorage.removeItem('app_copyright')
+      }
+
+      if (language && supportedLocales.has(language) && languageCookie.value !== language) {
+        languageCookie.value = language
+        getI18n().global.locale.value = language
+      }
     }
   } catch (err) {
     console.warn('Failed to load global settings', err)
@@ -82,6 +98,22 @@ import { fetchMe } from '@/services/auth'
 
 loadGlobalSettings()
 fetchMe()
+
+const syncPermissionsOnFocus = () => {
+  if (document.visibilityState === 'visible') {
+    fetchMe({ force: true })
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('focus', syncPermissionsOnFocus)
+  document.addEventListener('visibilitychange', syncPermissionsOnFocus)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', syncPermissionsOnFocus)
+  document.removeEventListener('visibilitychange', syncPermissionsOnFocus)
+})
 </script>
 
 <template>
