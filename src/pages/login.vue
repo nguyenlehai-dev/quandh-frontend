@@ -51,7 +51,6 @@ const login = async () => {
     const nextRoute = resolvePostLoginRoute({
       loginData: data,
       preferredRoute: route.query.to ? String(route.query.to) : '/',
-      loginIdentifier: credentials.value.email,
     })
 
     await nextTick(() => {

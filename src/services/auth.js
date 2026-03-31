@@ -21,26 +21,6 @@ const SYSTEM_DASHBOARD_FORBIDDEN_PREFIX = 'systemDashboardForbidden:'
 let fetchMePromise = null
 let lastFetchMeAt = 0
 
-const AUTH_TEST_FLOWS = {
-  'flow_direct': 'direct',
-  'flow.direct@example.com': 'direct',
-  'flow_select': 'select-organization',
-  'flow.select@example.com': 'select-organization',
-  'flow_switch': 'direct',
-  'flow.switch@example.com': 'direct',
-}
-
-const resolveConfiguredAuthFlow = (...identifiers) => {
-  for (const identifier of identifiers) {
-    const normalizedIdentifier = String(identifier || '').trim().toLowerCase()
-
-    if (normalizedIdentifier && AUTH_TEST_FLOWS[normalizedIdentifier])
-      return AUTH_TEST_FLOWS[normalizedIdentifier]
-  }
-
-  return null
-}
-
 export const getStoredOrganizations = () => {
   try {
     const raw = localStorage.getItem(ORGS_KEY)
@@ -110,17 +90,7 @@ export const getAuthenticatedEntryRoute = preferredRoute => {
 export const resolvePostLoginRoute = ({
   loginData,
   preferredRoute,
-  loginIdentifier,
 } = {}) => {
-  const configuredFlow = resolveConfiguredAuthFlow(
-    loginIdentifier,
-    loginData?.user?.username,
-    loginData?.user?.email,
-  )
-
-  if (configuredFlow === 'select-organization')
-    return '/select-organization'
-
   return loginData?.current_organization_id ? preferredRoute || '/' : '/select-organization'
 }
 
@@ -208,15 +178,7 @@ export const login = async (email, password) => {
   else
     localStorage.removeItem(ORGS_KEY)
 
-  const configuredFlow = resolveConfiguredAuthFlow(
-    email,
-    userData?.username,
-    userData?.email,
-  )
-
-  if (configuredFlow === 'select-organization')
-    clearCurrentOrganization()
-  else if (data.current_organization_id)
+  if (data.current_organization_id)
     useCookie(ORG_KEY).value = data.current_organization_id
   else
     clearCurrentOrganization()
