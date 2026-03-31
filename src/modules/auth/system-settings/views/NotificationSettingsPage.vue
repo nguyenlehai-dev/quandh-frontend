@@ -1,8 +1,14 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import { ref, onMounted } from 'vue'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import SettingsLayout from './SettingsLayout.vue'
 
 const { t } = useI18n()
+
+const { snackbar, showSuccess, showError } = useActionFeedback()
+
 const settings = ref({
   email_protocol: 'smtp',
   email_sender_name: '',
@@ -14,6 +20,7 @@ const settings = ref({
   email_smtp_encryption: 'tls',
   email_test_address: '',
 })
+
 const loading = ref(false)
 const saving = ref(false)
 
@@ -31,6 +38,7 @@ const fetchSettings = async () => {
   loading.value = true
   try {
     const res = await $api('/settings')
+
     settings.value = {
       ...settings.value,
       ...(res.data?.email ?? res?.email ?? {}),
@@ -51,9 +59,12 @@ const saveSettings = async () => {
       method: 'PUT',
       body: settings.value,
     })
+
+    showSuccess('Lưu cấu hình thông báo thành công.')
   }
   catch (err) {
     console.error('Save notification settings error:', err)
+    showError(err, 'Không thể lưu cấu hình thông báo.')
   }
   finally {
     saving.value = false
@@ -161,5 +172,11 @@ onMounted(() => fetchSettings())
         </VRow>
       </VCardText>
     </VCard>
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </SettingsLayout>
 </template>

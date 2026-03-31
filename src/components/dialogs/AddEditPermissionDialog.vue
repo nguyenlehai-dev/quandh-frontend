@@ -1,4 +1,6 @@
 <script setup>
+import { useActionFeedback } from '@/composables/useActionFeedback'
+
 const props = defineProps({
   isDialogVisible: {
     type: Boolean,
@@ -30,6 +32,8 @@ const emit = defineEmits([
 const currentPermissionName = ref('')
 const currentDescription = ref('')
 const saving = ref(false)
+const isEditMode = computed(() => !!props.permissionId)
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 const onReset = () => {
   emit('update:isDialogVisible', false)
@@ -38,27 +42,33 @@ const onReset = () => {
 }
 
 const onSubmit = async () => {
-  if (!currentPermissionName.value) return
+  if (!currentPermissionName.value.trim()) {
+    showSnackbar('Vui lòng nhập mã quyền.', 'warning')
+
+    return
+  }
 
   saving.value = true
   try {
-    if (props.permissionId) {
+    if (isEditMode.value) {
       await $api(`/permissions/${props.permissionId}`, {
         method: 'PUT',
         body: {
-          name: currentPermissionName.value,
+          name: currentPermissionName.value.trim(),
           description: currentDescription.value,
         },
       })
+      showSuccess('Cập nhật quyền hạn thành công.')
     }
     else {
       await $api('/permissions', {
         method: 'POST',
         body: {
-          name: currentPermissionName.value,
+          name: currentPermissionName.value.trim(),
           description: currentDescription.value,
         },
       })
+      showSuccess('Tạo quyền hạn thành công.')
     }
 
     emit('saved')
@@ -66,6 +76,7 @@ const onSubmit = async () => {
   }
   catch (err) {
     console.error('Save permission error:', err)
+    showError(err, 'Không thể lưu quyền hạn.')
   }
   finally {
     saving.value = false
@@ -91,10 +102,10 @@ watch(() => props.isDialogVisible, visible => {
     <VCard class="pa-2 pa-sm-10">
       <VCardText>
         <h4 class="text-h4 text-center mb-2">
-          Chi tiết quyền hạn
+          {{ isEditMode ? 'Chi tiết quyền hạn' : 'Thêm quyền hạn' }}
         </h4>
         <p class="text-body-1 text-center mb-6">
-          Xem mã hệ thống và cập nhật mô tả chức năng.
+          {{ isEditMode ? 'Xem mã hệ thống và cập nhật mô tả chức năng.' : 'Khai báo mã quyền và mô tả chức năng mới.' }}
         </p>
 
         <VForm @submit.prevent="onSubmit">
@@ -105,17 +116,22 @@ watch(() => props.isDialogVisible, visible => {
             class="mb-6"
           >
             <template #text>
-              Mã quyền là cố định. Bạn có thể tự do chỉnh sửa <b>Mô tả</b> để giải thích chi tiết chức năng này cho các Admin khác hiểu.
+              <span v-if="isEditMode">
+                Mã quyền là cố định. Bạn có thể tự do chỉnh sửa <b>Mô tả</b> để giải thích chi tiết chức năng này cho các Admin khác hiểu.
+              </span>
+              <span v-else>
+                Mã quyền nên theo chuẩn <b>resource.action</b>, ví dụ: <b>users.store</b>, <b>permissions.export</b>.
+              </span>
             </template>
           </VAlert>
 
           <AppTextField
             v-model="currentPermissionName"
-            label="Mã quyền hệ thống (Không được sửa)"
+            :label="isEditMode ? 'Mã quyền hệ thống (Không được sửa)' : 'Mã quyền hệ thống'"
             placeholder="Ví dụ: users.create"
             class="mb-4"
-            disabled
-            hint="Mã này kết nối trực tiếp với Database & Mã nguồn."
+            :disabled="isEditMode"
+            hint="Mã này kết nối trực tiếp với Database va ma nguon."
             persistent-hint
           />
 
@@ -133,7 +149,7 @@ watch(() => props.isDialogVisible, visible => {
               type="submit"
               :loading="saving"
             >
-              {{ props.permissionId ? 'Cập nhật' : 'Thêm mới' }}
+              {{ isEditMode ? 'Cập nhật' : 'Thêm mới' }}
             </VBtn>
             <VBtn
               color="secondary"
@@ -146,5 +162,11 @@ watch(() => props.isDialogVisible, visible => {
         </VForm>
       </VCardText>
     </VCard>
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </VDialog>
 </template>

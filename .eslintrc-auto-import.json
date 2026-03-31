@@ -361,6 +361,8 @@
     "watchTriggerable": true,
     "watchWithFilter": true,
     "whenever": true,
-    "downloadBlob": true
+    "downloadBlob": true,
+    "extractApiErrorMessage": true,
+    "useActionFeedback": true
   }
 }

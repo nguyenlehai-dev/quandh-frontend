@@ -1,5 +1,8 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import '@/modules/meetings/assets/meeting-styles.css'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import MeetingAttendeesTab from '@/modules/meetings/components/admin/tabs/MeetingAttendeesTab.vue'
 import MeetingDocumentsTab from '@/modules/meetings/components/admin/tabs/MeetingDocumentsTab.vue'
 import { createMeeting, fetchMeeting, updateMeeting } from '@/modules/meetings/services/meetingService'
@@ -32,6 +35,7 @@ const isEditMode = computed(() => !!props.meetingId)
 const activeTab = ref('general')
 const loading = ref(false)
 const submittingAction = ref(null)
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 const dateTimeConfig = {
   enableTime: true,
@@ -93,6 +97,7 @@ const fetchMeetingDetails = async () => {
     }
   } catch (err) {
     console.error('Lỗi khi tải dữ liệu', err)
+    showError(err, 'Không thể tải dữ liệu cuộc họp.')
   } finally {
     loading.value = false
   }
@@ -156,10 +161,12 @@ const submitForm = async actionType => {
 
     if (isEditMode.value) {
       await updateMeeting(props.meetingId, payload)
+      showSuccess('Cập nhật cuộc họp thành công.')
     } else {
       const resp = await createMeeting(payload)
 
       savedMeetingId = resp.data.id || resp.id
+      showSuccess('Tạo cuộc họp thành công.')
     }
 
     // Refresh parent list
@@ -176,13 +183,7 @@ const submitForm = async actionType => {
     }
   } catch (err) {
     console.error('Lỗi lưu', err)
-    if (err.response && err.response._data) {
-      alert('Lỗi lưu: ' + (typeof err.response._data.message === 'string' ? err.response._data.message : JSON.stringify(err.response._data)))
-    } else if (err.response && err.response.data) {
-      alert('Lỗi lưu: ' + (typeof err.response.data.message === 'string' ? err.response.data.message : JSON.stringify(err.response.data)))
-    } else {
-      alert('Lỗi lưu: ' + err.message)
-    }
+    showError(err, 'Không thể lưu cuộc họp.')
   } finally {
     submittingAction.value = null
   }
@@ -673,6 +674,12 @@ const submitForm = async actionType => {
         </VBtn>
       </VCardActions>
     </VCard>
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </VDialog>
 </template>
 

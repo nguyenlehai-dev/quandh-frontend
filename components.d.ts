@@ -7,6 +7,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ActionConfirmDialog: typeof import('./src/components/dialogs/ActionConfirmDialog.vue')['default']
+    ActionSnackbar: typeof import('./src/components/feedback/ActionSnackbar.vue')['default']
     AddAuthenticatorAppDialog: typeof import('./src/components/dialogs/AddAuthenticatorAppDialog.vue')['default']
     AddEditAddressDialog: typeof import('./src/components/dialogs/AddEditAddressDialog.vue')['default']
     AddEditOrganizationDialog: typeof import('./src/components/dialogs/AddEditOrganizationDialog.vue')['default']

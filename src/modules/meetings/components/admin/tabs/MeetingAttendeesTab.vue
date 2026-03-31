@@ -1,5 +1,8 @@
 <script setup>
-import { deleteMeetingParticipant, fetchMeetingParticipants, fetchMeetings } from '@/modules/meetings/services/meetingService'
+/* eslint-disable camelcase */
+
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deleteMeetingParticipant, fetchMeetingParticipants } from '@/modules/meetings/services/meetingService'
 import { onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
@@ -8,6 +11,10 @@ const props = defineProps({
 
 const items = ref([])
 const isLoading = ref(false)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 // Dialog Add
 const isAddDialogVisible = ref(false)
@@ -53,6 +60,7 @@ const loadData = async () => {
     items.value = res.data || []
   } catch (error) {
     console.error(error)
+    showError(error, 'Không thể tải danh sách thành viên.')
   } finally {
     isLoading.value = false
   }
@@ -62,11 +70,36 @@ watch(() => props.meetingId, () => {
   loadData()
 }, { immediate: true })
 
-const deleteItem = async id => {
-  if (confirm('Xóa thành viên này khỏi cuộc họp?')) {
-    await deleteMeetingParticipant(props.meetingId, id)
-    loadData()
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
   }
+}
+
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa thành viên tham dự',
+    message: `Bạn có chắc chắn muốn xóa "${item.user_name}" khỏi cuộc họp không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteMeetingParticipant(props.meetingId, item.id)
+      showSuccess('Xóa thành viên thành công.')
+      loadData()
+    },
+  })
 }
 
 const loadUsers = async () => {
@@ -77,23 +110,30 @@ const loadUsers = async () => {
     usersList.value = res.data?.data || res.data || []
   } catch (error) {
     console.error('Failed to load users for dropdown', error)
+    showError(error, 'Không thể tải danh sách cán bộ.')
   }
 }
 
 const submitAdd = async () => {
-  if (!formData.value.user_id) return alert('Vui lòng chọn một cán bộ')
+  if (!formData.value.user_id) {
+    showSnackbar('Vui lòng chọn một cán bộ.', 'warning')
+
+    return
+  }
   
   isSubmitting.value = true
   try {
     const { createMeetingParticipant } = await import('@/modules/meetings/services/meetingService')
 
     await createMeetingParticipant(props.meetingId, formData.value)
-    
+
     isAddDialogVisible.value = false
     formData.value = { user_id: null, position: '', meeting_role: 'delegate' }
+    showSuccess('Thêm cán bộ tham dự thành công.')
     loadData()
   } catch (err) {
     console.error('Lỗi khi thêm đại biểu', err)
+    showError(err, 'Không thể thêm cán bộ tham dự.')
   } finally {
     isSubmitting.value = false
   }
@@ -119,9 +159,11 @@ const submitEdit = async () => {
       meeting_role: editFormData.value.meeting_role,
     })
     isEditDialogVisible.value = false
+    showSuccess('Cập nhật thành viên thành công.')
     loadData()
   } catch (err) {
     console.error('Lỗi khi cập nhật đại biểu', err)
+    showError(err, 'Không thể cập nhật thành viên.')
   } finally {
     isSubmittingEdit.value = false
   }
@@ -174,7 +216,7 @@ onMounted(() => {
           <IconBtn @click="openEditDialog(item)">
             <VIcon icon="tabler-pencil" />
           </IconBtn>
-          <IconBtn @click="deleteItem(item.id)">
+          <IconBtn @click="deleteItem(item)">
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
@@ -312,5 +354,21 @@ onMounted(() => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </div>
 </template>

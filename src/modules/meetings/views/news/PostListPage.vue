@@ -1,11 +1,23 @@
 <script setup>
-import { deletePost, createPost, updatePost, exportPosts } from '@/modules/meetings/services/meetingService'
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deletePost, createPost, updatePost, exportPosts, changePostStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
+const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+
+const statusOptions = [
+  { title: 'Đã xuất bản', value: 'published' },
+  { title: 'Bản nháp', value: 'draft' },
+  { title: 'Lưu trữ', value: 'archived' },
+]
 
 const headers = [
   { title: 'Tiêu đề', key: 'title' },
@@ -17,6 +29,7 @@ const headers = [
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/posts', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -29,10 +42,10 @@ const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
 const selectedItemId = ref(null)
 
-const formData = ref({ title: '', content: '', status: 'active' })
+const formData = ref({ title: '', content: '', status: 'draft' })
 
 const openAddDialog = () => {
-  formData.value = { title: '', content: '', status: 'active' }
+  formData.value = { title: '', content: '', status: 'draft' }
   isAddDialogVisible.value = true
 }
 
@@ -42,9 +55,27 @@ const openEditDialog = item => {
   isEditDialogVisible.value = true
 }
 
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
 const submitForm = async () => {
   if (!formData.value.title) {
-    alert('Vui lòng nhập tiêu đề')
+    showSnackbar('Vui lòng nhập tiêu đề bài viết.', 'warning')
 
     return
   }
@@ -53,23 +84,63 @@ const submitForm = async () => {
     if (isEditDialogVisible.value) {
       await updatePost(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
+      showSuccess('Cập nhật bài viết thành công.')
     } else {
       await createPost(formData.value)
       isAddDialogVisible.value = false
+      showSuccess('Tạo bài viết thành công.')
     }
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể lưu bài viết.')
     console.error('Action failed:', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = async id => {
-  if (confirm('Xóa bài viết này?')) {
-    await deletePost(id)
-    fetchItems()
-  }
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa bài viết',
+    message: `Bạn có chắc chắn muốn xóa "${item.title}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deletePost(item.id)
+      showSuccess('Xóa bài viết thành công.')
+      fetchItems()
+    },
+  })
+}
+
+const resolveStatusMeta = status => {
+  if (status === 'published') return { label: 'Đã xuất bản', color: 'success' }
+  if (status === 'archived') return { label: 'Lưu trữ', color: 'secondary' }
+
+  return { label: 'Bản nháp', color: 'warning' }
+}
+
+const nextStatusMap = {
+  draft: 'published',
+  published: 'archived',
+  archived: 'draft',
+}
+
+const toggleItemStatus = item => {
+  const nextStatus = nextStatusMap[item.status] || 'draft'
+  const nextLabel = resolveStatusMeta(nextStatus).label
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái bài viết',
+    message: `Bạn có chắc chắn muốn chuyển "${item.title}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changePostStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái bài viết thành công.')
+      fetchItems()
+    },
+  })
 }
 
 const formatDate = dateStr => {
@@ -85,12 +156,14 @@ const exportData = async () => {
   try {
     const res = await exportPosts({
       search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
     downloadBlob(res, 'bai-viet.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu bài viết.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -122,6 +195,20 @@ const exportData = async () => {
             <AppTextField
               v-model="searchQuery"
               placeholder="Tìm kiếm bài viết..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="6"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trạng thái
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
+              placeholder="Lọc theo trạng thái"
               density="compact"
             />
           </VCol>
@@ -178,9 +265,9 @@ const exportData = async () => {
         <template #item.status="{ item }">
           <VChip
             size="small"
-            :color="item.status === 'active' ? 'success' : 'secondary'"
+            :color="resolveStatusMeta(item.status).color"
           >
-            {{ item.status === 'active' ? 'Xuất bản' : 'Nháp' }}
+            {{ resolveStatusMeta(item.status).label }}
           </VChip>
         </template>
 
@@ -199,7 +286,19 @@ const exportData = async () => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item.id)">
+            <IconBtn @click="toggleItemStatus(item)">
+              <VIcon
+                icon="tabler-repeat"
+                color="warning"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Đổi trạng thái
+              </VTooltip>
+            </IconBtn>
+            <IconBtn @click="deleteItem(item)">
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -255,9 +354,9 @@ const exportData = async () => {
               <VSwitch
                 v-model="formData.status"
                 color="primary"
-                true-value="active"
+                true-value="published"
                 false-value="draft"
-                :label="formData.status === 'active' ? 'Xuất bản' : 'Nháp'"
+                :label="formData.status === 'published' ? 'Đã xuất bản' : 'Bản nháp'"
               />
             </VCol>
           </VRow>
@@ -306,9 +405,9 @@ const exportData = async () => {
               <VSwitch
                 v-model="formData.status"
                 color="primary"
-                true-value="active"
+                true-value="published"
                 false-value="draft"
-                :label="formData.status === 'active' ? 'Xuất bản' : 'Nháp'"
+                :label="formData.status === 'published' ? 'Đã xuất bản' : 'Bản nháp'"
               />
             </VCol>
           </VRow>
@@ -330,5 +429,21 @@ const exportData = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>

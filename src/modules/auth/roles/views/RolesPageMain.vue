@@ -1,8 +1,10 @@
 <script setup>
 import RoleCards from '../components/RoleCards.vue'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { downloadRoleTemplate, exportRoles, importRoles } from '../services/roleService'
 
 const { t } = useI18n()
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 // ─── Stats ──────────────────────────────────────
 const stats = ref({ total: 0, admin: 0, user: 0 })
@@ -69,11 +71,13 @@ const handleImport = async () => {
     await importRoles(file)
     isImportDialogVisible.value = false
     importFile.value = null
+    showSuccess('Import dữ liệu vai trò thành công.')
     await fetchStats()
     await roleCardsRef.value?.refreshRoles?.()
   }
   catch (err) {
     console.error('Import error:', err)
+    showError(err, 'Không thể import dữ liệu vai trò.')
   }
   finally {
     isImporting.value = false
@@ -263,6 +267,12 @@ const handleDownloadTemplate = async () => {
           </VCardActions>
         </VCard>
       </VDialog>
+
+      <ActionSnackbar
+        v-model="snackbar.show"
+        :message="snackbar.message"
+        :color="snackbar.color"
+      />
     </VRow>
   </div>
 </template>

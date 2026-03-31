@@ -1,6 +1,7 @@
 <script setup>
 /* eslint-disable camelcase */
 
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { ref, watch, onMounted } from 'vue'
 import { ability } from '@/plugins/casl/ability'
 
@@ -15,6 +16,10 @@ const page = ref(1)
 const sortBy = ref('created_at')
 const orderBy = ref('desc')
 const selectedRows = ref([])
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key || 'created_at'
@@ -41,7 +46,7 @@ const stats = ref({ total: 0 })
 const canViewLogList = computed(() => ability.can('read', 'ActivityLog'))
 const canViewLogStats = computed(() => ability.can('stats', 'ActivityLog'))
 const canExportLogs = computed(() => ability.can('export', 'ActivityLog'))
-const canDeleteLogs = computed(() => ability.can('delete', 'ActivityLog'))
+const canBulkDeleteLogs = computed(() => ability.can('bulkDestroy', 'ActivityLog'))
 
 const formatDate = dateString => {
   if (!dateString) return ''
@@ -154,6 +159,26 @@ const statusOptions = [
 // ─── Export ─────────────────────────────────────
 const isExporting = ref(false)
 
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  }
+  catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  }
+  finally {
+    isConfirming.value = false
+  }
+}
+
 const handleExport = async () => {
   if (!canExportLogs.value) return
   isExporting.value = true
@@ -176,6 +201,7 @@ const handleExport = async () => {
     a.download = `nhat_ky_hoat_dong_${new Date().toISOString().slice(0, 10)}.xlsx`
     document.body.appendChild(a)
     a.click()
+    showSuccess('Xuất nhật ký hoạt động thành công.')
     setTimeout(() => {
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
@@ -183,7 +209,7 @@ const handleExport = async () => {
   }
   catch (err) {
     console.error('Export error:', err)
-    alert("Export thất bại!")
+    showError(err, 'Xuất nhật ký thất bại.')
   }
   finally {
     isExporting.value = false
@@ -193,33 +219,34 @@ const handleExport = async () => {
 const isBulkDeleting = ref(false)
 
 const handleBulkDelete = async () => {
-  if (!canDeleteLogs.value) return
+  if (!canBulkDeleteLogs.value) return
   if (!selectedRows.value.length) return
 
-  const confirmed = window.confirm(`Xác nhận xóa ${selectedRows.value.length} nhật ký đã chọn?`)
+  openConfirmDialog({
+    title: 'Xóa nhật ký hoạt động',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} nhật ký đã chọn không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      isBulkDeleting.value = true
+      try {
+        await $api('/log-activities/bulk-delete', {
+          method: 'POST',
+          body: {
+            ids: selectedRows.value,
+          },
+        })
 
-  if (!confirmed) return
-
-  isBulkDeleting.value = true
-  try {
-    await $api('/log-activities/bulk-delete', {
-      method: 'POST',
-      body: {
-        ids: selectedRows.value,
-      },
-    })
-
-    selectedRows.value = []
-    await fetchLogs()
-    await fetchStats()
-  }
-  catch (err) {
-    console.error('Bulk delete logs error:', err)
-    alert('Xóa hàng loạt thất bại!')
-  }
-  finally {
-    isBulkDeleting.value = false
-  }
+        selectedRows.value = []
+        showSuccess('Xóa nhật ký hoạt động thành công.')
+        await fetchLogs()
+        await fetchStats()
+      }
+      finally {
+        isBulkDeleting.value = false
+      }
+    },
+  })
 }
 
 const resolveMethodColor = method => {
@@ -431,5 +458,21 @@ const resolveStatusColor = status => {
       </VDataTableServer>
       <!-- SECTION -->
     </VCard>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming || isBulkDeleting"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </div>
 </template>

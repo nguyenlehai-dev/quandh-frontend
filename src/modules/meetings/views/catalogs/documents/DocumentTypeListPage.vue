@@ -1,13 +1,34 @@
 <script setup>
-import { deleteDocumentType, createDocumentType, updateDocumentType, exportDocumentTypes } from '@/modules/meetings/services/meetingService'
+/* eslint-disable camelcase */
+
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deleteDocumentType, createDocumentType, updateDocumentType, exportDocumentTypes, changeDocumentTypeStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
+const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
 const orderBy = ref()
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  confirmText: 'Xác nhận',
+  confirmColor: 'primary',
+  action: null,
+})
+
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+
+const statusOptions = [
+  { title: 'Hoạt động', value: 'active' },
+  { title: 'Tạm khóa', value: 'inactive' },
+]
 
 const headers = [
   { title: 'Tên Loại tài liệu', key: 'name' },
@@ -20,6 +41,7 @@ const headers = [
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/document-types', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
     limit: itemsPerPage,
     page,
     sort_by: computed(() => sortBy.value || undefined),
@@ -72,9 +94,34 @@ const openEditDialog = item => {
   isEditDialogVisible.value = true
 }
 
+const openConfirmDialog = options => {
+  confirmDialog.value = {
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText ?? 'Xác nhận',
+    confirmColor: options.confirmColor ?? 'primary',
+    action: options.action ?? null,
+  }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
 const submitForm = async () => {
   if (!formData.value.name) {
-    alert('Vui lòng nhập tên loại tài liệu')
+    showSnackbar('Vui lòng nhập tên loại tài liệu.', 'warning')
 
     return
   }
@@ -83,23 +130,50 @@ const submitForm = async () => {
     if (isEditDialogVisible.value) {
       await updateDocumentType(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
+      showSuccess('Cập nhật loại tài liệu thành công.')
     } else {
       await createDocumentType(formData.value)
       isAddDialogVisible.value = false
+      showSuccess('Tạo loại tài liệu thành công.')
     }
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể lưu loại tài liệu.')
     console.error('Action failed:', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = async id => {
-  if (confirm('Bạn có chắc chắn muốn xóa Loại tài liệu này?')) {
-    await deleteDocumentType(id)
-    fetchItems()
-  }
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa loại tài liệu',
+    message: `Bạn có chắc chắn muốn xóa "${item.name}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteDocumentType(item.id)
+      showSuccess('Xóa loại tài liệu thành công.')
+      fetchItems()
+    },
+  })
+}
+
+const toggleItemStatus = item => {
+  const nextStatus = item.status === 'active' ? 'inactive' : 'active'
+  const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái loại tài liệu',
+    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changeDocumentTypeStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái loại tài liệu thành công.')
+      fetchItems()
+    },
+  })
 }
 
 const isExporting = ref(false)
@@ -109,6 +183,7 @@ const exportData = async () => {
   try {
     const res = await exportDocumentTypes({
       search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
       sort_by: sortBy.value || undefined,
@@ -117,6 +192,7 @@ const exportData = async () => {
 
     downloadBlob(res, 'loai-tai-lieu.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu loại tài liệu.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -141,7 +217,7 @@ const exportData = async () => {
         <VRow>
           <VCol
             cols="12"
-            md="6"
+            md="4"
           >
             <div class="text-body-2 font-weight-medium mb-1">
               Tìm kiếm
@@ -149,6 +225,20 @@ const exportData = async () => {
             <AppTextField
               v-model="searchQuery"
               placeholder="Tìm kiếm loại tài liệu..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trạng thái
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
+              placeholder="Lọc theo trạng thái"
               density="compact"
             />
           </VCol>
@@ -240,7 +330,19 @@ const exportData = async () => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item.id)">
+            <IconBtn @click="toggleItemStatus(item)">
+              <VIcon
+                :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
+                :color="item.status === 'active' ? 'success' : 'warning'"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Đổi trạng thái
+              </VTooltip>
+            </IconBtn>
+            <IconBtn @click="deleteItem(item)">
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -387,5 +489,21 @@ const exportData = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>

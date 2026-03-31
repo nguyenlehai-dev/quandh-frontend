@@ -1,4 +1,7 @@
 <script setup>
+/* eslint-disable camelcase */
+
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import {
   createMeetingDocument,
   deleteMeetingDocument,
@@ -17,6 +20,10 @@ const props = defineProps({
 
 const items = ref([])
 const isLoading = ref(false)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 // Dialog Add
 const isAddDialogVisible = ref(false)
@@ -58,6 +65,7 @@ onMounted(async () => {
     documentSigners.value = (sRes.data?.data || sRes.data || []).map(i => ({ value: i.id, title: i.name }))
   } catch (err) {
     console.error('Failed to load document categories', err)
+    showError(err, 'Không thể tải dữ liệu danh mục tài liệu.')
   }
 })
 
@@ -75,6 +83,7 @@ watch(() => props.meetingTypeId, async newVal => {
     documentTypes.value = (tRes.data?.data || tRes.data || []).map(i => ({ value: i.id, title: i.name }))
   } catch (err) {
     console.error('Failed to reload document types', err)
+    showError(err, 'Không thể tải lại loại tài liệu.')
   }
 })
 
@@ -103,6 +112,7 @@ const loadData = async () => {
     }))
   } catch (error) {
     console.error(error)
+    showError(error, 'Không thể tải danh sách tài liệu.')
   } finally {
     isLoading.value = false
   }
@@ -112,15 +122,44 @@ watch(() => props.meetingId, () => {
   loadData()
 }, { immediate: true })
 
-const deleteItem = async id => {
-  if (confirm('Xóa tài liệu này khỏi cuộc họp?')) {
-    await deleteMeetingDocument(props.meetingId, id)
-    loadData()
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
   }
 }
 
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa tài liệu',
+    message: `Bạn có chắc chắn muốn xóa "${item.title}" khỏi cuộc họp không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteMeetingDocument(props.meetingId, item.id)
+      showSuccess('Xóa tài liệu thành công.')
+      loadData()
+    },
+  })
+}
+
 const submitAdd = async () => {
-  if (!formData.value.title) return alert('Vui lòng nhập tên tài liệu')
+  if (!formData.value.title) {
+    showSnackbar('Vui lòng nhập tên tài liệu.', 'warning')
+
+    return
+  }
   
   isSubmitting.value = true
   try {
@@ -145,8 +184,10 @@ const submitAdd = async () => {
       filesToUpload.forEach(f => payload.append('files[]', f))
     } else {
       isSubmitting.value = false
-      
-      return alert('Vui lòng chọn file tải lên')
+
+      showSnackbar('Vui lòng chọn file tải lên.', 'warning')
+
+      return
     }
     
     // We import createMeetingDocument below if we didn't already
@@ -162,18 +203,11 @@ const submitAdd = async () => {
       document_signer_id: null,
       file: [],
     }
+    showSuccess('Thêm tài liệu thành công.')
     loadData()
   } catch (err) {
     console.error('Lỗi khi thêm file', err)
-    let errorMsg = 'Có lỗi xảy ra'
-    if (err.response?._data?.errors) {
-      errorMsg = Object.values(err.response._data.errors).flat().join('\n')
-    } else if (err.data?.errors) {
-      errorMsg = Object.values(err.data.errors).flat().join('\n')
-    } else if (err.message) {
-      errorMsg = err.message
-    }
-    alert(errorMsg)
+    showError(err, 'Có lỗi xảy ra khi thêm tài liệu.')
   } finally {
     isSubmitting.value = false
   }
@@ -203,7 +237,7 @@ const submitAdd = async () => {
         class="text-no-wrap"
       >
         <template #item.actions="{ item }">
-          <IconBtn @click="deleteItem(item.id)">
+          <IconBtn @click="deleteItem(item)">
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
@@ -322,5 +356,21 @@ const submitAdd = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </div>
 </template>

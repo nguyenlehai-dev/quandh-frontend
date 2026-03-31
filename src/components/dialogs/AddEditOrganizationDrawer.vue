@@ -1,5 +1,8 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 
 const props = defineProps({
   isDrawerOpen: {
@@ -27,6 +30,7 @@ const form = ref({
 
 const saving = ref(false)
 const parentOptions = ref([])
+const { snackbar, showSnackbar, showError } = useActionFeedback()
 
 // Fetch parent organizations for the dropdown
 const fetchParentOptions = async () => {
@@ -75,7 +79,11 @@ const closeNavigationDrawer = () => {
 }
 
 const onSubmit = async () => {
-  if (!form.value.name) return
+  if (!form.value.name?.trim()) {
+    showSnackbar('Vui lòng nhập tên tổ chức.', 'warning')
+
+    return
+  }
 
   saving.value = true
   try {
@@ -91,10 +99,13 @@ const onSubmit = async () => {
       })
     }
 
-    emit('saved')
+    emit('saved', {
+      message: props.organization?.id ? 'Cập nhật tổ chức thành công.' : 'Thêm mới tổ chức thành công.',
+    })
     closeNavigationDrawer()
   } catch (err) {
     console.error('Save organization error:', err)
+    showError(err, props.organization?.id ? 'Không thể cập nhật tổ chức.' : 'Không thể thêm mới tổ chức.')
   } finally {
     saving.value = false
   }
@@ -178,4 +189,10 @@ const onSubmit = async () => {
       </VCard>
     </PerfectScrollbar>
   </VNavigationDrawer>
+
+  <ActionSnackbar
+    v-model="snackbar.show"
+    :message="snackbar.message"
+    :color="snackbar.color"
+  />
 </template>

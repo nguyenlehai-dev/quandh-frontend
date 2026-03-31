@@ -1,5 +1,5 @@
 <script setup>
-import { downloadPermissionTemplate, importPermissions } from '../services/permissionService'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 
 const { t } = useI18n()
 
@@ -10,10 +10,7 @@ const permissions = ref([])
 const totalItems = ref(0)
 const stats = ref({ groups: 0, total: 0 })
 
-const isEditDialogVisible = ref(false)
-const editingPermissionName = ref('')
-const editingPermissionDescription = ref('')
-const editingPermissionId = ref(null)
+const { snackbar, showError } = useActionFeedback()
 
 const fetchStats = async () => {
   try {
@@ -26,6 +23,7 @@ const fetchStats = async () => {
   }
   catch (err) {
     console.error('Fetch permission stats error:', err)
+    showError(err, 'Không thể tải thống kê quyền hạn.')
   }
 }
 
@@ -49,6 +47,7 @@ const fetchPermissions = async () => {
   catch (err) {
     console.error('Fetch permissions error:', err)
     permissions.value = []
+    showError(err, 'Không thể tải danh sách quyền hạn.')
   }
 }
 
@@ -157,18 +156,6 @@ const roleBadgeColor = name => {
   return map[name?.toLowerCase()] || 'info'
 }
 
-const editPermission = perm => {
-  editingPermissionName.value = perm.name
-  editingPermissionDescription.value = perm.description
-  editingPermissionId.value = perm.id
-  isEditDialogVisible.value = true
-}
-
-const onPermissionSaved = () => {
-  fetchPermissions()
-  fetchStats()
-}
-
 const isExporting = ref(false)
 
 const handleExport = async () => {
@@ -190,58 +177,10 @@ const handleExport = async () => {
   }
   catch (err) {
     console.error('Export permissions error:', err)
+    showError(err, 'Không thể xuất dữ liệu quyền hạn.')
   }
   finally {
     isExporting.value = false
-  }
-}
-
-const isImportDialogVisible = ref(false)
-const importFile = ref(null)
-const isImporting = ref(false)
-
-const handleImport = async () => {
-  if (!importFile.value) return
-  isImporting.value = true
-  try {
-    await importPermissions(importFile.value)
-    isImportDialogVisible.value = false
-    importFile.value = null
-    fetchPermissions()
-    fetchStats()
-  }
-  catch (err) {
-    console.error('Import error:', err)
-  }
-  finally {
-    isImporting.value = false
-  }
-}
-
-const isDownloadingTemplate = ref(false)
-
-const handleDownloadTemplate = async () => {
-  isDownloadingTemplate.value = true
-  try {
-    const blob = await downloadPermissionTemplate()
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
-
-    a.href = url
-    a.download = 'permissions_template.xlsx'
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    }, 5000)
-  }
-  catch (err) {
-    console.error('Download template error:', err)
-  }
-  finally {
-    isDownloadingTemplate.value = false
   }
 }
 
@@ -251,7 +190,6 @@ const headers = [
   { title: t('permissions.permissions.headers.group'), key: 'group', sortable: false },
   { title: t('permissions.permissions.headers.roles'), key: 'roles', sortable: false },
   { title: t('permissions.permissions.headers.created_at'), key: 'created_at', sortable: false, width: '160px' },
-  { title: t('permissions.permissions.headers.actions'), key: 'actions', sortable: false, width: '100px', align: 'center' },
 ]
 </script>
 
@@ -308,9 +246,6 @@ const headers = [
               <span class="text-h6 font-weight-bold">{{ t('permissions.permissions.page.filter') }}</span>
             </div>
             <div class="d-flex align-center gap-2">
-              <VBtn v-if="$can('import', 'Permission')" variant="tonal" color="info" prepend-icon="tabler-download" @click="isImportDialogVisible = true">
-                {{ t('permissions.permissions.page.import_excel') }}
-              </VBtn>
               <VBtn v-if="$can('export', 'Permission')" variant="tonal" color="secondary" prepend-icon="tabler-upload" :loading="isExporting" @click="handleExport">
                 {{ t('permissions.permissions.page.export_excel') }}
               </VBtn>
@@ -321,6 +256,15 @@ const headers = [
             <VRow>
               <VCol cols="12" md="6">
                 <AppTextField v-model="search" :placeholder="t('permissions.permissions.page.search_placeholder')" :label="t('permissions.permissions.page.search_label')" prepend-inner-icon="tabler-search" clearable />
+              </VCol>
+              <VCol cols="12">
+                <VAlert
+                  type="info"
+                  variant="tonal"
+                  title="Quyền hạn hệ thống"
+                >
+                  Danh sách quyền hạn được sinh theo cấu hình và mã nguồn hệ thống. Màn này chỉ dùng để tra cứu, tìm kiếm và xuất dữ liệu.
+                </VAlert>
               </VCol>
             </VRow>
           </VCardText>
@@ -361,14 +305,6 @@ const headers = [
             <template #item.created_at="{ item }">
               <span class="text-body-2 text-disabled">{{ item.created_at || t('permissions.permissions.page.dash') }}</span>
             </template>
-
-            <template #item.actions="{ item }">
-              <IconBtn v-if="!isGroupRow(item) && $can('update', 'Permission')" size="small" color="info" @click="editPermission(item)">
-                <VIcon icon="tabler-pencil" size="18" />
-              </IconBtn>
-              <span v-else class="text-disabled">{{ t('permissions.permissions.page.dash') }}</span>
-            </template>
-
             <template #bottom>
               <TablePagination v-model:page="page" :items-per-page="itemsPerPage" :total-items="totalItems" />
             </template>
@@ -377,27 +313,11 @@ const headers = [
       </VCol>
     </VRow>
 
-    <AddEditPermissionDialog v-model:is-dialog-visible="isEditDialogVisible" :permission-name="editingPermissionName" :permission-id="editingPermissionId" :permission-description="editingPermissionDescription" @saved="onPermissionSaved" />
-
-    <VDialog v-model="isImportDialogVisible" max-width="500">
-      <VCard :title="t('permissions.permissions.page.import_dialog_title')">
-        <VCardText>
-          <div class="mb-5">
-            <VBtn variant="tonal" color="success" size="small" prepend-icon="tabler-download" :loading="isDownloadingTemplate" @click="handleDownloadTemplate">
-              {{ t('permissions.permissions.page.download_template') }}
-            </VBtn>
-            <div class="text-caption mt-1 text-disabled">{{ t('permissions.permissions.page.import_hint') }}</div>
-          </div>
-
-          <VFileInput v-model="importFile" :label="t('permissions.permissions.page.select_excel')" accept=".xlsx,.xls,.csv" prepend-icon="tabler-file-spreadsheet" />
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn variant="tonal" @click="isImportDialogVisible = false">{{ t('permissions.permissions.page.cancel') }}</VBtn>
-          <VBtn color="primary" :loading="isImporting" :disabled="!importFile" @click="handleImport">{{ t('permissions.permissions.page.import') }}</VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </div>
 </template>
 

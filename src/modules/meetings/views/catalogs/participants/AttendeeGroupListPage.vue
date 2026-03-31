@@ -1,11 +1,32 @@
 <script setup>
-import { deleteAttendeeGroup, createAttendeeGroup, updateAttendeeGroup, exportAttendeeGroups } from '@/modules/meetings/services/meetingService'
+/* eslint-disable camelcase */
+
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deleteAttendeeGroup, createAttendeeGroup, updateAttendeeGroup, exportAttendeeGroups, changeAttendeeGroupStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
+const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  confirmText: 'Xác nhận',
+  confirmColor: 'primary',
+  action: null,
+})
+
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+
+const statusOptions = [
+  { title: 'Hoạt động', value: 'active' },
+  { title: 'Tạm khóa', value: 'inactive' },
+]
 
 const headers = [
   { title: 'Tên Nhóm', key: 'name' },
@@ -19,6 +40,7 @@ const headers = [
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/attendee-groups', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -76,10 +98,35 @@ const openEditDialog = item => {
   isEditDialogVisible.value = true
 }
 
+const openConfirmDialog = options => {
+  confirmDialog.value = {
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText ?? 'Xác nhận',
+    confirmColor: options.confirmColor ?? 'primary',
+    action: options.action ?? null,
+  }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
 const submitForm = async () => {
   if (!formData.value.name) {
-    alert('Vui lòng nhập tên nhóm')
-    
+    showSnackbar('Vui lòng nhập tên nhóm.', 'warning')
+
     return
   }
   isSubmitting.value = true
@@ -87,23 +134,50 @@ const submitForm = async () => {
     if (isEditDialogVisible.value) {
       await updateAttendeeGroup(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
+      showSuccess('Cập nhật nhóm người dự họp thành công.')
     } else {
       await createAttendeeGroup(formData.value) 
       isAddDialogVisible.value = false
+      showSuccess('Tạo nhóm người dự họp thành công.')
     }
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể lưu nhóm người dự họp.')
     console.error('Action failed:', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = async id => {
-  if (confirm('Xóa nhóm này?')) {
-    await deleteAttendeeGroup(id)
-    fetchItems()
-  }
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa nhóm người dự họp',
+    message: `Bạn có chắc chắn muốn xóa nhóm "${item.name}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteAttendeeGroup(item.id)
+      showSuccess('Xóa nhóm người dự họp thành công.')
+      fetchItems()
+    },
+  })
+}
+
+const toggleItemStatus = item => {
+  const nextStatus = item.status === 'active' ? 'inactive' : 'active'
+  const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái nhóm người dự họp',
+    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changeAttendeeGroupStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái nhóm người dự họp thành công.')
+      fetchItems()
+    },
+  })
 }
 
 // === Dialog Xem chi tiết thành viên ===
@@ -122,12 +196,14 @@ const exportData = async () => {
   try {
     const res = await exportAttendeeGroups({
       search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
     downloadBlob(res, 'nhom-nguoi-du-hop.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu nhóm người dự họp.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -160,6 +236,20 @@ const exportData = async () => {
             <AppTextField
               v-model="searchQuery"
               placeholder="Tìm kiếm nhóm..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="6"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trạng thái
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
+              placeholder="Lọc theo trạng thái"
               density="compact"
             />
           </VCol>
@@ -272,8 +362,23 @@ const exportData = async () => {
               </VTooltip>
             </IconBtn>
             <IconBtn
+              v-if="$can('update', 'AttendeeGroup')"
+              @click="toggleItemStatus(item)"
+            >
+              <VIcon
+                :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
+                :color="item.status === 'active' ? 'success' : 'warning'"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Đổi trạng thái
+              </VTooltip>
+            </IconBtn>
+            <IconBtn
               v-if="$can('delete', 'AttendeeGroup')"
-              @click="deleteItem(item.id)"
+              @click="deleteItem(item)"
             >
               <VIcon
                 icon="tabler-trash"
@@ -515,5 +620,21 @@ const exportData = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>

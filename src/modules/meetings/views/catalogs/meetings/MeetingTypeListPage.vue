@@ -1,12 +1,31 @@
 <script setup>
-import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes } from '@/modules/meetings/services/meetingService'
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes, changeMeetingTypeStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
+const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
 const selectedRows = ref([])
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  confirmText: 'Xác nhận',
+  confirmColor: 'primary',
+  action: null,
+})
+
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+
+const statusOptions = [
+  { title: 'Hoạt động', value: 'active' },
+  { title: 'Tạm khóa', value: 'inactive' },
+]
 
 const headers = [
   { title: 'Loại cuộc họp', key: 'name' },
@@ -21,6 +40,7 @@ const headers = [
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-types', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -61,46 +81,90 @@ const rules = {
   required: value => !!value || 'Trường này là bắt buộc',
 }
 
+const openConfirmDialog = options => {
+  confirmDialog.value = {
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText ?? 'Xác nhận',
+    confirmColor: options.confirmColor ?? 'primary',
+    action: options.action ?? null,
+  }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
 const submitForm = async (type = 'add') => {
   const form = type === 'add' ? refFormAdd.value : refFormEdit.value
   const { valid } = await form.validate()
 
-  if (!valid) return
+  if (!valid) {
+    showSnackbar('Vui lòng kiểm tra lại thông tin bắt buộc.', 'warning')
+
+    return
+  }
 
   isSubmitting.value = true
   try {
     if (isEditDialogVisible.value) {
       await updateMeetingType(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
+      showSuccess('Cập nhật loại cuộc họp thành công.')
     } else {
       await createMeetingType(formData.value)
       isAddDialogVisible.value = false
+      showSuccess('Tạo loại cuộc họp thành công.')
     }
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể lưu loại cuộc họp.')
     console.error('Action failed:', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = async id => {
-  if (confirm('Xóa loại cuộc họp này?')) {
-    await deleteMeetingType(id)
-    fetchItems()
-  }
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa loại cuộc họp',
+    message: `Bạn có chắc chắn muốn xóa "${item.name}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteMeetingType(item.id)
+      showSuccess('Xóa loại cuộc họp thành công.')
+      fetchItems()
+    },
+  })
 }
 
 const bulkDelete = async () => {
-  if (confirm(`Bạn có chắc chắn muốn xóa ${selectedRows.value.length} mục đã chọn?`)) {
-    try {
+  if (!selectedRows.value.length) return
+
+  openConfirmDialog({
+    title: 'Xóa hàng loạt',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} loại cuộc họp đã chọn không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
       await bulkDeleteMeetingTypes({ ids: selectedRows.value })
       selectedRows.value = []
+      showSuccess('Xóa hàng loạt loại cuộc họp thành công.')
       fetchItems()
-    } catch (err) {
-      alert('Có lỗi xảy ra khi xóa hàng loạt')
-    }
-  }
+    },
+  })
 }
 
 const bulkUpdateStatus = async () => {
@@ -114,26 +178,48 @@ const confirmBulkUpdateStatus = async () => {
     await bulkUpdateMeetingTypes({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
     selectedRows.value = []
     isBulkUpdateDialogVisible.value = false
+    showSuccess('Cập nhật trạng thái hàng loạt thành công.')
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể cập nhật trạng thái hàng loạt.')
     console.error('Có lỗi xảy ra khi cập nhật hàng loạt', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
+const toggleItemStatus = item => {
+  const nextStatus = item.status === 'active' ? 'inactive' : 'active'
+  const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái loại cuộc họp',
+    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changeMeetingTypeStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái loại cuộc họp thành công.')
+      fetchItems()
+    },
+  })
+}
+
 const isExporting = ref(false)
+
 const exportData = async () => {
   isExporting.value = true
   try {
     const res = await exportMeetingTypes({
       search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
     downloadBlob(res, 'loai-cuoc-hop.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu loại cuộc họp.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -166,6 +252,20 @@ const exportData = async () => {
             <AppTextField
               v-model="searchQuery"
               placeholder="Tìm kiếm loại cuộc họp..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="6"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trạng thái
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
+              placeholder="Lọc theo trạng thái"
               density="compact"
             />
           </VCol>
@@ -311,8 +411,23 @@ const exportData = async () => {
               </VTooltip>
             </IconBtn>
             <IconBtn
+              v-if="$can('update', 'MeetingType')"
+              @click="toggleItemStatus(item)"
+            >
+              <VIcon
+                :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
+                :color="item.status === 'active' ? 'success' : 'warning'"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Đổi trạng thái
+              </VTooltip>
+            </IconBtn>
+            <IconBtn
               v-if="$can('delete', 'MeetingType')"
-              @click="deleteItem(item.id)"
+              @click="deleteItem(item)"
             >
               <VIcon
                 icon="tabler-trash"
@@ -496,5 +611,21 @@ const exportData = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>

@@ -1,4 +1,5 @@
 <script setup>
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { createMeetingVote, deleteMeetingVote, fetchMeetingVotes } from '@/modules/meetings/services/meetingService'
 import { ref, watch } from 'vue'
 
@@ -8,6 +9,10 @@ const props = defineProps({
 
 const items = ref([])
 const isLoading = ref(false)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 // Dialog Add
 const isAddDialogVisible = ref(false)
@@ -61,15 +66,46 @@ watch(() => props.meetingId, () => {
   loadData()
 }, { immediate: true })
 
-const deleteItem = async id => {
-  if (confirm('Xóa biểu quyết này?')) {
-    await deleteMeetingVote(props.meetingId, id)
-    loadData()
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  }
+  catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  }
+  finally {
+    isConfirming.value = false
   }
 }
 
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa biểu quyết',
+    message: `Bạn có chắc chắn muốn xóa biểu quyết "${item.title}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deleteMeetingVote(props.meetingId, item.id)
+      showSuccess('Xóa biểu quyết thành công.')
+      loadData()
+    },
+  })
+}
+
 const submitAdd = async () => {
-  if (!formData.value.title) return alert('Vui lòng nhập tiêu đề biểu quyết')
+  if (!formData.value.title) {
+    showSnackbar('Vui lòng nhập tiêu đề biểu quyết.', 'warning')
+
+    return
+  }
 
   isSubmitting.value = true
   try {
@@ -77,19 +113,12 @@ const submitAdd = async () => {
 
     isAddDialogVisible.value = false
     formData.value = { title: '', type: 'public', description: '' }
+    showSuccess('Thêm biểu quyết thành công.')
     loadData()
   }
   catch (err) {
     console.error('Lỗi khi thêm biểu quyết', err)
-    
-    // Thêm cảnh báo nếu backend trả về lỗi validation
-    let msg = 'Có lỗi xảy ra khi thêm biểu quyết.'
-    if (err.data?.errors) {
-      msg = Object.values(err.data.errors).flat().join('\\n')
-    } else if (err.data?.message) {
-      msg = err.data.message
-    }
-    alert(msg)
+    showError(err, 'Có lỗi xảy ra khi thêm biểu quyết.')
   }
   finally {
     isSubmitting.value = false
@@ -137,7 +166,7 @@ const submitAdd = async () => {
           </VChip>
         </template>
         <template #item.actions="{ item }">
-          <IconBtn @click="deleteItem(item.id)">
+          <IconBtn @click="deleteItem(item)">
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
@@ -201,5 +230,21 @@ const submitAdd = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </div>
 </template>

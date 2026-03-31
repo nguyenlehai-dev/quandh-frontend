@@ -1,6 +1,7 @@
 <script setup>
 import '@/modules/meetings/assets/meeting-styles.css'
-import { deleteMeeting, exportMeetings } from '@/modules/meetings/services/meetingService'
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deleteMeeting, exportMeetings, changeMeetingStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -14,6 +15,10 @@ const page = ref(1)
 const sortBy = ref()
 const orderBy = ref()
 const selectedRows = ref([])
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 // Compute table options
 const updateOptions = options => {
@@ -52,21 +57,17 @@ const activeCount = computed(() => items.value.filter(m => ['active', 'in_progre
 const completedCount = computed(() => items.value.filter(m => m.status === 'completed').length)
 
 const deleteItem = async id => {
-  console.log('deleteItem triggered with id:', id)
-  if (window.confirm('Bạn có chắc chắn muốn xóa cuộc họp này?')) {
-    try {
-      console.log('Calling deleteMeeting API...')
+  openConfirmDialog({
+    title: 'Xóa cuộc họp',
+    message: 'Bạn có chắc chắn muốn xóa cuộc họp này không?',
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
       await deleteMeeting(id)
-      console.log('deleteMeeting successful, refetching...')
+      showSuccess('Xóa cuộc họp thành công.')
       fetchItems()
-    } catch (error) {
-      console.error('Lỗi khi xóa cuộc họp:', error)
-
-      const msg = error?.response?.data?.message || error.message || 'Có lỗi xảy ra'
-      
-      window.alert('Không thể xóa: ' + msg)
-    }
-  }
+    },
+  })
 }
 
 const resolveStatusLabel = status => {
@@ -84,6 +85,48 @@ const resolveStatusColor = status => {
   if (status === 'completed') return 'success'
 
   return 'secondary'
+}
+
+const meetingStatusOptions = [
+  { title: 'Nháp', value: 'draft' },
+  { title: 'Kích hoạt', value: 'active' },
+  { title: 'Đang họp', value: 'in_progress' },
+  { title: 'Đã kết thúc', value: 'completed' },
+]
+
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (error) {
+    showError(error, 'Không thể thực hiện thao tác này.')
+    console.error('Action failed:', error)
+  } finally {
+    isConfirming.value = false
+  }
+}
+
+const requestStatusChange = (item, nextStatus) => {
+  const nextLabel = resolveStatusLabel(nextStatus)
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái cuộc họp',
+    message: `Bạn có chắc chắn muốn chuyển "${item.title}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changeMeetingStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái cuộc họp thành công.')
+      fetchItems()
+    },
+  })
 }
 
 const resetFilters = () => {
@@ -105,6 +148,7 @@ const exportData = async () => {
 
     downloadBlob(res, 'danh-sach-cuoc-hop.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu cuộc họp.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -423,6 +467,24 @@ const exportData = async () => {
                 </IconBtn>
               </template>
               <VList density="compact">
+                <VListSubheader>Đổi trạng thái</VListSubheader>
+                <VListItem
+                  v-for="statusOption in meetingStatusOptions.filter(option => option.value !== item.status)"
+                  :key="statusOption.value"
+                  @click="requestStatusChange(item, statusOption.value)"
+                >
+                  <template #prepend>
+                    <VIcon
+                      icon="tabler-refresh"
+                      size="18"
+                      color="warning"
+                    />
+                  </template>
+                  <VListItemTitle>
+                    {{ statusOption.title }}
+                  </VListItemTitle>
+                </VListItem>
+                <VDivider class="my-1" />
                 <VListItem
                   v-if="$can('delete', 'Meeting')"
                   @click="deleteItem(item.id)"
@@ -457,6 +519,22 @@ const exportData = async () => {
         </template>
       </VDataTableServer>
     </div>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>
 

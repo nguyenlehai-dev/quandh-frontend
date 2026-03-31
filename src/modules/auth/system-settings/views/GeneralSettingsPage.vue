@@ -1,5 +1,8 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import { h, ref, onMounted } from 'vue'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { cookieRef } from '@layouts/stores/config'
 import { getI18n } from '@/plugins/i18n'
 import { themeConfig, layoutConfig as initialLayoutConfig } from '@themeConfig'
@@ -7,6 +10,7 @@ import { layoutConfig as activeLayoutConfig } from '@layouts'
 import SettingsLayout from './SettingsLayout.vue'
 
 const { t } = useI18n()
+const { snackbar, showSuccess, showError } = useActionFeedback()
 const loading = ref(false)
 const saving = ref(false)
 
@@ -33,6 +37,11 @@ const timeFormatOptions = [
 const refFaviconInput = ref()
 const refLogoInput = ref()
 
+const buildLogoNode = logo => h('img', {
+  src: logo || '/src/assets/logo.svg',
+  style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;',
+})
+
 const syncFavicon = icon => {
   let link = document.querySelector("link[rel~='icon']")
   if (!link) {
@@ -45,12 +54,7 @@ const syncFavicon = icon => {
 }
 
 const syncLogo = logo => {
-  if (!logo) return
-
-  const imgNode = h('img', {
-    src: logo,
-    style: 'height: 38px; max-width: 100%; object-fit: contain; margin-left: -5px;',
-  })
+  const imgNode = buildLogoNode(logo)
 
   themeConfig.app.logo = imgNode
   initialLayoutConfig.app.logo = imgNode
@@ -60,6 +64,9 @@ const syncLogo = logo => {
 const syncCopyright = copyright => {
   window.dispatchEvent(new CustomEvent('app-settings-updated', {
     detail: {
+      icon: settings.value.icon || '',
+      logo: settings.value.logo || '',
+      language: settings.value.language || 'vi',
       copyright: copyright || '',
     },
   }))
@@ -103,9 +110,11 @@ const saveSettings = async () => {
     syncFavicon(settings.value.icon)
     syncLogo(settings.value.logo)
     syncCopyright(settings.value.copyright)
+    showSuccess('Lưu cấu hình chung thành công.')
   }
   catch (err) {
     console.error('Save general settings error:', err)
+    showError(err, 'Không thể lưu cấu hình chung.')
   }
   finally {
     saving.value = false
@@ -288,5 +297,11 @@ onMounted(() => fetchSettings())
         </div>
       </VCardText>
     </VCard>
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </SettingsLayout>
 </template>

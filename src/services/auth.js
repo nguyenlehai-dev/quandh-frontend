@@ -295,6 +295,11 @@ export const fetchMe = async ({ force = false } = {}) => {
     catch (err) {
       if (err?.code === 403 || err?.status === 403 || err?.statusCode === 403) {
         sessionStorage.setItem(FETCH_ME_FORBIDDEN_KEY, '1')
+        clearCurrentOrganization()
+
+        if (typeof window !== 'undefined' && !['/login', '/select-organization'].includes(window.location.pathname)) {
+          window.location.assign('/select-organization')
+        }
 
         return null
       }

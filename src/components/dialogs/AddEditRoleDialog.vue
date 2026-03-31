@@ -1,5 +1,6 @@
 <script setup>
 import { VForm } from 'vuetify/components/VForm'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 
 const props = defineProps({
   rolePermissions: {
@@ -28,6 +29,7 @@ const allPermissions = ref([])
 const loadingPermissions = ref(false)
 const saving = ref(false)
 const submitError = ref('')
+const { snackbar, showError, showSnackbar } = useActionFeedback()
 
 const fetchPermissions = async () => {
   loadingPermissions.value = true
@@ -48,6 +50,7 @@ const fetchPermissions = async () => {
   catch (err) {
     console.error('Fetch permissions error:', err)
     allPermissions.value = []
+    showError(err, 'Không thể tải danh sách quyền cho vai trò.')
   }
   finally {
     loadingPermissions.value = false
@@ -203,7 +206,7 @@ const permissionGroups = computed(() => {
     const groupNoun = groupLabel.replace(/^Quản lý\s*/i, '')
 
     groups[prefix].permissions.push({
-      ...p,
+      permission: p,
       displayLabel: `${actionLabel} ${groupNoun}`.trim(),
     })
   })
@@ -218,7 +221,7 @@ const permissionGroups = computed(() => {
           const keyword = permissionSearch.value.toLowerCase()
 
           return permission.displayLabel.toLowerCase().includes(keyword)
-            || permission.name.toLowerCase().includes(keyword)
+            || permission.permission.name.toLowerCase().includes(keyword)
         })
         .sort((left, right) => sortByLabel(left.displayLabel, right.displayLabel)),
     }))
@@ -233,17 +236,17 @@ const permissionGroups = computed(() => {
 })
 
 const isGroupChecked = group => {
-  return group.permissions.length > 0 && group.permissions.every(p => p.checked)
+  return group.permissions.length > 0 && group.permissions.every(p => p.permission.checked)
 }
 
 const isGroupIndeterminate = group => {
-  const checked = group.permissions.filter(p => p.checked).length
+  const checked = group.permissions.filter(p => p.permission.checked).length
 
   return checked > 0 && checked < group.permissions.length
 }
 
 const toggleGroup = (group, val) => {
-  group.permissions.forEach(p => p.checked = val)
+  group.permissions.forEach(p => p.permission.checked = val)
 }
 
 // When dialog opens, fetch permissions and populate form
@@ -282,7 +285,12 @@ watch(() => props.isDialogVisible, async visible => {
 })
 
 const onSubmit = async () => {
-  if (!role.value) return
+  const roleName = role.value?.trim()
+  if (!roleName) {
+    showSnackbar('Vui lòng nhập tên vai trò.', 'warning')
+
+    return
+  }
 
   saving.value = true
   submitError.value = ''
@@ -293,7 +301,7 @@ const onSubmit = async () => {
       await $api(`/roles/${roleId.value}`, {
         method: 'PUT',
         body: {
-          name: role.value,
+          name: roleName,
           scope: roleScope.value,
           // eslint-disable-next-line camelcase
           guard_name: roleGuardName.value,
@@ -301,12 +309,13 @@ const onSubmit = async () => {
           permission_ids: selectedIds,
         },
       })
+      emit('saved', { message: 'Cập nhật vai trò thành công.' })
     }
     else {
       await $api('/roles', {
         method: 'POST',
         body: {
-          name: role.value,
+          name: roleName,
           scope: roleScope.value,
           // eslint-disable-next-line camelcase
           guard_name: roleGuardName.value,
@@ -314,9 +323,9 @@ const onSubmit = async () => {
           permission_ids: selectedIds,
         },
       })
+      emit('saved', { message: 'Tạo vai trò thành công.' })
     }
 
-    emit('saved')
     emit('update:isDialogVisible', false)
     isSelectAll.value = false
     refPermissionForm.value?.reset()
@@ -324,6 +333,7 @@ const onSubmit = async () => {
   catch (err) {
     console.error('Save role error:', err)
     submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || 'Không thể cập nhật vai trò.'
+    showError(err, submitError.value)
   }
   finally {
     saving.value = false
@@ -489,7 +499,7 @@ const onReset = () => {
                   class="py-1"
                 >
                   <VCheckbox
-                    v-model="permission.checked"
+                    v-model="permission.permission.checked"
                     :label="permission.displayLabel"
                     hide-details
                     density="compact"
@@ -530,6 +540,12 @@ const onReset = () => {
         </VBtn>
       </VCardActions>
     </VCard>
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </VDialog>
 </template>
 

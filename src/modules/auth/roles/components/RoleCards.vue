@@ -1,5 +1,6 @@
 <script setup>
 import girlUsingMobile from '@images/pages/girl-using-mobile.png'
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { fetchRole } from '../services/roleService'
 
 const emit = defineEmits(['changed'])
@@ -12,6 +13,10 @@ const totalItems = ref(0)
 const page = ref(1)
 const itemsPerPage = ref(9)
 const search = ref('')
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 const itemsPerPageOptions = [
   { title: '6', value: 6 },
@@ -41,8 +46,8 @@ const fetchRoles = async () => {
         search: search.value || undefined,
         limit: itemsPerPage.value,
         page: page.value,
-        ['sort_by']: 'name',
-        ['sort_order']: 'asc',
+        ['sort_by']: 'created_at',
+        ['sort_order']: 'desc',
       },
     })
 
@@ -65,6 +70,7 @@ const fetchRoles = async () => {
     console.error('Fetch roles error:', err)
     roles.value = []
     totalItems.value = 0
+    showError(err, 'Không thể tải danh sách vai trò.')
   }
   finally {
     loading.value = false
@@ -90,6 +96,7 @@ const isAddRoleDialogVisible = ref(false)
 
 const editPermission = async item => {
   editingRole.value = true
+  roleDetail.value = { id: null, name: '', permissions: [] }
   try {
     const res = await fetchRole(item.id)
     const detail = res.data ?? res
@@ -105,38 +112,57 @@ const editPermission = async item => {
   }
   catch (err) {
     console.error('Fetch role detail error:', err)
-    roleDetail.value = {
-      id: item.id,
-      name: item.role,
-      scope: item.scope,
-      // eslint-disable-next-line camelcase
-      guard_name: item.guardName ?? 'api',
-      permissions: item.permissions,
-    }
+    showError(err, 'Không thể tải chi tiết vai trò.')
   }
   finally {
     editingRole.value = false
-    isRoleDialogVisible.value = true
+    if (roleDetail.value?.id === item.id)
+      isRoleDialogVisible.value = true
   }
 }
 
-const onRoleSaved = () => {
+const onRoleSaved = payload => {
   page.value = 1
+  if (payload?.message)
+    showSuccess(payload.message)
+
   fetchRoles()
   emit('changed')
 }
 
-const deleteRole = async item => {
-  if (confirm(`Bạn có chắc chắn muốn xóa vai trò "${item.role}" không?`)) {
-    try {
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  }
+  catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  }
+  finally {
+    isConfirming.value = false
+  }
+}
+
+const deleteRole = item => {
+  openConfirmDialog({
+    title: 'Xóa vai trò',
+    message: `Bạn có chắc chắn muốn xóa vai trò "${item.role}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
       await $api(`/roles/${item.id}`, { method: 'DELETE' })
+      showSuccess('Xóa vai trò thành công.')
       fetchRoles()
       emit('changed')
-    } catch (err) {
-      console.error('Delete role error:', err)
-      alert(err.message || 'Có lỗi xảy ra khi xóa vai trò.')
-    }
-  }
+    },
+  })
 }
 </script>
 
@@ -152,6 +178,14 @@ const deleteRole = async item => {
         clearable
         style="max-inline-size: 360px;"
       />
+      <VBtn
+        v-if="$can('create', 'Role')"
+        color="primary"
+        prepend-icon="tabler-plus"
+        @click="isAddRoleDialogVisible = true"
+      >
+        Thêm vai trò
+      </VBtn>
     </div>
 
     <VRow>
@@ -192,6 +226,7 @@ const deleteRole = async item => {
             </h4>
             <div class="d-flex align-center gap-2">
               <a
+                v-if="$can('update', 'Role')"
                 href="javascript:void(0)"
                 class="text-info font-weight-medium text-body-2 text-decoration-none"
                 @click="editPermission(item)"
@@ -199,6 +234,7 @@ const deleteRole = async item => {
                 {{ editingRole && roleDetail.id === item.id ? t('roles.roles.card.loading') : t('roles.roles.card.edit_role') }}
               </a>
               <IconBtn
+                v-if="$can('delete', 'Role')"
                 size="small"
                 variant="text"
                 color="error"
@@ -216,6 +252,7 @@ const deleteRole = async item => {
 
       <!-- 👉 Add New Role -->
       <VCol
+        v-if="$can('create', 'Role')"
         cols="12"
         sm="6"
         lg="4"
@@ -292,6 +329,22 @@ const deleteRole = async item => {
       v-model:is-dialog-visible="isRoleDialogVisible"
       v-model:role-permissions="roleDetail"
       @saved="onRoleSaved"
+    />
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
     />
   </div>
 </template>

@@ -1,11 +1,22 @@
 <script setup>
-import { deletePostCategory, createPostCategory, updatePostCategory, exportPostCategories } from '@/modules/meetings/services/meetingService'
+import { useActionFeedback } from '@/composables/useActionFeedback'
+import { deletePostCategory, createPostCategory, updatePostCategory, exportPostCategories, changePostCategoryStatus } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
+const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+
+const statusOptions = [
+  { title: 'Hoạt động', value: 'active' },
+  { title: 'Tạm khóa', value: 'inactive' },
+]
 
 const headers = [
   { title: 'Tên Thể loại', key: 'name' },
@@ -17,6 +28,7 @@ const headers = [
 const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/post-categories', {
   query: {
     search: computed(() => searchQuery.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -42,9 +54,27 @@ const openEditDialog = item => {
   isEditDialogVisible.value = true
 }
 
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  } catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
 const submitForm = async () => {
   if (!formData.value.name) {
-    alert('Vui lòng nhập tên thể loại')
+    showSnackbar('Vui lòng nhập tên thể loại.', 'warning')
 
     return
   }
@@ -53,23 +83,50 @@ const submitForm = async () => {
     if (isEditDialogVisible.value) {
       await updatePostCategory(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
+      showSuccess('Cập nhật thể loại bài viết thành công.')
     } else {
       await createPostCategory(formData.value)
       isAddDialogVisible.value = false
+      showSuccess('Tạo thể loại bài viết thành công.')
     }
     fetchItems()
   } catch (err) {
+    showError(err, 'Không thể lưu thể loại bài viết.')
     console.error('Action failed:', err)
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = async id => {
-  if (confirm('Xóa thể loại này?')) {
-    await deletePostCategory(id)
-    fetchItems()
-  }
+const deleteItem = item => {
+  openConfirmDialog({
+    title: 'Xóa thể loại bài viết',
+    message: `Bạn có chắc chắn muốn xóa "${item.name}" không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await deletePostCategory(item.id)
+      showSuccess('Xóa thể loại bài viết thành công.')
+      fetchItems()
+    },
+  })
+}
+
+const toggleItemStatus = item => {
+  const nextStatus = item.status === 'active' ? 'inactive' : 'active'
+  const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái thể loại bài viết',
+    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang trạng thái "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await changePostCategoryStatus(item.id, nextStatus)
+      showSuccess('Đổi trạng thái thể loại bài viết thành công.')
+      fetchItems()
+    },
+  })
 }
 
 const isExporting = ref(false)
@@ -79,12 +136,14 @@ const exportData = async () => {
   try {
     const res = await exportPostCategories({
       search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
     downloadBlob(res, 'the-loai-bai-viet.xlsx')
   } catch (error) {
+    showError(error, 'Không thể xuất dữ liệu thể loại bài viết.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
@@ -116,6 +175,20 @@ const exportData = async () => {
             <AppTextField
               v-model="searchQuery"
               placeholder="Tìm kiếm thể loại..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="6"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trạng thái
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
+              placeholder="Lọc theo trạng thái"
               density="compact"
             />
           </VCol>
@@ -189,7 +262,19 @@ const exportData = async () => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item.id)">
+            <IconBtn @click="toggleItemStatus(item)">
+              <VIcon
+                :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
+                :color="item.status === 'active' ? 'success' : 'warning'"
+              />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Đổi trạng thái
+              </VTooltip>
+            </IconBtn>
+            <IconBtn @click="deleteItem(item)">
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -320,5 +405,21 @@ const exportData = async () => {
         </VCardText>
       </VCard>
     </VDialog>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>

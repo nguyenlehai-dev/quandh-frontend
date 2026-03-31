@@ -1,6 +1,7 @@
 <script setup>
 /* eslint-disable camelcase */
 
+import { useActionFeedback } from '@/composables/useActionFeedback'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/useUserStore'
 import { downloadUserTemplate, exportUsers, importUsers } from '../services/userService'
@@ -210,6 +211,10 @@ const viewUser = id => {
 const isUserFormVisible = ref(false)
 const isEditing = ref(false)
 const editingUserId = ref(null)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 const defaultUserForm = {
   name: '',
@@ -228,6 +233,9 @@ const openAddUserForm = () => {
   editingUserId.value = null
   userFormData.value = { ...defaultUserForm }
   isUserFormVisible.value = true
+  nextTick(() => {
+    userFormRef.value?.resetValidation()
+  })
 }
 
 const openEditUserForm = item => {
@@ -242,6 +250,41 @@ const openEditUserForm = item => {
     status: item.status,
   }
   isUserFormVisible.value = true
+  nextTick(() => {
+    userFormRef.value?.resetValidation()
+  })
+}
+
+watch(isUserFormVisible, visible => {
+  if (visible) return
+
+  isEditing.value = false
+  editingUserId.value = null
+  userFormData.value = { ...defaultUserForm }
+
+  nextTick(() => {
+    userFormRef.value?.resetValidation()
+  })
+})
+
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action) return
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  }
+  catch (err) {
+    showError(err, 'Không thể thực hiện thao tác này.')
+  }
+  finally {
+    isConfirming.value = false
+  }
 }
 
 const onSubmitUserForm = async () => {
@@ -249,7 +292,7 @@ const onSubmitUserForm = async () => {
   if (!valid) return
 
   if ((!isEditing.value || userFormData.value.password) && userFormData.value.password !== userFormData.value.password_confirmation) {
-    alert(t('user.user.list.password_mismatch'))
+    showSnackbar(t('user.user.list.password_mismatch'), 'warning')
 
     return
   }
@@ -267,53 +310,85 @@ const onSubmitUserForm = async () => {
       await $api('/users', { method: 'POST', body: payload })
 
     isUserFormVisible.value = false
-    userFormData.value = { ...defaultUserForm }
+    showSuccess(isEditing.value ? 'Cập nhật người dùng thành công.' : 'Tạo người dùng thành công.')
     fetchUsers()
     fetchStats()
   }
   catch (err) {
-    if (err.response?._data?.errors)
-      alert(`${t('user.user.list.validation_error')}\n${Object.values(err.response._data.errors).map(x => x.join('\n')).join('\n')}`)
-    else
-      alert(`${t('user.user.list.create_error')} ${err.message || ''}`)
-
+    showError(err, t('user.user.list.create_error'))
     console.error('Submit user form error:', err)
   }
 }
 
 const deleteUser = async id => {
-  await $api(`/users/${id}`, { method: 'DELETE' })
+  openConfirmDialog({
+    title: 'Xóa người dùng',
+    message: 'Bạn có chắc chắn muốn xóa người dùng này không?',
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await $api(`/users/${id}`, { method: 'DELETE' })
 
-  const idx = selectedRows.value.findIndex(row => row === id)
-  if (idx !== -1) selectedRows.value.splice(idx, 1)
-  fetchUsers()
-  fetchStats()
+      const idx = selectedRows.value.findIndex(row => row === id)
+      if (idx !== -1) selectedRows.value.splice(idx, 1)
+      showSuccess('Xóa người dùng thành công.')
+      fetchUsers()
+      fetchStats()
+    },
+  })
 }
 
 const bulkDeleteUsers = async () => {
   if (!selectedRows.value.length) return
-  try {
-    await $api('/users/bulk-delete', { method: 'POST', body: { ids: selectedRows.value } })
-    selectedRows.value = []
-    fetchUsers()
-    fetchStats()
-  }
-  catch (err) {
-    console.error('Bulk delete error:', err)
-  }
+  openConfirmDialog({
+    title: 'Xóa hàng loạt người dùng',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} người dùng đã chọn không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await $api('/users/bulk-delete', { method: 'POST', body: { ids: selectedRows.value } })
+      selectedRows.value = []
+      showSuccess('Xóa hàng loạt người dùng thành công.')
+      fetchUsers()
+      fetchStats()
+    },
+  })
 }
 
 const bulkChangeStatus = async newStatus => {
   if (!selectedRows.value.length) return
-  try {
-    await $api('/users/bulk-status', { method: 'PATCH', body: { ids: selectedRows.value, status: newStatus } })
-    selectedRows.value = []
-    fetchUsers()
-    fetchStats()
-  }
-  catch (err) {
-    console.error('Bulk status error:', err)
-  }
+  const nextLabel = resolveStatusText(newStatus)
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái hàng loạt',
+    message: `Bạn có chắc chắn muốn chuyển ${selectedRows.value.length} người dùng đã chọn sang "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await $api('/users/bulk-status', { method: 'PATCH', body: { ids: selectedRows.value, status: newStatus } })
+      selectedRows.value = []
+      showSuccess('Cập nhật trạng thái hàng loạt thành công.')
+      fetchUsers()
+      fetchStats()
+    },
+  })
+}
+
+const changeUserStatus = (item, newStatus) => {
+  const nextLabel = resolveStatusText(newStatus)
+
+  openConfirmDialog({
+    title: 'Đổi trạng thái người dùng',
+    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang "${nextLabel}" không?`,
+    confirmText: 'Đổi trạng thái',
+    confirmColor: 'warning',
+    action: async () => {
+      await $api(`/users/${item.id}/status`, { method: 'PATCH', body: { status: newStatus } })
+      showSuccess('Cập nhật trạng thái người dùng thành công.')
+      fetchUsers()
+      fetchStats()
+    },
+  })
 }
 
 const isExporting = ref(false)
@@ -344,6 +419,7 @@ const handleExport = async () => {
     }, 5000)
   }
   catch (err) {
+    showError(err, 'Không thể xuất dữ liệu người dùng.')
     console.error('Export error:', err)
   }
   finally {
@@ -362,10 +438,12 @@ const handleImport = async () => {
     await importUsers(importFile.value)
     isImportDialogVisible.value = false
     importFile.value = null
+    showSuccess('Import dữ liệu người dùng thành công.')
     fetchUsers()
     fetchStats()
   }
   catch (err) {
+    showError(err, 'Không thể import dữ liệu người dùng.')
     console.error('Import error:', err)
   }
   finally {
@@ -393,6 +471,7 @@ const handleDownloadTemplate = async () => {
     }, 5000)
   }
   catch (err) {
+    showError(err, 'Không thể tải file mẫu.')
     console.error('Download template error:', err)
   }
   finally {
@@ -666,7 +745,10 @@ const handleDownloadTemplate = async () => {
                   color="success"
                 /> {{ getRoleName(assign.role_id) }}
               </div>
-              <div class="d-flex gap-1 mt-1 flex-wrap pl-6">
+              <div
+                class="d-flex gap-1 mt-1 flex-wrap"
+                style="padding-inline-start: 24px;"
+              >
                 <VChip
                   v-for="orgId in assign.organization_ids"
                   :key="orgId"
@@ -735,6 +817,30 @@ const handleDownloadTemplate = async () => {
                 size="20"
               />
             </IconBtn>
+            <VMenu v-if="$can('update', 'User')">
+              <template #activator="{ props }">
+                <IconBtn
+                  variant="text"
+                  color="warning"
+                  size="small"
+                  v-bind="props"
+                >
+                  <VIcon
+                    icon="tabler-toggle-right"
+                    size="20"
+                  />
+                </IconBtn>
+              </template>
+              <VList>
+                <VListItem
+                  v-for="s in statusOptions.filter(s => s.value !== item.status)"
+                  :key="s.value"
+                  @click="changeUserStatus(item, s.value)"
+                >
+                  <VListItemTitle>{{ s.title }}</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
             <IconBtn
               v-if="$can('delete', 'User')"
               variant="text"
@@ -760,6 +866,22 @@ const handleDownloadTemplate = async () => {
         </template>
       </VDataTableServer>
     </VCard>
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
+
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
 
     <VDialog
       v-model="isUserFormVisible"
