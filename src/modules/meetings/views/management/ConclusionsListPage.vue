@@ -64,7 +64,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'ket-luan-cuoc-hop.xlsx')
+    downloadBlob(res, 'danh-sach-ket-luan-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -184,6 +184,10 @@ const exportData = async () => {
           >
             {{ t('meetings.meetings.list_pages.common.empty_value') }}
           </span>
+        </template>
+
+        <template #item.created_by="{ item }">
+          {{ item.created_by || t('meetings.meetings.list_pages.common.empty_value') }}
         </template>
 
         <template #item.actions="{ item }">

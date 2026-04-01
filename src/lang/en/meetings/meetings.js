@@ -21,9 +21,9 @@ export default {
       open_related_meeting: 'Open the meeting containing this voting',
     },
     documents: {
-      title: 'Documents List',
-      search_placeholder: 'Search documents...',
-      name: 'Document name',
+      title: 'Meeting Documents',
+      search_placeholder: 'Search meeting documents...',
+      name: 'Meeting document name',
       document_type: 'Document type',
       meeting: 'Meeting',
       created_by: 'Uploaded by',

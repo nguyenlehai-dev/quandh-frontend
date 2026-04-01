@@ -31,7 +31,7 @@ export const routes = [
     path: '/meetings/documents',
     name: 'meetings-documents-list',
     component: () => import('../views/management/DocumentsListPage.vue'),
-    meta: { action: 'read', subject: 'Document' },
+    meta: { action: 'read', subject: 'Meeting' },
   },
   {
     path: '/meetings/conclusions',
@@ -58,10 +58,28 @@ export const routes = [
     meta: { action: 'read', subject: 'DocumentType' },
   },
   {
+    path: '/meetings/document-fields',
+    name: 'meetings-document-fields',
+    component: () => import('../views/catalogs/documents/DocumentFieldListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentField' },
+  },
+  {
+    path: '/meetings/document-signers',
+    name: 'meetings-document-signers',
+    component: () => import('../views/catalogs/documents/DocumentSignerListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentSigner' },
+  },
+  {
     path: '/meetings/meeting-types',
     name: 'meetings-meeting-types',
     component: () => import('../views/catalogs/meetings/MeetingTypeListPage.vue'),
     meta: { action: 'read', subject: 'MeetingType' },
+  },
+  {
+    path: '/meetings/issuing-agencies',
+    name: 'meetings-issuing-agencies',
+    component: () => import('../views/catalogs/issuers/IssuingAgencyListPage.vue'),
+    meta: { action: 'read', subject: 'IssuingAgency' },
   },
   {
     path: '/meetings/live/:id',
@@ -93,41 +111,4 @@ export const routes = [
     component: () => import('../views/participant/details/MeetingDetailsPage.vue'),
     meta: { action: 'read', subject: 'Meeting' },
   },
-  {
-    path: '/categories/issuing-agencies',
-    name: 'categories-issuing-agencies',
-    component: () => import('../views/catalogs/issuers/IssuingAgencyListPage.vue'),
-    meta: { action: 'read', subject: 'IssuingAgency' },
-  },
-  {
-    path: '/categories/issuing-levels',
-    name: 'categories-issuing-levels',
-    component: () => import('../views/catalogs/issuers/IssuingLevelListPage.vue'),
-    meta: { action: 'read', subject: 'IssuingLevel' },
-  },
-  {
-    path: '/categories/document-fields',
-    name: 'categories-document-fields',
-    component: () => import('../views/catalogs/documents/DocumentFieldListPage.vue'),
-    meta: { action: 'read', subject: 'DocumentField' },
-  },
-  {
-    path: '/categories/document-signers',
-    name: 'categories-document-signers',
-    component: () => import('../views/catalogs/documents/DocumentSignerListPage.vue'),
-    meta: { action: 'read', subject: 'DocumentSigner' },
-  },
-  {
-    path: '/news/posts',
-    name: 'news-posts-list',
-    component: () => import('../views/news/PostListPage.vue'),
-    meta: { action: 'read', subject: 'Post' },
-  },
-  {
-    path: '/news/post-categories',
-    name: 'news-post-categories',
-    component: () => import('../views/news/PostCategoryListPage.vue'),
-    meta: { action: 'read', subject: 'PostCategory' },
-  },
 ]
-

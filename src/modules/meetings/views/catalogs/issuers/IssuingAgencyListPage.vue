@@ -25,7 +25,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/issuing-agencies', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-issuing-agencies', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -146,7 +146,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'co-quan-ban-hanh.xlsx')
+    downloadBlob(res, 'co-quan-ban-hanh-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu cơ quan ban hành.')
     console.error('Lỗi khi xuất dữ liệu:', error)

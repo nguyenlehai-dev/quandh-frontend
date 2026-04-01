@@ -4,7 +4,6 @@ import {
   API_DOCUMENT_SIGNERS,
   API_DOCUMENT_TYPES,
   API_ISSUING_AGENCIES,
-  API_ISSUING_LEVELS,
   API_MEETING_TYPES,
 } from '../configs'
 
@@ -27,7 +26,7 @@ export const createMeetingType = data => $api(API_MEETING_TYPES, { method: 'POST
 export const updateMeetingType = (id, data) => $api(`${API_MEETING_TYPES}/${id}`, { method: 'PUT', body: data })
 export const deleteMeetingType = id => $api(`${API_MEETING_TYPES}/${id}`, { method: 'DELETE' })
 export const bulkDeleteMeetingTypes = data => $api(`${API_MEETING_TYPES}/bulk-delete`, { method: 'POST', body: data })
-export const bulkUpdateMeetingTypes = data => $api(`${API_MEETING_TYPES}/bulk-update`, { method: 'PUT', body: data })
+export const bulkUpdateMeetingTypes = data => $api(`${API_MEETING_TYPES}/bulk-status`, { method: 'PATCH', body: data })
 export const changeMeetingTypeStatus = (id, status) => $api(`${API_MEETING_TYPES}/${id}/status`, { method: 'PATCH', body: { status } })
 export const exportMeetingTypes = params => $api(`${API_MEETING_TYPES}/export`, { params, responseType: 'blob' })
 
@@ -37,13 +36,6 @@ export const updateIssuingAgency = (id, data) => $api(`${API_ISSUING_AGENCIES}/$
 export const deleteIssuingAgency = id => $api(`${API_ISSUING_AGENCIES}/${id}`, { method: 'DELETE' })
 export const changeIssuingAgencyStatus = (id, status) => $api(`${API_ISSUING_AGENCIES}/${id}/status`, { method: 'PATCH', body: { status } })
 export const exportIssuingAgencies = params => $api(`${API_ISSUING_AGENCIES}/export`, { params, responseType: 'blob' })
-
-export const fetchIssuingLevels = params => $api(API_ISSUING_LEVELS, { params })
-export const createIssuingLevel = data => $api(API_ISSUING_LEVELS, { method: 'POST', body: data })
-export const updateIssuingLevel = (id, data) => $api(`${API_ISSUING_LEVELS}/${id}`, { method: 'PUT', body: data })
-export const deleteIssuingLevel = id => $api(`${API_ISSUING_LEVELS}/${id}`, { method: 'DELETE' })
-export const changeIssuingLevelStatus = (id, status) => $api(`${API_ISSUING_LEVELS}/${id}/status`, { method: 'PATCH', body: { status } })
-export const exportIssuingLevels = params => $api(`${API_ISSUING_LEVELS}/export`, { params, responseType: 'blob' })
 
 export const fetchDocumentFields = params => $api(API_DOCUMENT_FIELDS, { params })
 export const createDocumentField = data => $api(API_DOCUMENT_FIELDS, { method: 'POST', body: data })

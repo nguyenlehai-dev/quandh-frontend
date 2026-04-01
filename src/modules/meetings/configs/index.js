@@ -11,30 +11,27 @@ export const API_DOCUMENTS = '/meetings/documents'
 export const API_CONCLUSIONS = '/meetings/conclusions'
 export const API_ATTENDEES = '/meetings/attendees'
 export const API_ATTENDEE_GROUPS = '/meetings/attendee-groups'
-export const API_DOCUMENT_TYPES = '/document-types'
+export const API_DOCUMENT_TYPES = '/meetings/meeting-document-types'
 export const API_MEETING_TYPES = '/meetings/meeting-types'
-export const API_ISSUING_AGENCIES = '/issuing-agencies'
-export const API_ISSUING_LEVELS = '/issuing-levels'
-export const API_DOCUMENT_FIELDS = '/document-fields'
-export const API_DOCUMENT_SIGNERS = '/document-signers'
-export const API_POSTS = '/posts'
-export const API_POST_CATEGORIES = '/post-categories'
+export const API_ISSUING_AGENCIES = '/meetings/meeting-issuing-agencies'
+export const API_DOCUMENT_FIELDS = '/meetings/meeting-document-fields'
+export const API_DOCUMENT_SIGNERS = '/meetings/meeting-document-signers'
 
-/** Số dòng mặc định trên 1 trang */
+/** So dong mac dinh tren 1 trang */
 export const DEFAULT_PER_PAGE = 10
 
-/** Các tuỳ chọn items per page */
+/** Cac tuy chon items per page */
 export const PER_PAGE_OPTIONS = [10, 25, 50, 100]
 
-/** Trạng thái cuộc họp (khớp backend: draft, active, in_progress, completed) */
+/** Trang thai cuoc hop */
 export const MEETING_STATUSES = [
-  { title: 'Nháp', value: 'draft', color: 'secondary' },
-  { title: 'Kích hoạt', value: 'active', color: 'info' },
-  { title: 'Đang họp', value: 'in_progress', color: 'warning' },
-  { title: 'Kết thúc', value: 'completed', color: 'success' },
+  { title: 'Nhap', value: 'draft', color: 'secondary' },
+  { title: 'Kich hoat', value: 'active', color: 'info' },
+  { title: 'Dang hop', value: 'in_progress', color: 'warning' },
+  { title: 'Ket thuc', value: 'completed', color: 'success' },
 ]
 
-/** Danh sách cột mặc định hiển thị */
+/** Danh sach cot mac dinh hien thi */
 export const DEFAULT_COLUMNS = [
   'title',
   'meetingType',

@@ -64,7 +64,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'danh-sach-bieu-quyet.xlsx')
+    downloadBlob(res, 'danh-sach-bieu-quyet-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -162,6 +162,27 @@ const exportData = async () => {
           {{ (page - 1) * itemsPerPage + index + 1 }}
         </template>
 
+        <template #item.title="{ item }">
+          <span class="font-weight-medium">
+            {{ item.title || t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
+        </template>
+
+        <template #item.meeting_title="{ item }">
+          <span
+            v-if="item.meeting_title"
+            class="font-weight-medium text-primary"
+          >
+            {{ item.meeting_title }}
+          </span>
+          <span
+            v-else
+            class="text-disabled"
+          >
+            {{ t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
+        </template>
+
         <template #item.status="{ item }">
           <VChip
             size="small"
@@ -174,7 +195,10 @@ const exportData = async () => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn :to="{ name: 'meetings-edit', params: { id: item.meeting_id || 0 }, query: { tab: 'voting' } }">
+            <IconBtn
+              v-if="item.meeting_id"
+              :to="{ name: 'meetings-edit', params: { id: item.meeting_id }, query: { tab: 'voting' } }"
+            >
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"

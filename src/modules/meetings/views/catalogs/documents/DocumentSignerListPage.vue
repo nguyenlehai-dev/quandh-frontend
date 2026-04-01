@@ -25,7 +25,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/document-signers', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-document-signers', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -146,7 +146,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'nguoi-ky.xlsx')
+    downloadBlob(res, 'nguoi-ky-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu người ký.')
     console.error('Lỗi khi xuất dữ liệu:', error)

@@ -201,7 +201,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'nhom-nguoi-du-hop.xlsx')
+    downloadBlob(res, 'nhom-thanh-phan-tham-du.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu nhóm người dự họp.')
     console.error('Lỗi khi xuất dữ liệu:', error)

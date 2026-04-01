@@ -4,6 +4,7 @@ import { useMeetingEditPage } from '@/modules/meetings/composables/useMeetingEdi
 import MeetingAttendeesTab from '@/modules/meetings/components/admin/tabs/MeetingAttendeesTab.vue'
 import MeetingConclusionsTab from '@/modules/meetings/components/admin/tabs/MeetingConclusionsTab.vue'
 import MeetingDocumentsTab from '@/modules/meetings/components/admin/tabs/MeetingDocumentsTab.vue'
+import MeetingEditModeRequiredCard from '@/modules/meetings/components/admin/shared/MeetingEditModeRequiredCard.vue'
 import MeetingVotesTab from '@/modules/meetings/components/admin/tabs/MeetingVotesTab.vue'
 
 const {
@@ -704,7 +705,7 @@ const {
               </VRow>
             </template>
             <template v-else>
-              <EditModeRequired
+              <MeetingEditModeRequiredCard
                 icon="tabler-file-text"
                 title="Tài liệu đính kèm"
                 description="Vui lòng lưu cuộc họp trước để có thể đính kèm tài liệu. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."
@@ -1008,7 +1009,7 @@ const {
               </VRow>
             </template>
             <template v-else>
-              <EditModeRequired
+              <MeetingEditModeRequiredCard
                 icon="tabler-checkbox"
                 title="Biểu quyết"
                 description="Vui lòng lưu cuộc họp trước để có thể tạo biểu quyết. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."
@@ -1054,7 +1055,7 @@ const {
               </VRow>
             </template>
             <template v-else>
-              <EditModeRequired
+              <MeetingEditModeRequiredCard
                 icon="tabler-file-check"
                 title="Kết luận cuộc họp"
                 description="Vui lòng lưu cuộc họp trước để có thể ghi nhận kết luận. Bấm nút 'Lưu & Sửa' ở phía trên để tiếp tục."

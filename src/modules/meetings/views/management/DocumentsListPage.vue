@@ -65,7 +65,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'danh-sach-tai-lieu.xlsx')
+    downloadBlob(res, 'danh-sach-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -161,6 +161,12 @@ const exportData = async () => {
       >
         <template #item.index="{ index }">
           {{ (page - 1) * itemsPerPage + index + 1 }}
+        </template>
+
+        <template #item.title="{ item }">
+          <span class="font-weight-medium">
+            {{ item.title || t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
         </template>
 
         <template #item.document_type_name="{ item }">

@@ -38,7 +38,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/document-types', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-document-types', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -190,7 +190,7 @@ const exportData = async () => {
       sort_order: orderBy.value || undefined,
     })
 
-    downloadBlob(res, 'loai-tai-lieu.xlsx')
+    downloadBlob(res, 'loai-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu loại tài liệu.')
     console.error('Lỗi khi xuất dữ liệu:', error)

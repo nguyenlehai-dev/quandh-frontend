@@ -25,7 +25,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/document-fields', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-document-fields', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -147,7 +147,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'linh-vuc-tai-lieu.xlsx')
+    downloadBlob(res, 'linh-vuc-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu lĩnh vực.')
     console.error('Lỗi khi xuất dữ liệu:', error)
