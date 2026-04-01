@@ -1,0 +1,27 @@
+/* eslint-disable camelcase */
+export default {
+  title: 'Email',
+  compose: 'Soạn thư',
+  inbox: 'Hộp thư đến',
+  sent: 'Đã gửi',
+  draft: 'Bản nháp',
+  starred: 'Đánh dấu sao',
+  spam: 'Thư rác',
+  trash: 'Thùng rác',
+  search: 'Tìm email',
+  no_email: 'Không tìm thấy email',
+  labels: {
+    personal: 'Cá nhân',
+    company: 'Công ty',
+    important: 'Quan trọng',
+    private: 'Riêng tư',
+  },
+  actions: {
+    reply: 'Trả lời',
+    forward: 'Chuyển tiếp',
+    mark_read: 'Đánh dấu đã đọc',
+    mark_unread: 'Đánh dấu chưa đọc',
+    mark_spam: 'Đánh dấu thư rác',
+    move_trash: 'Chuyển vào thùng rác',
+  },
+}

@@ -1,0 +1,28 @@
+﻿
+> vuexy-vuejs-admin-template@9.4.0 prebuild
+> node scripts/validate-modules.js
+
+
+[1m[36m≡ƒöì Validating Module Structure...[0m
+
+[32mΓ£ô meetings[0m
+[32mΓ£ô organizations[0m
+[32mΓ£ô permissions[0m
+[32mΓ£ô roles[0m
+[32mΓ£ô system-settings[0m
+[32mΓ£ô user[0m
+
+[1m[36m≡ƒôû Validating Documentation...[0m
+
+  [32mΓ£ô[0m Tß║Ñt cß║ú docs ─æß║ºy ─æß╗º
+
+[1mΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ[0m
+[32m[1mΓ£ô ALL PASSED[0m
+
+
+> vuexy-vuejs-admin-template@9.4.0 build
+> vite build
+
+[36mvite v6.3.5 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 279 modules transformed.

@@ -1,4 +1,27 @@
-const emailRouteComponent = () => import('@/pages/apps/email/index.vue')
+import { ability } from '@/plugins/casl/ability'
+
+const postLoginRouteCandidates = [
+  { name: 'system-dashboard', action: 'read', subject: 'Dashboard' },
+  { name: 'meetings-business-overview', action: 'read', subject: 'BusinessOverview' },
+  { name: 'meetings-my-calendar', action: 'read', subject: 'Meeting' },
+  { name: 'system-organizations', action: 'read', subject: 'Organization' },
+  { name: 'apps-user-list', action: 'read', subject: 'User' },
+  { name: 'apps-roles', action: 'read', subject: 'Role' },
+  { name: 'apps-permissions', action: 'read', subject: 'Permission' },
+  { name: 'system-settings-general', action: 'read', subject: 'SystemSetting' },
+  { name: 'user-profile', action: 'read', subject: 'Auth' },
+]
+
+const getDefaultAuthorizedRoute = () => {
+  const firstAllowedRoute = postLoginRouteCandidates.find(route => {
+    if (!(route.action && route.subject))
+      return true
+
+    return ability.can(route.action, route.subject)
+  })
+
+  return { name: firstAllowedRoute?.name || 'user-profile' }
+}
 
 // 👉 Redirects
 export const redirects = [
@@ -8,13 +31,11 @@ export const redirects = [
     path: '/',
     name: 'index',
     redirect: to => {
-      // TODO: Get type from backend
+      // Bỏ check role vì backend không bắt buộc có userRole trong root object user
       const userData = useCookie('userData')
-      const userRole = userData.value?.role
-      if (userRole === 'admin')
-        return { name: 'dashboards-crm' }
-      if (userRole === 'client')
-        return { name: 'access-control' }
+      
+      if (userData.value)
+        return getDefaultAuthorizedRoute()
       
       return { name: 'login', query: to.query }
     },
@@ -30,42 +51,8 @@ export const redirects = [
     redirect: () => ({ name: 'pages-account-settings-tab', params: { tab: 'account' } }),
   },
 ]
-export const routes = [
-  // Email filter
-  {
-    path: '/apps/email/filter/:filter',
-    name: 'apps-email-filter',
-    component: emailRouteComponent,
-    meta: {
-      navActiveLink: 'apps-email',
-      layoutWrapperClasses: 'layout-content-height-fixed',
-    },
-  },
 
-  // Email label
-  {
-    path: '/apps/email/label/:label',
-    name: 'apps-email-label',
-    component: emailRouteComponent,
-    meta: {
-      // contentClass: 'email-application',
-      navActiveLink: 'apps-email',
-      layoutWrapperClasses: 'layout-content-height-fixed',
-    },
-  },
-  {
-    path: '/dashboards/logistics',
-    name: 'dashboards-logistics',
-    component: () => import('@/pages/apps/logistics/dashboard.vue'),
-  },
-  {
-    path: '/dashboards/academy',
-    name: 'dashboards-academy',
-    component: () => import('@/pages/apps/academy/dashboard.vue'),
-  },
-  {
-    path: '/apps/ecommerce/dashboard',
-    name: 'apps-ecommerce-dashboard',
-    component: () => import('@/pages/dashboards/ecommerce.vue'),
-  },
-]
+// ℹ️ Module-specific routes are now handled by src/modules/*/routes.js
+// Only shared/non-module routes should be added here
+export const routes = []
+

@@ -1,0 +1,28 @@
+export default {
+  name: 'roles',
+  displayName: 'Roles',
+  group: 'auth',
+  navOrder: 100,
+  path: 'src/modules/auth/roles',
+  servicePaths: ['src/modules/auth/roles/services/roleService.js'],
+  purpose: 'Quan ly vai tro va tap quyen cua tung vai tro trong he thong.',
+  features: [
+    'Danh sach role',
+    'Tao, sua, xoa role',
+    'Thong ke role',
+    'Import/export Excel',
+    'Dung chung menu voi permissions',
+  ],
+  api: [
+    { method: 'GET', endpoint: '/roles', service: 'fetchRoles', description: 'Danh sach role' },
+    { method: 'GET', endpoint: '/roles/:id', service: 'fetchRole', description: 'Chi tiet role' },
+    { method: 'POST', endpoint: '/roles', service: 'createRole', description: 'Tao role' },
+    { method: 'PUT', endpoint: '/roles/:id', service: 'updateRole', description: 'Cap nhat role' },
+    { method: 'DELETE', endpoint: '/roles/:id', service: 'deleteRole', description: 'Xoa role' },
+    { method: 'POST', endpoint: '/roles/bulk-delete', service: 'bulkDeleteRoles', description: 'Xoa hang loat' },
+    { method: 'GET', endpoint: '/roles/stats', service: 'fetchRoleStats', description: 'Thong ke role' },
+    { method: 'GET', endpoint: '/roles/export', service: 'exportRoles', description: 'Xuat Excel' },
+    { method: 'GET', endpoint: '/roles/template', service: 'downloadRoleTemplate', description: 'Tai file mau' },
+    { method: 'POST', endpoint: '/roles/import', service: 'importRoles', description: 'Nhap Excel' },
+  ],
+}

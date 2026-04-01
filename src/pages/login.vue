@@ -1,7 +1,5 @@
-<!-- ❗Errors in the form are set on line 60 -->
 <script setup>
-import { VForm } from 'vuetify/components/VForm'
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
+import { login as authLogin, resolvePostLoginRoute } from '@/services/auth'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
 import authV2LoginIllustrationBorderedLight from '@images/pages/auth-v2-login-illustration-bordered-light.png'
@@ -11,6 +9,7 @@ import authV2MaskDark from '@images/pages/misc-mask-dark.png'
 import authV2MaskLight from '@images/pages/misc-mask-light.png'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
+import { VForm } from 'vuetify/components/VForm'
 
 const authThemeImg = useGenerateImageVariant(authV2LoginIllustrationLight, authV2LoginIllustrationDark, authV2LoginIllustrationBorderedLight, authV2LoginIllustrationBorderedDark, true)
 const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
@@ -25,7 +24,7 @@ definePage({
 const isPasswordVisible = ref(false)
 const route = useRoute()
 const router = useRouter()
-const ability = useAbility()
+const { t } = useI18n()
 
 const errors = ref({
   email: undefined,
@@ -35,40 +34,41 @@ const errors = ref({
 const refVForm = ref()
 
 const credentials = ref({
-  email: 'admin@demo.com',
-  password: 'admin',
+  email: '',
+  password: '',
 })
 
 const rememberMe = ref(false)
+const isLoading = ref(false)
 
 const login = async () => {
+  isLoading.value = true
+  errors.value = { email: undefined, password: undefined }
+
   try {
-    const res = await $api('/auth/login', {
-      method: 'POST',
-      body: {
-        email: credentials.value.email,
-        password: credentials.value.password,
-      },
-      onResponseError({ response }) {
-        errors.value = response._data.errors
-      },
+    const data = await authLogin(credentials.value.email, credentials.value.password)
+
+    const nextRoute = resolvePostLoginRoute({
+      loginData: data,
+      preferredRoute: route.query.to ? String(route.query.to) : '/',
     })
 
-    const { accessToken, userData, userAbilityRules } = res
-
-    useCookie('userAbilityRules').value = userAbilityRules
-    ability.update(userAbilityRules)
-    useCookie('userData').value = userData
-    useCookie('accessToken').value = accessToken
-
-    // Redirect to `to` query if exist or redirect to index route
-
-    // ❗ nextTick is required to wait for DOM updates and later redirect
     await nextTick(() => {
-      router.replace(route.query.to ? String(route.query.to) : '/')
+      router.replace(nextRoute)
     })
-  } catch (err) {
-    console.error(err)
+  }
+  catch (err) {
+    if (err?.errors) {
+      errors.value = err.errors
+    }
+    else {
+      const msg = err?.data?.message || err?.message || t('auth.auth.login.invalid_credentials')
+
+      errors.value.email = msg
+    }
+  }
+  finally {
+    isLoading.value = false
   }
 }
 
@@ -129,53 +129,43 @@ const onSubmit = () => {
         flat
         :max-width="500"
         class="mt-12 mt-sm-0 pa-4"
+        width="100%"
       >
-        <VCardText>
-          <h4 class="text-h4 mb-1">
-            Welcome to <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
+        <VCardText class="text-center">
+          <h4 class="text-h5 mb-1">
+            {{ t('auth.auth.app.agency') }}
           </h4>
-          <p class="mb-0">
-            Please sign-in to your account and start the adventure
+          <h5 class="text-h6 font-weight-bold mb-1 text-uppercase">
+            {{ t('auth.auth.app.system_name') }}
+          </h5>
+          <p class="text-sm text-disabled mb-0">
+            {{ t('auth.auth.app.description') }}
           </p>
         </VCardText>
-        <VCardText>
-          <VAlert
-            color="primary"
-            variant="tonal"
-          >
-            <p class="text-sm mb-2">
-              Admin Email: <strong>admin@demo.com</strong> / Pass: <strong>admin</strong>
-            </p>
-            <p class="text-sm mb-0">
-              Client Email: <strong>client@demo.com</strong> / Pass: <strong>client</strong>
-            </p>
-          </VAlert>
-        </VCardText>
+
         <VCardText>
           <VForm
             ref="refVForm"
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- email -->
               <VCol cols="12">
                 <AppTextField
                   v-model="credentials.email"
-                  label="Email"
+                  :label="t('auth.auth.login.username_or_email')"
                   placeholder="johndoe@email.com"
-                  type="email"
+                  type="text"
                   autofocus
-                  :rules="[requiredValidator, emailValidator]"
+                  :rules="[requiredValidator]"
                   :error-messages="errors.email"
                 />
               </VCol>
 
-              <!-- password -->
               <VCol cols="12">
                 <AppTextField
                   v-model="credentials.password"
-                  label="Password"
-                  placeholder="············"
+                  :label="t('auth.auth.login.password')"
+                  placeholder="........"
                   :rules="[requiredValidator]"
                   :type="isPasswordVisible ? 'text' : 'password'"
                   autocomplete="password"
@@ -183,56 +173,42 @@ const onSubmit = () => {
                   :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
+              </VCol>
 
-                <div class="d-flex align-center flex-wrap justify-space-between my-6">
+              <VCol cols="12">
+                <div class="d-flex align-center flex-wrap justify-space-between mb-6">
                   <VCheckbox
                     v-model="rememberMe"
-                    label="Remember me"
+                    :label="t('auth.auth.login.remember_me')"
                   />
                   <RouterLink
                     class="text-primary ms-2 mb-1"
                     :to="{ name: 'forgot-password' }"
                   >
-                    Forgot Password?
+                    {{ t('auth.auth.login.forgot_password') }}
                   </RouterLink>
                 </div>
 
                 <VBtn
                   block
                   type="submit"
+                  :loading="isLoading"
                 >
-                  Login
+                  {{ t('auth.auth.login.submit') }}
                 </VBtn>
               </VCol>
 
-              <!-- create account -->
               <VCol
                 cols="12"
                 class="text-center"
               >
-                <span>New on our platform?</span>
+                <span class="text-disabled">{{ t('auth.auth.login.no_account') }}</span>
                 <RouterLink
                   class="text-primary ms-1"
                   :to="{ name: 'register' }"
                 >
-                  Create an account
+                  {{ t('auth.auth.login.register_now') }}
                 </RouterLink>
-              </VCol>
-              <VCol
-                cols="12"
-                class="d-flex align-center"
-              >
-                <VDivider />
-                <span class="mx-4">or</span>
-                <VDivider />
-              </VCol>
-
-              <!-- auth providers -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <AuthProvider />
               </VCol>
             </VRow>
           </VForm>

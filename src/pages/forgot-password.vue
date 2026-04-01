@@ -10,6 +10,10 @@ import authV2MaskLight from '@images/pages/misc-mask-light.png'
 const email = ref('')
 const authThemeImg = useGenerateImageVariant(authV2ForgotPasswordIllustrationLight, authV2ForgotPasswordIllustrationDark)
 const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
+const isLoading = ref(false)
+const successMessage = ref('')
+const errorMessage = ref('')
+const { t } = useI18n()
 
 definePage({
   meta: {
@@ -17,6 +21,27 @@ definePage({
     unauthenticatedOnly: true,
   },
 })
+
+const submitForgotPassword = async () => {
+  isLoading.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    const res = await $api('/auth/forgot-password', {
+      method: 'POST',
+      body: { email: email.value },
+    })
+
+    successMessage.value = res?.message || t('auth.auth.forgot_password.success')
+  }
+  catch (err) {
+    errorMessage.value = err?.data?.message || err?.message || t('auth.auth.forgot_password.failed')
+  }
+  finally {
+    isLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -71,25 +96,50 @@ definePage({
       >
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Forgot Password? 🔒
+            {{ t('auth.auth.forgot_password.title') }}
           </h4>
           <p class="mb-0">
-            Enter your email and we'll send you instructions to reset your password
+            {{ t('auth.auth.forgot_password.description') }}
           </p>
         </VCardText>
 
         <VCardText>
-          <VForm @submit.prevent="() => {}">
+          <VForm @submit.prevent="submitForgotPassword">
             <VRow>
               <!-- email -->
               <VCol cols="12">
                 <AppTextField
                   v-model="email"
                   autofocus
-                  label="Email"
+                  :label="t('auth.auth.forgot_password.email')"
                   type="email"
                   placeholder="johndoe@email.com"
+                  :rules="[requiredValidator, emailValidator]"
                 />
+              </VCol>
+
+              <VCol
+                v-if="successMessage"
+                cols="12"
+              >
+                <VAlert
+                  type="success"
+                  variant="tonal"
+                >
+                  {{ successMessage }}
+                </VAlert>
+              </VCol>
+
+              <VCol
+                v-if="errorMessage"
+                cols="12"
+              >
+                <VAlert
+                  type="error"
+                  variant="tonal"
+                >
+                  {{ errorMessage }}
+                </VAlert>
               </VCol>
 
               <!-- Reset link -->
@@ -97,8 +147,9 @@ definePage({
                 <VBtn
                   block
                   type="submit"
+                  :loading="isLoading"
                 >
-                  Send Reset Link
+                  {{ t('auth.auth.forgot_password.submit') }}
                 </VBtn>
               </VCol>
 
@@ -113,7 +164,7 @@ definePage({
                     size="20"
                     class="me-1 flip-in-rtl"
                   />
-                  <span>Back to login</span>
+                  <span>{{ t('auth.auth.forgot_password.back_to_login') }}</span>
                 </RouterLink>
               </VCol>
             </VRow>

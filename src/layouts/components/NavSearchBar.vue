@@ -171,24 +171,34 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 <template>
   <div
-    class="d-flex align-center cursor-pointer"
+    class="d-flex align-center cursor-pointer px-3 rounded"
     v-bind="$attrs"
-    style="user-select: none;"
-    @click="isAppSearchBarVisible = !isAppSearchBarVisible"
+    style="user-select: none; border: 1px solid rgba(var(--v-border-color), 0.5); height: 40px; min-width: 280px; max-width: 400px; background-color: rgb(var(--v-theme-surface))"
+    @click="isAppSearchBarVisible = !isAppSearchBarVisible; Shepherd.activeTour?.cancel()"
   >
-    <!-- 👉 Search Trigger button -->
-    <!-- close active tour while opening search bar using icon -->
-    <IconBtn @click="Shepherd.activeTour?.cancel()">
-      <VIcon icon="tabler-search" />
-    </IconBtn>
+    <VIcon
+      icon="tabler-search"
+      size="20"
+      class="text-disabled"
+    />
 
     <span
-      v-if="configStore.appContentLayoutNav === 'vertical'"
-      class="d-none d-md-flex align-center text-disabled ms-2"
-      @click="Shepherd.activeTour?.cancel()"
+      class="ms-3 text-disabled font-weight-regular"
+      style="font-size: 14px"
     >
-      <span class="me-2">Search</span>
-      <span class="meta-key">&#8984;K</span>
+      Tìm kiếm
+    </span>
+
+    <VSpacer />
+
+    <span
+      class="meta-key text-disabled font-weight-medium d-none d-md-flex align-center justify-center ms-2"
+      style="font-size: 12px; height: 22px; padding: 0 6px"
+    >
+      <span
+        class="me-1"
+        style="font-size: 10px;"
+      >⌘</span>K
     </span>
   </div>
 

@@ -1,0 +1,133 @@
+export const routes = [
+  {
+    path: '/business-overview',
+    name: 'meetings-business-overview',
+    component: () => import('../views/overview/BusinessOverviewPage.vue'),
+    meta: { action: 'read', subject: 'BusinessOverview' },
+  },
+  {
+    path: '/meetings',
+    redirect: { name: 'meetings-list' },
+  },
+  {
+    path: '/meetings/my-calendar',
+    name: 'meetings-my-calendar',
+    component: () => import('../views/management/MyCalendarPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/list',
+    name: 'meetings-list',
+    component: () => import('../views/management/MeetingListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/votes',
+    name: 'meetings-votes-list',
+    component: () => import('../views/management/VotesListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/documents',
+    name: 'meetings-documents-list',
+    component: () => import('../views/management/DocumentsListPage.vue'),
+    meta: { action: 'read', subject: 'Document' },
+  },
+  {
+    path: '/meetings/conclusions',
+    name: 'meetings-conclusions-list',
+    component: () => import('../views/management/ConclusionsListPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/attendees',
+    name: 'meetings-attendees-list',
+    component: () => import('../views/catalogs/participants/AttendeesListPage.vue'),
+    meta: { action: 'read', subject: 'MeetingParticipant' },
+  },
+  {
+    path: '/meetings/attendee-groups',
+    name: 'meetings-attendee-groups',
+    component: () => import('../views/catalogs/participants/AttendeeGroupListPage.vue'),
+    meta: { action: 'read', subject: 'AttendeeGroup' },
+  },
+  {
+    path: '/meetings/document-types',
+    name: 'meetings-document-types',
+    component: () => import('../views/catalogs/documents/DocumentTypeListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentType' },
+  },
+  {
+    path: '/meetings/meeting-types',
+    name: 'meetings-meeting-types',
+    component: () => import('../views/catalogs/meetings/MeetingTypeListPage.vue'),
+    meta: { action: 'read', subject: 'MeetingType' },
+  },
+  {
+    path: '/meetings/live/:id',
+    name: 'meetings-live-controller',
+    component: () => import('../views/admin/live/LiveMeetingController.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/create',
+    name: 'meetings-create',
+    component: () => import('../views/admin/edit/MeetingEditPage.vue'),
+    meta: { action: 'create', subject: 'Meeting' },
+  },
+  {
+    path: '/meetings/edit/:id',
+    name: 'meetings-edit',
+    component: () => import('../views/admin/edit/MeetingEditPage.vue'),
+    meta: { action: 'update', subject: 'Meeting' },
+  },
+  {
+    path: '/my-meetings',
+    name: 'meetings-participant-my-meetings',
+    component: () => import('../views/participant/MyMeetingsPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/my-meetings/:id',
+    name: 'meetings-participant-details',
+    component: () => import('../views/participant/details/MeetingDetailsPage.vue'),
+    meta: { action: 'read', subject: 'Meeting' },
+  },
+  {
+    path: '/categories/issuing-agencies',
+    name: 'categories-issuing-agencies',
+    component: () => import('../views/catalogs/issuers/IssuingAgencyListPage.vue'),
+    meta: { action: 'read', subject: 'IssuingAgency' },
+  },
+  {
+    path: '/categories/issuing-levels',
+    name: 'categories-issuing-levels',
+    component: () => import('../views/catalogs/issuers/IssuingLevelListPage.vue'),
+    meta: { action: 'read', subject: 'IssuingLevel' },
+  },
+  {
+    path: '/categories/document-fields',
+    name: 'categories-document-fields',
+    component: () => import('../views/catalogs/documents/DocumentFieldListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentField' },
+  },
+  {
+    path: '/categories/document-signers',
+    name: 'categories-document-signers',
+    component: () => import('../views/catalogs/documents/DocumentSignerListPage.vue'),
+    meta: { action: 'read', subject: 'DocumentSigner' },
+  },
+  {
+    path: '/news/posts',
+    name: 'news-posts-list',
+    component: () => import('../views/news/PostListPage.vue'),
+    meta: { action: 'read', subject: 'Post' },
+  },
+  {
+    path: '/news/post-categories',
+    name: 'news-post-categories',
+    component: () => import('../views/news/PostCategoryListPage.vue'),
+    meta: { action: 'read', subject: 'PostCategory' },
+  },
+]
+

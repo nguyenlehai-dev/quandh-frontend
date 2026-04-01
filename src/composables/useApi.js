@@ -10,12 +10,20 @@ export const useApi = createFetch({
   },
   options: {
     refetch: true,
-    async beforeFetch({ options }) {
+    async beforeFetch({ url, options }) {
       const accessToken = useCookie('accessToken').value
       if (accessToken) {
         options.headers = {
           ...options.headers,
           Authorization: `Bearer ${accessToken}`,
+        }
+      }
+      
+      const orgId = useCookie('currentOrganizationId').value
+      if (orgId && !url.includes('/auth/')) {
+        options.headers = {
+          ...options.headers,
+          'X-Organization-Id': String(orgId),
         }
       }
       
@@ -34,6 +42,26 @@ export const useApi = createFetch({
       }
       
       return { data: parsedData, response }
+    },
+    onFetchError(ctx) {
+      const { response } = ctx
+
+      if (response && response.status === 401) {
+        // Token expired or invalid, clear auth and redirect
+        useCookie('accessToken').value = null
+        useCookie('userData').value = null
+        localStorage.removeItem('userAbilityRules')
+        useCookie('currentOrganizationId').value = null
+        localStorage.removeItem('availableOrganizations')
+        
+        // Prevent infinite reload loop if already on login
+        if (window.location.pathname !== '/login') {
+          localStorage.setItem('history_link', window.location.pathname)
+          window.location.href = '/login'
+        }
+      }
+
+      return ctx
     },
   },
 })

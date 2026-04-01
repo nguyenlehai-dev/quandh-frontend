@@ -360,6 +360,9 @@
     "watchThrottled": true,
     "watchTriggerable": true,
     "watchWithFilter": true,
-    "whenever": true
+    "whenever": true,
+    "downloadBlob": true,
+    "extractApiErrorMessage": true,
+    "useActionFeedback": true
   }
 }

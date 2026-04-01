@@ -1,4 +1,4 @@
-import { useAbility } from '@casl/vue'
+import { ability } from '@/plugins/casl/ability'
 
 /**
  * Returns ability result if ACL is configured or else just return true
@@ -11,12 +11,10 @@ import { useAbility } from '@casl/vue'
  * @param {string} subject CASL Subject // https://casl.js.org/v4/en/guide/intro#basics
  */
 export const can = (action, subject) => {
-  const vm = getCurrentInstance()
-  if (!vm)
-    return false
-  const localCan = vm.proxy && '$can' in vm.proxy
-    
-  return localCan ? vm.proxy?.$can(action, subject) : true
+  if (!action && !subject)
+    return true
+
+  return ability.can(action, subject)
 }
 
 /**
@@ -24,8 +22,23 @@ export const can = (action, subject) => {
  * Based on item's action and subject & Hide group if all of it's children are hidden
  * @param {object} item navigation object item
  */
+/**
+ * Check if a single nav item is visible based on permissions.
+ * For leaf items: check action/subject.
+ * For group items (with children): recursively check if any child is visible.
+ */
+const isNavItemVisible = item => {
+  // If item has children, it's a group — recursively check children
+  if (item.children && item.children.length) {
+    return item.children.some(child => isNavItemVisible(child))
+  }
+
+  // Leaf item: check permission
+  return can(item.action, item.subject)
+}
+
 export const canViewNavMenuGroup = item => {
-  const hasAnyVisibleChild = item.children.some(i => can(i.action, i.subject))
+  const hasAnyVisibleChild = item.children.some(child => isNavItemVisible(child))
 
   // If subject and action is defined in item => Return based on children visibility (Hide group if no child is visible)
   // Else check for ability using provided subject and action along with checking if has any visible child
@@ -35,16 +48,14 @@ export const canViewNavMenuGroup = item => {
   return can(item.action, item.subject) && hasAnyVisibleChild
 }
 export const canNavigate = to => {
-  const ability = useAbility()
+  // Find the most specific route that has action & subject defined
+  // Check from most specific (last) to least specific (first)
+  for (let i = to.matched.length - 1; i >= 0; i--) {
+    const route = to.matched[i]
+    if (route.meta?.action && route.meta?.subject)
+      return ability.can(route.meta.action, route.meta.subject)
+  }
 
-  // Get the most specific route (last one in the matched array)
-  const targetRoute = to.matched[to.matched.length - 1]
-
-  // If the target route has specific permissions, check those first
-  if (targetRoute?.meta?.action && targetRoute?.meta?.subject)
-    return ability.can(targetRoute.meta.action, targetRoute.meta.subject)
-
-  // If no specific permissions, fall back to checking if any parent route allows access
-    
-  return to.matched.some(route => ability.can(route.meta.action, route.meta.subject))
+  // No route has explicit permissions → allow navigation
+  return true
 }

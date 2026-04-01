@@ -1,45 +1,23 @@
 <script setup>
-const shortcuts = [
-  {
-    icon: 'tabler-calendar',
-    title: 'Calendar',
-    subtitle: 'Appointments',
-    to: { name: 'apps-calendar' },
-  },
-  {
-    icon: 'tabler-file-dollar',
-    title: 'Invoice App',
-    subtitle: 'Manage Accounts',
-    to: { name: 'apps-invoice-list' },
-  },
-  {
-    icon: 'tabler-user',
-    title: 'Users',
-    subtitle: 'Manage Users',
-    to: { name: 'apps-user-list' },
-  },
-  {
-    icon: 'tabler-users',
-    title: 'Role Management',
-    subtitle: 'Permission',
-    to: { name: 'apps-roles' },
-  },
-  {
-    icon: 'tabler-device-desktop-analytics',
-    title: 'Dashboard',
-    subtitle: 'Dashboard Analytics',
-    to: { name: 'dashboards-analytics' },
-  },
-  {
-    icon: 'tabler-settings',
-    title: 'Settings',
-    subtitle: 'Account Settings',
-    to: {
-      name: 'pages-account-settings-tab',
-      params: { tab: 'account' },
-    },
-  },
-]
+import { getVerticalNavItems } from '@/navigation/vertical'
+
+const { t } = useI18n()
+
+const shortcuts = computed(() => {
+  return getVerticalNavItems()
+    .filter(item => item.title && !item.heading && (item.to || item.children?.length))
+    .map(item => {
+      const destination = item.to || (item.children && item.children[0]?.to) || { name: 'index' }
+
+      return {
+        icon: item.icon?.icon || 'tabler-folder',
+        title: item.title,
+        subtitle: item.children ? t('navigation.navigation.shortcuts_count', { count: item.children.length }) : t('navigation.navigation.quick_access'),
+        to: destination,
+      }
+    })
+    .slice(0, 8)
+})
 </script>
 
 <template>
