@@ -18,15 +18,21 @@ export const routes = [
     meta: { action: 'read', subject: 'User' },
   },
   {
+    path: '/apps/user/create',
+    name: 'apps-user-create',
+    component: () => import('../views/UserEditPage.vue'),
+    meta: { action: 'create', subject: 'User' },
+  },
+  {
     path: '/apps/user/view/:id',
     name: 'apps-user-view-id',
-    component: () => import('../views/UserViewPage.vue'),
+    component: () => import('../views/UserEditPage.vue'),
     meta: { action: 'read', subject: 'User' },
   },
   {
     path: '/apps/user/edit/:id',
     name: 'apps-user-edit-id',
     component: () => import('../views/UserEditPage.vue'),
-    meta: { action: 'read', subject: 'Auth' },
+    meta: { action: 'update', subject: 'User' },
   },
 ]

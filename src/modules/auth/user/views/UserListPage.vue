@@ -3,11 +3,9 @@
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '../stores/useUserStore'
 import { downloadUserTemplate, exportUsers, importUsers } from '../services/userService'
 
 const { t } = useI18n()
-const userStore = useUserStore()
 const router = useRouter()
 
 const searchQuery = ref('')
@@ -161,21 +159,21 @@ const resetFilters = () => {
 const statusOptions = [
   { title: t('user.user.status.active'), value: 'active' },
   { title: t('user.user.status.inactive'), value: 'inactive' },
-  { title: t('user.user.status.banned'), value: 'banned' },
 ]
 
+const normalizeUserStatus = stat => stat?.toLowerCase() === 'active' ? 'active' : 'inactive'
+
 const resolveUserStatusVariant = stat => {
-  if (!stat) return 'primary'
-  const s = stat.toLowerCase()
+  const s = normalizeUserStatus(stat)
+
   if (s === 'active') return 'success'
   if (s === 'inactive') return 'warning'
-  if (s === 'banned') return 'error'
 
   return 'primary'
 }
 
 const resolveStatusText = stat => {
-  const found = statusOptions.find(s => s.value === stat)
+  const found = statusOptions.find(s => s.value === normalizeUserStatus(stat))
 
   return found ? found.title : stat
 }
@@ -208,64 +206,14 @@ const viewUser = id => {
   router.push({ name: 'apps-user-view-id', params: { id } })
 }
 
-const isUserFormVisible = ref(false)
-const isEditing = ref(false)
-const editingUserId = ref(null)
+const openCreateUserPage = () => {
+  router.push({ name: 'apps-user-create' })
+}
+
 const isConfirmDialogVisible = ref(false)
 const isConfirming = ref(false)
 const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
-const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
-
-const defaultUserForm = {
-  name: '',
-  user_name: '',
-  email: '',
-  password: '',
-  password_confirmation: '',
-  status: 'active',
-}
-
-const userFormData = ref({ ...defaultUserForm })
-const userFormRef = ref()
-
-const openAddUserForm = () => {
-  isEditing.value = false
-  editingUserId.value = null
-  userFormData.value = { ...defaultUserForm }
-  isUserFormVisible.value = true
-  nextTick(() => {
-    userFormRef.value?.resetValidation()
-  })
-}
-
-const openEditUserForm = item => {
-  isEditing.value = true
-  editingUserId.value = item.id
-  userFormData.value = {
-    name: item.name,
-    user_name: item.user_name,
-    email: item.email,
-    password: '',
-    password_confirmation: '',
-    status: item.status,
-  }
-  isUserFormVisible.value = true
-  nextTick(() => {
-    userFormRef.value?.resetValidation()
-  })
-}
-
-watch(isUserFormVisible, visible => {
-  if (visible) return
-
-  isEditing.value = false
-  editingUserId.value = null
-  userFormData.value = { ...defaultUserForm }
-
-  nextTick(() => {
-    userFormRef.value?.resetValidation()
-  })
-})
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
 const openConfirmDialog = options => {
   confirmDialog.value = { ...confirmDialog.value, ...options }
@@ -284,39 +232,6 @@ const executeConfirmedAction = async () => {
   }
   finally {
     isConfirming.value = false
-  }
-}
-
-const onSubmitUserForm = async () => {
-  const { valid } = await userFormRef.value?.validate() ?? { valid: true }
-  if (!valid) return
-
-  if ((!isEditing.value || userFormData.value.password) && userFormData.value.password !== userFormData.value.password_confirmation) {
-    showSnackbar(t('user.user.list.password_mismatch'), 'warning')
-
-    return
-  }
-
-  try {
-    const payload = { ...userFormData.value }
-    if (isEditing.value && !payload.password) {
-      delete payload.password
-      delete payload.password_confirmation
-    }
-
-    if (isEditing.value)
-      await $api(`/users/${editingUserId.value}`, { method: 'PUT', body: payload })
-    else
-      await $api('/users', { method: 'POST', body: payload })
-
-    isUserFormVisible.value = false
-    showSuccess(isEditing.value ? 'Cập nhật người dùng thành công.' : 'Tạo người dùng thành công.')
-    fetchUsers()
-    fetchStats()
-  }
-  catch (err) {
-    showError(err, t('user.user.list.create_error'))
-    console.error('Submit user form error:', err)
   }
 }
 
@@ -625,7 +540,7 @@ const handleDownloadTemplate = async () => {
         <VBtn
           v-if="$can('create', 'User')"
           color="primary"
-          @click="openAddUserForm"
+          @click="openCreateUserPage"
         >
           <VIcon
             icon="tabler-plus"
@@ -882,102 +797,6 @@ const handleDownloadTemplate = async () => {
       :message="snackbar.message"
       :color="snackbar.color"
     />
-
-    <VDialog
-      v-model="isUserFormVisible"
-      max-width="800"
-    >
-      <VCard :title="isEditing ? t('user.user.list.edit_title') : t('user.user.list.create_title')">
-        <VCardText>
-          <VForm
-            ref="userFormRef"
-            @submit.prevent="onSubmitUserForm"
-          >
-            <VRow>
-              <VCol cols="12">
-                <AppTextField
-                  v-model="userFormData.name"
-                  :rules="[requiredValidator]"
-                  :label="t('user.user.list.full_name')"
-                  :placeholder="t('user.user.list.full_name_placeholder')"
-                />
-              </VCol>
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppTextField
-                  v-model="userFormData.user_name"
-                  :rules="[requiredValidator]"
-                  :label="t('user.user.list.username')"
-                  placeholder="nguyenvana"
-                  :disabled="isEditing"
-                />
-              </VCol>
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppTextField
-                  v-model="userFormData.email"
-                  :rules="[requiredValidator, emailValidator]"
-                  :label="t('user.user.list.email')"
-                  placeholder="email@example.com"
-                />
-              </VCol>
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppTextField
-                  v-model="userFormData.password"
-                  :rules="isEditing ? [] : [requiredValidator]"
-                  :label="t('user.user.list.password')"
-                  type="password"
-                  placeholder="••••••"
-                  :hint="isEditing ? t('user.user.list.password_hint') : ''"
-                  persistent-hint
-                />
-              </VCol>
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppTextField
-                  v-model="userFormData.password_confirmation"
-                  :rules="isEditing ? [] : [requiredValidator]"
-                  :label="t('user.user.list.confirm_password')"
-                  type="password"
-                  placeholder="••••••"
-                />
-              </VCol>
-              <VCol cols="12">
-                <AppSelect
-                  v-model="userFormData.status"
-                  :label="t('user.user.list.status_label')"
-                  :items="statusOptions"
-                />
-              </VCol>
-              <VCol cols="12">
-                <VBtn
-                  type="submit"
-                  class="me-3"
-                >
-                  {{ t('user.user.list.save') }}
-                </VBtn>
-                <VBtn
-                  variant="tonal"
-                  color="error"
-                  @click="isUserFormVisible = false"
-                >
-                  {{ t('user.user.list.cancel') }}
-                </VBtn>
-              </VCol>
-            </VRow>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </VDialog>
 
     <VDialog
       v-model="isImportDialogVisible"
