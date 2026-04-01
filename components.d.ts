@@ -403,6 +403,6 @@ declare module 'vue' {
     TwoFactorAuthDialog: typeof import('./src/components/dialogs/TwoFactorAuthDialog.vue')['default']
     UserInfoEditDialog: typeof import('./src/components/dialogs/UserInfoEditDialog.vue')['default']
     UserUpgradePlanDialog: typeof import('./src/components/dialogs/UserUpgradePlanDialog.vue')['default']
-    VotingTab: typeof import('./src/modules/meetings/components/admin/live-tabs/VotingTab.vue')['default']
+    VueApexCharts: typeof import('vue3-apexcharts')['default']
   }
 }
