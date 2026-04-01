@@ -161,9 +161,11 @@ const statusOptions = [
   { title: t('user.user.status.inactive'), value: 'inactive' },
 ]
 
+const normalizeUserStatus = stat => stat?.toLowerCase() === 'active' ? 'active' : 'inactive'
+
 const resolveUserStatusVariant = stat => {
-  if (!stat) return 'primary'
-  const s = stat.toLowerCase()
+  const s = normalizeUserStatus(stat)
+
   if (s === 'active') return 'success'
   if (s === 'inactive') return 'warning'
 
@@ -171,7 +173,7 @@ const resolveUserStatusVariant = stat => {
 }
 
 const resolveStatusText = stat => {
-  const found = statusOptions.find(s => s.value === stat)
+  const found = statusOptions.find(s => s.value === normalizeUserStatus(stat))
 
   return found ? found.title : stat
 }

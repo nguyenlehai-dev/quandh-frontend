@@ -52,7 +52,6 @@ export default {
   status: {
     active: 'Đang hoạt động',
     inactive: 'Tạm khóa',
-    banned: 'Cấm',
     inactive_view: 'Không hoạt động',
   },
   widgets: {

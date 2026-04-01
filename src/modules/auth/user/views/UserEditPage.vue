@@ -83,6 +83,8 @@ const resetCreateForm = async () => {
   userFormRef.value?.resetValidation()
 }
 
+const normalizeUserStatus = status => status === 'active' ? 'active' : 'inactive'
+
 const getRoleName = roleId => {
   const role = roles.value.find(item => item.id === roleId)
 
@@ -146,7 +148,7 @@ const fetchInitialData = async () => {
       name: user.name || '',
       user_name: user.user_name || '',
       email: user.email || '',
-      status: user.status || 'active',
+      status: normalizeUserStatus(user.status),
     }
 
     populateAssignments(user.assignments)
@@ -244,7 +246,7 @@ const saveUser = async (goBack = false) => {
       payload.password_confirmation = password_confirmation.value
     }
 
-    const response = await $api(isCreateMode.value ? '/users' : `/users/${userId.value}`, {
+    await $api(isCreateMode.value ? '/users' : `/users/${userId.value}`, {
       method: isCreateMode.value ? 'POST' : 'PUT',
       body: payload,
     })

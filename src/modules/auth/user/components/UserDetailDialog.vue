@@ -49,19 +49,19 @@ watch(
 
 const resolveUserStatusVariant = stat => {
   if (!stat) return 'primary'
-  const s = stat.toLowerCase()
+  const s = stat.toLowerCase() === 'active' ? 'active' : 'inactive'
+
   if (s === 'active') return 'success'
   if (s === 'inactive') return 'warning'
-  if (s === 'banned') return 'error'
 
   return 'primary'
 }
 
 const resolveStatusText = stat => {
-  const s = stat?.toLowerCase()
+  const s = stat?.toLowerCase() === 'active' ? 'active' : 'inactive'
+
   if (s === 'active') return 'Đang hoạt động'
   if (s === 'inactive') return 'Tạm khóa'
-  if (s === 'banned') return 'Cấm'
 
   return stat
 }

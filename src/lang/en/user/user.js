@@ -52,7 +52,6 @@ export default {
   status: {
     active: 'Active',
     inactive: 'Inactive',
-    banned: 'Banned',
     inactive_view: 'Inactive',
   },
   widgets: {
