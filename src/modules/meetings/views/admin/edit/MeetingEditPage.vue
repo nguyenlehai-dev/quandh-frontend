@@ -5,6 +5,8 @@ import MeetingAttendeesTab from '@/modules/meetings/components/admin/tabs/Meetin
 import MeetingConclusionsTab from '@/modules/meetings/components/admin/tabs/MeetingConclusionsTab.vue'
 import MeetingDocumentsTab from '@/modules/meetings/components/admin/tabs/MeetingDocumentsTab.vue'
 import MeetingEditModeRequiredCard from '@/modules/meetings/components/admin/shared/MeetingEditModeRequiredCard.vue'
+import MeetingQrPanel from '@/modules/meetings/components/admin/shared/MeetingQrPanel.vue'
+import MeetingSpeechRequestsTab from '@/modules/meetings/components/admin/tabs/MeetingSpeechRequestsTab.vue'
 import MeetingVotesTab from '@/modules/meetings/components/admin/tabs/MeetingVotesTab.vue'
 
 const {
@@ -13,9 +15,13 @@ const {
   addAttendeeItem,
   attendeeGroupsForType,
   autoFillFromGroups,
+  canEditMeeting,
+  canSaveAndAdd,
+  canSaveCurrentMeeting,
   dateTimeConfig,
   formData,
   isEditMode,
+  isTabVisible,
   isTabDisabled,
   loading,
   loadingGroups,
@@ -28,6 +34,7 @@ const {
   submitForm,
   submittingAction,
   tabsConfig,
+  visibleTabs,
   timeConfig,
   userList,
 } = useMeetingEditPage()
@@ -109,6 +116,7 @@ const {
             <!-- Right side Actions -->
             <div class="d-flex gap-3 align-end flex-wrap">
               <VBtn
+                v-if="canSaveAndAdd"
                 variant="outlined"
                 color="primary"
                 prepend-icon="tabler-plus"
@@ -120,6 +128,7 @@ const {
                 Lưu & Thêm
               </VBtn>
               <VBtn
+                v-if="canSaveCurrentMeeting"
                 variant="outlined"
                 color="warning"
                 prepend-icon="tabler-pencil"
@@ -131,6 +140,7 @@ const {
                 Lưu & Sửa
               </VBtn>
               <VBtn
+                v-if="canSaveCurrentMeeting"
                 color="success"
                 variant="flat"
                 prepend-icon="tabler-check"
@@ -167,7 +177,7 @@ const {
             show-arrows
           >
             <VTab
-              v-for="tab in tabsConfig"
+              v-for="tab in visibleTabs"
               :key="tab.value"
               :value="tab.value"
               :disabled="isTabDisabled(tab.value)"
@@ -213,6 +223,7 @@ const {
           <!-- TAB 1: Thông tin & Lịch trình -->
           <!-- ────────────────────────────────────────────────── -->
           <VWindowItem
+            v-if="isTabVisible('general')"
             value="general"
             transition="none"
             reverse-transition="none"
@@ -354,6 +365,7 @@ const {
                           </VChip>
                         </div>
                         <VBtn
+                          v-if="canEditMeeting"
                           variant="flat"
                           size="small"
                           prepend-icon="tabler-plus"
@@ -441,6 +453,7 @@ const {
                             </VCol>
                           </VRow>
                           <IconBtn
+                            v-if="canEditMeeting"
                             color="error"
                             class="mt-4"
                             variant="tonal"
@@ -484,6 +497,7 @@ const {
                           Bấm nút bên dưới để bắt đầu xếp lịch cuộc họp
                         </div>
                         <VBtn
+                          v-if="canEditMeeting"
                           variant="flat"
                           size="small"
                           prepend-icon="tabler-plus"
@@ -554,6 +568,11 @@ const {
                       />
                     </VCardText>
                   </VCard>
+
+                  <MeetingQrPanel
+                    v-if="isEditMode"
+                    :meeting-id="route.params.id"
+                  />
 
                   <!-- Hướng dẫn nhanh -->
                   <VCard
@@ -668,6 +687,7 @@ const {
           <!-- TAB 2: Tài liệu đính kèm -->
           <!-- ────────────────────────────────────────────────── -->
           <VWindowItem
+            v-if="isTabVisible('documents')"
             value="documents"
             transition="none"
             reverse-transition="none"
@@ -717,6 +737,7 @@ const {
           <!-- TAB 3: Thành phần tham dự -->
           <!-- ────────────────────────────────────────────────── -->
           <VWindowItem
+            v-if="isTabVisible('attendees')"
             value="attendees"
             transition="none"
             reverse-transition="none"
@@ -743,7 +764,7 @@ const {
                         Thành phần tham dự
                       </div>
                       <VBtn
-                        v-if="!isEditMode"
+                        v-if="canEditMeeting && !isEditMode"
                         variant="flat"
                         size="small"
                         prepend-icon="tabler-plus"
@@ -812,6 +833,7 @@ const {
                             </VCheckbox>
                           </div>
                           <VBtn
+                            v-if="canEditMeeting"
                             variant="flat"
                             size="small"
                             color="primary"
@@ -867,12 +889,13 @@ const {
                               class="py-1"
                             >
                               <div class="text-caption text-disabled mb-1 font-weight-medium">
-                                Họ và tên
+                                Cán bộ
                               </div>
-                              <AppTextField
-                                v-model="attendee.name"
+                              <AppSelect
+                                v-model="attendee.user_id"
+                                :items="userList"
                                 density="compact"
-                                placeholder="Ví dụ: Nguyễn Văn A"
+                                placeholder="Chọn cán bộ"
                               />
                             </VCol>
                             <VCol
@@ -900,13 +923,14 @@ const {
                               class="py-1"
                             >
                               <div class="text-caption text-disabled mb-1 font-weight-medium">
-                                Kiểu đại biểu
+                                Vai trò cuộc họp
                               </div>
                               <AppSelect
-                                v-model="attendee.type"
+                                v-model="attendee.meeting_role"
                                 :items="[
-                                  { title: 'Thuộc ban ngành (Nội bộ)', value: 'internal' },
-                                  { title: 'Khách / Chuyên gia (Bên ngoài)', value: 'external' },
+                                  { title: 'Chủ tọa', value: 'chair' },
+                                  { title: 'Thư ký', value: 'secretary' },
+                                  { title: 'Đại biểu', value: 'delegate' },
                                 ]"
                                 density="compact"
                               />
@@ -955,6 +979,7 @@ const {
                           Bấm nút bên dưới để bổ sung đại biểu
                         </div>
                         <VBtn
+                          v-if="canEditMeeting"
                           variant="flat"
                           size="small"
                           prepend-icon="tabler-plus"
@@ -975,6 +1000,51 @@ const {
           <!-- TAB 4: Biểu quyết -->
           <!-- ────────────────────────────────────────────────── -->
           <VWindowItem
+            v-if="isTabVisible('speechRequests')"
+            value="speechRequests"
+            transition="none"
+            reverse-transition="none"
+          >
+            <template v-if="isEditMode">
+              <VRow>
+                <VCol cols="12">
+                  <VCard
+                    elevation="0"
+                    style="border-radius: 12px; border: 1px solid #f1f1f4; box-shadow: 0 4px 14px rgba(0,0,0,0.02) !important;"
+                  >
+                    <VCardItem class="pb-3 pt-5 px-5 border-b border-opacity-50">
+                      <div
+                        class="d-flex align-center gap-2 font-weight-bold text-uppercase"
+                        style="color: #475569; font-size: 0.95rem;"
+                      >
+                        <VIcon
+                          icon="tabler-microphone"
+                          size="20"
+                          color="#6366f1"
+                          class="rounded"
+                          style="background-color: #e0e7ff; padding: 4px; box-sizing: content-box;"
+                        />
+                        Quan ly Dang ky Phat bieu
+                      </div>
+                    </VCardItem>
+                    <VCardText class="pa-5">
+                      <MeetingSpeechRequestsTab :meeting-id="route.params.id" />
+                    </VCardText>
+                  </VCard>
+                </VCol>
+              </VRow>
+            </template>
+            <template v-else>
+              <MeetingEditModeRequiredCard
+                icon="tabler-microphone"
+                title="Dang ky phat bieu"
+                description="Vui long luu cuoc hop truoc de co the quan ly dang ky phat bieu cua dai bieu."
+              />
+            </template>
+          </VWindowItem>
+
+          <VWindowItem
+            v-if="isTabVisible('voting')"
             value="voting"
             transition="none"
             reverse-transition="none"
@@ -1021,6 +1091,7 @@ const {
           <!-- TAB 5: Kết luận cuộc họp -->
           <!-- ────────────────────────────────────────────────── -->
           <VWindowItem
+            v-if="isTabVisible('conclusions')"
             value="conclusions"
             transition="none"
             reverse-transition="none"

@@ -13,9 +13,7 @@ export const API_ATTENDEES = '/meetings/attendees'
 export const API_ATTENDEE_GROUPS = '/meetings/attendee-groups'
 export const API_DOCUMENT_TYPES = '/meetings/meeting-document-types'
 export const API_MEETING_TYPES = '/meetings/meeting-types'
-export const API_ISSUING_AGENCIES = '/meetings/meeting-issuing-agencies'
 export const API_DOCUMENT_FIELDS = '/meetings/meeting-document-fields'
-export const API_DOCUMENT_SIGNERS = '/meetings/meeting-document-signers'
 
 /** So dong mac dinh tren 1 trang */
 export const DEFAULT_PER_PAGE = 10

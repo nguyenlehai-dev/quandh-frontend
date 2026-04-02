@@ -1,6 +1,6 @@
 <script setup>
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes, changeMeetingTypeStatus } from '@/modules/meetings/services/meetingService'
+import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes, changeMeetingTypeStatus, importMeetingTypes } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -206,6 +206,8 @@ const toggleItemStatus = item => {
 }
 
 const isExporting = ref(false)
+const isImportDialogVisible = ref(false)
+const importFile = ref([])
 
 const exportData = async () => {
   isExporting.value = true
@@ -223,6 +225,31 @@ const exportData = async () => {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
+  }
+}
+
+const importData = async () => {
+  if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
+    showSnackbar('Vui long chon file import.', 'warning')
+
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const payload = new FormData()
+    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
+
+    payload.append('file', file)
+    await importMeetingTypes(payload)
+    isImportDialogVisible.value = false
+    importFile.value = []
+    showSuccess('Import loai cuoc hop thanh cong.')
+    fetchItems()
+  } catch (error) {
+    showError(error, 'Khong the import loai cuoc hop.')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -307,6 +334,13 @@ const exportData = async () => {
         </VBtn>
       </div>
       <div class="d-flex gap-3">
+        <VBtn
+          variant="outlined"
+          prepend-icon="tabler-upload"
+          @click="isImportDialogVisible = true"
+        >
+          Nhap Du Lieu
+        </VBtn>
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
@@ -621,6 +655,37 @@ const exportData = async () => {
       :loading="isConfirming"
       @confirm="executeConfirmedAction"
     />
+
+    <VDialog
+      v-model="isImportDialogVisible"
+      max-width="480"
+    >
+      <VCard title="Nhap loai cuoc hop">
+        <VCardText>
+          <VFileInput
+            v-model="importFile"
+            label="Chon file Excel / CSV"
+            accept=".xlsx,.xls,.csv"
+            prepend-icon="tabler-upload"
+          />
+        </VCardText>
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isImportDialogVisible = false"
+          >
+            Huy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            @click="importData"
+          >
+            Import
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
 
     <ActionSnackbar
       v-model="snackbar.show"

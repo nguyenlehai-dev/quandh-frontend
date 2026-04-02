@@ -8,7 +8,10 @@ import {
   deleteSpeechRequest,
   fetchAvailableDelegates,
   fetchMeeting,
+  fetchMeetingQrToken,
   fetchPersonalNotes,
+  fetchSpeechRequests,
+  qrCheckinMeeting,
   selfCheckinMeetingParticipant,
   updatePersonalNote,
 } from '@/modules/meetings/services/meetingService'
@@ -34,6 +37,16 @@ export function useParticipantMeetingDetails() {
   const isDelegateDialogOpen = ref(false)
   const delegatedToId = ref(null)
   const availableUsers = ref([])
+  const isQrCheckinDialogOpen = ref(false)
+  const qrCheckinToken = ref('')
+  const qrCheckinError = ref('')
+  const qrTokenPreview = ref('')
+  const isSpeechRequestDialogOpen = ref(false)
+  const speechRequestError = ref('')
+  const speechRequestForm = ref({
+    meeting_agenda_id: null,
+    content: '',
+  })
   const isVotingModalOpen = ref(false)
   const activeVote = ref(null)
   const selectedVoteAnswer = ref(null)
@@ -41,6 +54,7 @@ export function useParticipantMeetingDetails() {
   const isSpeakRequested = ref(false)
   const isRequestingSpeak = ref(false)
   const speechRequestId = ref(null)
+  const speechRequests = ref([])
   const countdownDisplay = ref('00:00:00')
   const userData = useCookie('userData')
 
@@ -59,6 +73,13 @@ export function useParticipantMeetingDetails() {
 
     return { total, present, absent, guest }
   })
+
+  const speechRequestList = computed(() => speechRequests.value.filter(item => item.status === 'pending' || item.status === 'approved'))
+  const speechHistoryList = computed(() => speechRequests.value.filter(item => item.status === 'rejected'))
+  const speechAgendaOptions = computed(() => (meeting.value?.agendas || []).map(item => ({
+    title: item.title,
+    value: item.id,
+  })))
 
   let countdownInterval = null
   let initialLoad = true
@@ -131,17 +152,57 @@ export function useParticipantMeetingDetails() {
     }
   }
 
+  const loadQrTokenPreview = async () => {
+    if (!route.params.id) return
+
+    try {
+      const res = await fetchMeetingQrToken(route.params.id)
+      qrTokenPreview.value = res.data?.qr_token || ''
+    }
+    catch (error) {
+      console.error('Failed to load qr token preview:', error)
+    }
+  }
+
+  const handleQrCheckin = async () => {
+    if (!meeting.value?.id || !qrCheckinToken.value) return
+
+    isCheckinSubmitting.value = true
+    qrCheckinError.value = ''
+    try {
+      const res = await qrCheckinMeeting(meeting.value.id, qrCheckinToken.value)
+      if (currentUserParticipant.value)
+        Object.assign(currentUserParticipant.value, res.data?.data || res.data)
+
+      isQrCheckinDialogOpen.value = false
+      qrCheckinToken.value = ''
+    }
+    catch (error) {
+      console.error('QR checkin failed:', error)
+      qrCheckinError.value = error?.response?._data?.message || error?.data?.message || 'Khong the diem danh bang QR.'
+    }
+    finally {
+      isCheckinSubmitting.value = false
+    }
+  }
+
   const loadMeeting = async () => {
     loading.value = true
     try {
-      const [res, notesRes] = await Promise.all([
+      const [res, notesRes, speechRes] = await Promise.all([
         fetchMeeting(route.params.id),
         fetchPersonalNotes(route.params.id).catch(() => ({ data: [] })),
+        fetchSpeechRequests(route.params.id).catch(() => ({ data: [] })),
       ])
 
       meeting.value = res.data
+      speechRequests.value = speechRes.data || []
       meetingStore.setCurrentMeeting(meeting.value)
       meetingStore.subscribeToMeeting(meeting.value.id)
+
+      const currentUserSpeechRequest = speechRequests.value.find(item => item.participant?.user_id === userData.value?.id && item.status === 'pending')
+      isSpeakRequested.value = !!currentUserSpeechRequest
+      speechRequestId.value = currentUserSpeechRequest?.id || null
 
       if (notesRes.data && notesRes.data.length > 0) {
         personalNotes.value = notesRes.data[0].content
@@ -149,6 +210,7 @@ export function useParticipantMeetingDetails() {
       }
 
       startCountdown()
+      loadQrTokenPreview()
     }
     catch (error) {
       console.error('Failed to load meeting details', error)
@@ -160,15 +222,28 @@ export function useParticipantMeetingDetails() {
 
   const requestSpeak = async () => {
     if (!meeting.value?.id) return
+    if (!speechRequestForm.value.meeting_agenda_id || !speechRequestForm.value.content.trim()) return
 
     isRequestingSpeak.value = true
+    speechRequestError.value = ''
     try {
-      const res = await createSpeechRequest(meeting.value.id)
+      const res = await createSpeechRequest(meeting.value.id, {
+        meeting_agenda_id: speechRequestForm.value.meeting_agenda_id,
+        content: speechRequestForm.value.content.trim(),
+      })
+
       speechRequestId.value = res.data?.id || null
       isSpeakRequested.value = true
+      isSpeechRequestDialogOpen.value = false
+      speechRequestForm.value = {
+        meeting_agenda_id: null,
+        content: '',
+      }
+      await loadMeeting()
     }
     catch (error) {
       console.error('Failed to request speak:', error)
+      speechRequestError.value = error?.response?._data?.message || error?.data?.message || 'Khong the dang ky phat bieu.'
     }
     finally {
       isRequestingSpeak.value = false
@@ -182,6 +257,7 @@ export function useParticipantMeetingDetails() {
       await deleteSpeechRequest(meeting.value.id, speechRequestId.value)
       isSpeakRequested.value = false
       speechRequestId.value = null
+      await loadMeeting()
     }
     catch (error) {
       console.error('Failed to cancel speak request:', error)
@@ -207,10 +283,10 @@ export function useParticipantMeetingDetails() {
   }
 
   const resolveStatusLabel = status => {
-    if (status === 'active' || status === 'in_progress') return 'Äang diá»…n ra'
-    if (status === 'draft' || status === 'scheduled') return 'ChÆ°a báº¯t Ä‘áº§u'
+    if (status === 'active' || status === 'in_progress') return 'Dang dien ra'
+    if (status === 'draft' || status === 'scheduled') return 'Chua bat dau'
 
-    return 'ÄÃ£ káº¿t thÃºc'
+    return 'Da ket thuc'
   }
 
   const resolveStatusBadgeClass = status => {
@@ -297,10 +373,13 @@ export function useParticipantMeetingDetails() {
     getChairperson,
     getPresenterName,
     getSecretary,
+    handleQrCheckin,
     handleSelfCheckin,
     isAbsentDialogOpen,
     isCheckinSubmitting,
     isDelegateDialogOpen,
+    isQrCheckinDialogOpen,
+    isSpeechRequestDialogOpen,
     isRequestingSpeak,
     isSavingNote,
     isSpeakRequested,
@@ -311,11 +390,20 @@ export function useParticipantMeetingDetails() {
     loading,
     meeting,
     personalNotes,
+    qrCheckinError,
+    qrCheckinToken,
+    qrTokenPreview,
     requestSpeak,
     resolveStatusBadgeClass,
     resolveStatusLabel,
     selectedVoteAnswer,
+    speechAgendaOptions,
+    speechHistoryList,
+    speechRequestError,
+    speechRequestForm,
+    speechRequestList,
     speechRequestId,
     submitVote,
   }
 }
+

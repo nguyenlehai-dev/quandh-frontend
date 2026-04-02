@@ -4,6 +4,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { ability } from '@/plugins/casl/ability'
 import { fetchUsers } from '@/modules/auth/user/services/userService'
 import {
   createMeeting,
@@ -20,6 +21,8 @@ const TAB_QUERY_ALIASES = {
   general: 'general',
   materials: 'documents',
   participants: 'attendees',
+  speech: 'speechRequests',
+  'speech-requests': 'speechRequests',
   voting: 'voting',
   votes: 'voting',
 }
@@ -79,12 +82,28 @@ function formatMeetingDateToBackend(datetimeLocal) {
 }
 
 function buildMeetingPayload(formData) {
+  const normalizeMeetingRole = role => {
+    if (['chair', 'secretary', 'delegate'].includes(role)) return role
+
+    return 'delegate'
+  }
+
   const cleanAgendas = (formData.agendas || []).map(agenda => ({
     ...(agenda.id ? { id: agenda.id } : {}),
     title: agenda.title,
     duration: agenda.duration || null,
     presenter_id: agenda.presenter_id || null,
   }))
+
+  const cleanParticipants = (formData.attendees || [])
+    .filter(attendee => attendee.user_id)
+    .map(attendee => ({
+      ...(attendee.id ? { id: attendee.id } : {}),
+      user_id: attendee.user_id,
+      position: attendee.position || null,
+      meeting_role: normalizeMeetingRole(attendee.meeting_role),
+      attendance_status: attendee.attendance_status || 'pending',
+    }))
 
   return {
     title: formData.title,
@@ -95,6 +114,7 @@ function buildMeetingPayload(formData) {
     end_at: formatMeetingDateToBackend(formData.end_at) || null,
     status: formData.status || 'draft',
     agendas: cleanAgendas.length > 0 ? cleanAgendas : null,
+    participants: cleanParticipants.length > 0 ? cleanParticipants : null,
   }
 }
 
@@ -119,6 +139,11 @@ export function useMeetingEditPage() {
   const meetingTypeList = ref([])
   const attendeeGroupsForType = ref([])
   const selectedGroupIds = ref([])
+  const canCreateMeeting = computed(() => ability.can('create', 'Meeting'))
+  const canUpdateMeeting = computed(() => ability.can('update', 'Meeting'))
+  const canEditMeeting = computed(() => isEditMode.value ? canUpdateMeeting.value : canCreateMeeting.value)
+  const canSaveAndAdd = computed(() => isEditMode.value ? canUpdateMeeting.value && canCreateMeeting.value : canCreateMeeting.value)
+  const canSaveCurrentMeeting = computed(() => isEditMode.value ? canUpdateMeeting.value : canCreateMeeting.value)
 
   const showMessage = (message, color = 'success') => {
     snackbar.value = {
@@ -129,12 +154,27 @@ export function useMeetingEditPage() {
   }
 
   const tabsConfig = computed(() => [
-    { value: 'general', label: 'Thong tin & lich trinh', icon: 'tabler-list-details', editOnly: false },
-    { value: 'documents', label: 'Tai lieu cuoc hop', icon: 'tabler-file-text', editOnly: true },
-    { value: 'attendees', label: 'Thanh phan tham du', icon: 'tabler-users-group', editOnly: false },
-    { value: 'voting', label: 'Bieu quyet cuoc hop', icon: 'tabler-checkbox', editOnly: true },
-    { value: 'conclusions', label: 'Ket luan cuoc hop', icon: 'tabler-file-check', editOnly: true },
+    { value: 'general', label: 'Thong tin & lich trinh', icon: 'tabler-list-details', editOnly: false, subject: null },
+    { value: 'documents', label: 'Tai lieu cuoc hop', icon: 'tabler-file-text', editOnly: true, subject: 'MeetingDocument' },
+    { value: 'attendees', label: 'Thanh phan tham du', icon: 'tabler-users-group', editOnly: false, subject: 'MeetingParticipant', createVisible: true },
+    { value: 'speechRequests', label: 'Dang ky phat bieu', icon: 'tabler-microphone', editOnly: true, subject: 'MeetingSpeechRequest' },
+    { value: 'voting', label: 'Bieu quyet cuoc hop', icon: 'tabler-checkbox', editOnly: true, subject: 'MeetingVoting' },
+    { value: 'conclusions', label: 'Ket luan cuoc hop', icon: 'tabler-file-check', editOnly: true, subject: 'MeetingConclusion' },
   ])
+
+  const isTabVisible = tabValue => {
+    const tab = tabsConfig.value.find(item => item.value === tabValue)
+    if (!tab) return false
+
+    if (!isEditMode.value)
+      return !tab.editOnly || tab.createVisible === true
+
+    if (!tab.subject) return true
+
+    return ability.can('read', tab.subject)
+  }
+
+  const visibleTabs = computed(() => tabsConfig.value.filter(tab => isTabVisible(tab.value)))
 
   const isTabDisabled = tabValue => {
     const tab = tabsConfig.value.find(item => item.value === tabValue)
@@ -144,9 +184,16 @@ export function useMeetingEditPage() {
 
   const syncActiveTabFromRoute = () => {
     const nextTab = TAB_QUERY_ALIASES[route.query.tab]
-    if (!nextTab || isTabDisabled(nextTab)) return
+    if (!nextTab || isTabDisabled(nextTab) || !isTabVisible(nextTab)) return
 
     activeTab.value = nextTab
+  }
+
+  const ensureActiveTabAccessible = () => {
+    if (isTabVisible(activeTab.value) && !isTabDisabled(activeTab.value)) return
+
+    const fallbackTab = visibleTabs.value.find(tab => !isTabDisabled(tab.value))
+    activeTab.value = fallbackTab?.value || 'general'
   }
 
   const fetchMeetingDetails = async () => {
@@ -167,7 +214,13 @@ export function useMeetingEditPage() {
         end_at: formatMeetingDateToInput(data.end_at),
         status: data.status || 'draft',
         agendas: data.agendas || [],
-        attendees: data.participants || [],
+        attendees: (data.participants || []).map(participant => ({
+          id: participant.id,
+          user_id: participant.user_id,
+          position: participant.position || '',
+          meeting_role: participant.meeting_role || 'delegate',
+          attendance_status: participant.attendance_status || 'pending',
+        })),
       }
     }
     catch (err) {
@@ -212,6 +265,7 @@ export function useMeetingEditPage() {
   const loadAttendeeGroupsForType = async meetingTypeId => {
     if (!meetingTypeId) {
       attendeeGroupsForType.value = []
+
       return
     }
 
@@ -230,22 +284,27 @@ export function useMeetingEditPage() {
   }
 
   const autoFillFromGroups = () => {
+    if (!canEditMeeting.value) {
+      showMessage('Ban khong co quyen chinh sua cuoc hop nay.', 'warning')
+
+      return
+    }
+
     const groups = attendeeGroupsForType.value.filter(group => selectedGroupIds.value.includes(group.id))
-    const existingNames = new Set(formData.value.attendees.map(item => item.name?.toLowerCase()).filter(Boolean))
+    const existingUserIds = new Set(formData.value.attendees.map(item => item.user_id).filter(Boolean))
 
     groups.forEach(group => {
       ;(group.members || []).forEach(member => {
-        const normalizedName = member.name?.toLowerCase()
-        if (!normalizedName || existingNames.has(normalizedName)) return
+        if (!member.id || existingUserIds.has(member.id)) return
 
         formData.value.attendees.push({
-          name: member.name,
-          position: 'member',
-          type: 'internal',
           user_id: member.id,
+          position: member.position || '',
+          meeting_role: 'delegate',
+          attendance_status: 'pending',
         })
 
-        existingNames.add(normalizedName)
+        existingUserIds.add(member.id)
       })
     })
 
@@ -253,6 +312,12 @@ export function useMeetingEditPage() {
   }
 
   const addAgendaItem = () => {
+    if (!canEditMeeting.value) {
+      showMessage('Ban khong co quyen chinh sua cuoc hop nay.', 'warning')
+
+      return
+    }
+
     formData.value.agendas.push({
       title: '',
       duration: 0,
@@ -263,25 +328,57 @@ export function useMeetingEditPage() {
   }
 
   const removeAgendaItem = index => {
+    if (!canEditMeeting.value) {
+      showMessage('Ban khong co quyen chinh sua cuoc hop nay.', 'warning')
+
+      return
+    }
+
     formData.value.agendas.splice(index, 1)
   }
 
   const addAttendeeItem = () => {
+    if (!canEditMeeting.value) {
+      showMessage('Ban khong co quyen chinh sua cuoc hop nay.', 'warning')
+
+      return
+    }
+
     formData.value.attendees.push({
-      name: '',
-      position: 'member',
-      type: 'internal',
+      user_id: null,
+      position: '',
+      meeting_role: 'delegate',
+      attendance_status: 'pending',
     })
   }
 
   const removeAttendeeItem = index => {
+    if (!canEditMeeting.value) {
+      showMessage('Ban khong co quyen chinh sua cuoc hop nay.', 'warning')
+
+      return
+    }
+
     formData.value.attendees.splice(index, 1)
   }
 
   const submitForm = async actionType => {
+    if (!canSaveCurrentMeeting.value) {
+      showMessage('Ban khong co quyen luu cuoc hop nay.', 'warning')
+
+      return
+    }
+
+    if (actionType === 'save-add' && !canSaveAndAdd.value) {
+      showMessage('Ban khong co quyen thuc hien thao tac luu va them.', 'warning')
+
+      return
+    }
+
     if (!formData.value.title) {
       showMessage('Vui long nhap ten cuoc hop', 'error')
       activeTab.value = 'general'
+
       return
     }
 
@@ -346,6 +443,7 @@ export function useMeetingEditPage() {
 
   watch(() => route.query.tab, () => {
     syncActiveTabFromRoute()
+    ensureActiveTabAccessible()
   })
 
   watch(activeTab, tab => {
@@ -359,6 +457,10 @@ export function useMeetingEditPage() {
       },
     })
   })
+
+  watch([visibleTabs, isEditMode], () => {
+    ensureActiveTabAccessible()
+  }, { immediate: true })
 
   onMounted(() => {
     loadUsers()
@@ -376,9 +478,15 @@ export function useMeetingEditPage() {
     addAttendeeItem,
     attendeeGroupsForType,
     autoFillFromGroups,
+    canCreateMeeting,
+    canEditMeeting,
+    canSaveAndAdd,
+    canSaveCurrentMeeting,
+    canUpdateMeeting,
     dateTimeConfig,
     formData,
     isEditMode,
+    isTabVisible,
     isTabDisabled,
     loading,
     loadingGroups,
@@ -392,6 +500,7 @@ export function useMeetingEditPage() {
     submitForm,
     submittingAction,
     tabsConfig,
+    visibleTabs,
     timeConfig,
     userList,
   }

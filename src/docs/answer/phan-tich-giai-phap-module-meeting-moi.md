@@ -40,8 +40,6 @@
    - Mô tả
    - Loại tài liệu cuộc họp
    - Lĩnh vực tài liệu cuộc họp
-   - Cơ quan ban hành tài liệu cuộc họp
-   - Người ký tài liệu cuộc họp
    - Nhiều tệp đính kèm
 
 5. **Kết luận cuộc họp**
@@ -166,8 +164,6 @@ Tối thiểu triển khai đầy đủ cho:
 - Nhóm thành phần tham dự (`attendee-groups`)
 - Loại tài liệu cuộc họp (`meeting-document-types`)
 - Lĩnh vực tài liệu cuộc họp (`meeting-document-fields`)
-- Người ký tài liệu cuộc họp (`meeting-document-signers`)
-- Cơ quan ban hành tài liệu cuộc họp (`meeting-issuing-agencies`)
 
 ---
 
@@ -243,34 +239,7 @@ Trường chính:
 - `created_by`, `updated_by`
 - `created_at`, `updated_at`
 
-## 3.6 Bảng người ký tài liệu cuộc họp
-
-**Bảng:** `m_document_signers`
-
-Trường chính:
-- `id`
-- `name`
-- `position` (nullable)
-- `description` (nullable)
-- `status`
-- `organization_id`
-- `created_by`, `updated_by`
-- `created_at`, `updated_at`
-
-## 3.7 Bảng cơ quan ban hành tài liệu cuộc họp
-
-**Bảng:** `m_issuing_agencies`
-
-Trường chính:
-- `id`
-- `name`
-- `description` (nullable)
-- `status`
-- `organization_id`
-- `created_by`, `updated_by`
-- `created_at`, `updated_at`
-
-## 3.8 Bảng cuộc họp
+## 3.6 Bảng cuộc họp
 
 **Bảng:** `m_meetings`
 
@@ -293,7 +262,7 @@ Index khuyến nghị:
 - `(organization_id, start_at)`
 - `(organization_id, meeting_type_id)`
 
-## 3.9 Bảng thành phần tham dự cuộc họp
+## 3.7 Bảng thành phần tham dự cuộc họp
 
 **Bảng:** `m_participants`
 
@@ -313,7 +282,7 @@ Trường chính:
 Ràng buộc:
 - unique(`meeting_id`, `user_id`)
 
-## 3.10 Bảng chương trình nghị sự
+## 3.8 Bảng chương trình nghị sự
 
 **Bảng:** `m_agendas`
 
@@ -328,17 +297,15 @@ Trường chính:
 - `organization_id`
 - `created_at`, `updated_at`
 
-## 3.11 Bảng tài liệu cuộc họp
+## 3.9 Bảng tài liệu cuộc họp
 
 **Bảng:** `m_documents`
 
 Trường chính:
 - `id`
 - `meeting_id` (FK -> `m_meetings`)
-- `document_type_id` (FK -> `m_document_types`)
-- `document_field_id` (FK -> `m_document_fields`)
-- `issuing_agency_id` (FK -> `m_issuing_agencies`)
-- `document_signer_id` (FK -> `m_document_signers`)
+- `meeting_document_type_id` (FK -> `m_document_types`)
+- `meeting_document_field_id` (FK -> `m_document_fields`)
 - `title`
 - `description` (nullable)
 - `organization_id`
@@ -348,9 +315,9 @@ Trường chính:
 Ghi chú triển khai:
 - File đính kèm không lưu trực tiếp ở bảng này
 - Upload/xóa file phải đi qua `App\Modules\Core\Services\MediaService`
-- Không dùng lại `document_types`, `document_fields`, `document_signers`, `issuing_agencies` của module `Document`
+- Không dùng lại `document_types`, `document_fields` của module `Document`
 
-## 3.12 Bảng kết luận cuộc họp
+## 3.10 Bảng kết luận cuộc họp
 
 **Bảng:** `m_conclusions`
 
@@ -364,7 +331,7 @@ Trường chính:
 - `created_by`, `updated_by`
 - `created_at`, `updated_at`
 
-## 3.13 Bảng đăng ký phát biểu
+## 3.11 Bảng đăng ký phát biểu
 
 **Bảng:** `m_speech_requests`
 
@@ -377,7 +344,7 @@ Trường chính:
 - `organization_id`
 - `created_at`, `updated_at`
 
-## 3.14 Bảng biểu quyết
+## 3.12 Bảng biểu quyết
 
 **Bảng:** `m_votings`
 
@@ -392,7 +359,7 @@ Trường chính:
 - `organization_id`
 - `created_at`, `updated_at`
 
-## 3.15 Bảng kết quả biểu quyết
+## 3.13 Bảng kết quả biểu quyết
 
 **Bảng:** `m_vote_results`
 
@@ -407,7 +374,7 @@ Trường chính:
 Ràng buộc:
 - unique(`meeting_voting_id`, `user_id`) nếu vẫn giữ rule mỗi user một phiếu
 
-## 3.16 Bảng ghi chú cá nhân
+## 3.14 Bảng ghi chú cá nhân
 
 **Bảng:** `m_personal_notes`
 
@@ -420,7 +387,7 @@ Trường chính:
 - `organization_id`
 - `created_at`, `updated_at`
 
-## 3.17 Bảng nhắc việc/thông báo cuộc họp (mở rộng)
+## 3.15 Bảng nhắc việc/thông báo cuộc họp (mở rộng)
 
 **Bảng:** `m_reminders`
 
@@ -537,10 +504,8 @@ Không triển khai cơ chế riêng ngoài `Core`.
 - `search`
 - `meeting_id`
 - `meeting_type_id`
-- `document_type_id`
-- `document_field_id`
-- `issuing_agency_id`
-- `document_signer_id`
+- `meeting_document_type_id`
+- `meeting_document_field_id`
 - `from_date`, `to_date`
 - `sort_by`
 - `sort_order`
@@ -727,8 +692,6 @@ Validate upload đề xuất:
 - `attendee-groups.*`
 - `meeting-document-types.*`
 - `meeting-document-fields.*`
-- `meeting-document-signers.*`
-- `meeting-issuing-agencies.*`
 
 ## 8.2 LogActivity
 

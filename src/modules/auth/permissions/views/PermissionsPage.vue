@@ -106,6 +106,8 @@ const entityToNameMap = {
   meetings: t('permissions.permissions.entities.meetings'),
   'meeting-types': t('permissions.permissions.entities.meeting-types'),
   'attendee-groups': t('permissions.permissions.entities.attendee-groups'),
+  'meeting-document-types': t('permissions.permissions.entities.meeting-document-types'),
+  'meeting-document-fields': t('permissions.permissions.entities.meeting-document-fields'),
   'meeting-participants': t('permissions.permissions.entities.meeting-participants'),
   'meeting-agendas': t('permissions.permissions.entities.meeting-agendas'),
   'meeting-documents': t('permissions.permissions.entities.meeting-documents'),

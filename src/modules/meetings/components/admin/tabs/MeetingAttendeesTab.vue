@@ -182,6 +182,7 @@ onMounted(() => {
           Người dự họp
         </h5>
         <VBtn
+          v-if="$can('create', 'MeetingParticipant')"
           prepend-icon="tabler-plus"
           @click="isAddDialogVisible = true"
         >
@@ -213,10 +214,16 @@ onMounted(() => {
           </VChip>
         </template>
         <template #item.actions="{ item }">
-          <IconBtn @click="openEditDialog(item)">
+          <IconBtn
+            v-if="$can('update', 'MeetingParticipant')"
+            @click="openEditDialog(item)"
+          >
             <VIcon icon="tabler-pencil" />
           </IconBtn>
-          <IconBtn @click="deleteItem(item)">
+          <IconBtn
+            v-if="$can('delete', 'MeetingParticipant')"
+            @click="deleteItem(item)"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>

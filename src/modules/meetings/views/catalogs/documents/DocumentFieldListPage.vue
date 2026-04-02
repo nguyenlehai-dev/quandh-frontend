@@ -1,6 +1,15 @@
 <script setup>
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { deleteDocumentField, createDocumentField, updateDocumentField, exportDocumentFields, changeDocumentFieldStatus } from '@/modules/meetings/services/meetingService'
+import {
+  bulkDeleteDocumentFields,
+  bulkUpdateDocumentFields,
+  changeDocumentFieldStatus,
+  createDocumentField,
+  deleteDocumentField,
+  exportDocumentFields,
+  importDocumentFields,
+  updateDocumentField,
+} from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -8,6 +17,7 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
+const selectedRows = ref([])
 const isConfirmDialogVisible = ref(false)
 const isConfirming = ref(false)
 const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
@@ -41,6 +51,10 @@ const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
 const selectedItemId = ref(null)
+const isBulkUpdateDialogVisible = ref(false)
+const bulkUpdateStatusValue = ref('active')
+const isImportDialogVisible = ref(false)
+const importFile = ref([])
 
 const formData = ref({
   name: '',
@@ -118,6 +132,44 @@ const deleteItem = item => {
   })
 }
 
+const bulkDelete = () => {
+  if (!selectedRows.value.length) return
+
+  openConfirmDialog({
+    title: 'Xoa hang loat linh vuc',
+    message: `Ban co chac chan muon xoa ${selectedRows.value.length} linh vuc da chon khong?`,
+    confirmText: 'Xoa',
+    confirmColor: 'error',
+    action: async () => {
+      await bulkDeleteDocumentFields({ ids: selectedRows.value })
+      selectedRows.value = []
+      showSuccess('Xoa hang loat linh vuc thanh cong.')
+      fetchItems()
+    },
+  })
+}
+
+const bulkUpdateStatus = () => {
+  if (!selectedRows.value.length) return
+  isBulkUpdateDialogVisible.value = true
+}
+
+const confirmBulkUpdateStatus = async () => {
+  isSubmitting.value = true
+  try {
+    await bulkUpdateDocumentFields({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
+    selectedRows.value = []
+    isBulkUpdateDialogVisible.value = false
+    showSuccess('Cap nhat trang thai hang loat linh vuc thanh cong.')
+    fetchItems()
+  } catch (err) {
+    showError(err, 'Khong the cap nhat trang thai hang loat.')
+    console.error('Bulk update document fields failed:', err)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 const toggleItemStatus = item => {
   const nextStatus = item.status === 'active' ? 'inactive' : 'active'
   const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
@@ -153,6 +205,31 @@ const exportData = async () => {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
+  }
+}
+
+const importData = async () => {
+  if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
+    showSnackbar('Vui long chon file import.', 'warning')
+
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const payload = new FormData()
+    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
+
+    payload.append('file', file)
+    await importDocumentFields(payload)
+    isImportDialogVisible.value = false
+    importFile.value = []
+    showSuccess('Import linh vuc tai lieu thanh cong.')
+    fetchItems()
+  } catch (error) {
+    showError(error, 'Khong the import linh vuc tai lieu.')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -214,8 +291,33 @@ const exportData = async () => {
           density="compact"
           style="max-inline-size: 80px;"
         />
+        <VBtn
+          v-if="selectedRows.length > 0"
+          color="error"
+          variant="tonal"
+          prepend-icon="tabler-trash"
+          @click="bulkDelete"
+        >
+          Xoa ({{ selectedRows.length }})
+        </VBtn>
+        <VBtn
+          v-if="selectedRows.length > 0"
+          color="warning"
+          variant="tonal"
+          prepend-icon="tabler-exchange"
+          @click="bulkUpdateStatus"
+        >
+          Doi trang thai
+        </VBtn>
       </div>
       <div class="d-flex gap-3">
+        <VBtn
+          variant="outlined"
+          prepend-icon="tabler-upload"
+          @click="isImportDialogVisible = true"
+        >
+          Nhap Du Lieu
+        </VBtn>
         <VBtn
           variant="outlined"
           prepend-icon="tabler-download"
@@ -236,6 +338,7 @@ const exportData = async () => {
 
     <div class="meeting-section-card mb-6">
       <VDataTableServer
+        v-model="selectedRows"
         v-model:items-per-page="itemsPerPage"
         v-model:page="page"
         :items="items"
@@ -243,6 +346,7 @@ const exportData = async () => {
         :headers="headers"
         :loading="isLoading"
         class="text-no-wrap"
+        show-select
       >
         <template #item.name="{ item }">
           <span class="font-weight-medium">{{ item.name }}</span>
@@ -419,6 +523,68 @@ const exportData = async () => {
       :loading="isConfirming"
       @confirm="executeConfirmedAction"
     />
+
+    <VDialog
+      v-model="isBulkUpdateDialogVisible"
+      max-width="420"
+    >
+      <VCard title="Cap nhat trang thai hang loat">
+        <VCardText>
+          <AppSelect
+            v-model="bulkUpdateStatusValue"
+            :items="statusOptions"
+            label="Trang thai moi"
+          />
+        </VCardText>
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isBulkUpdateDialogVisible = false"
+          >
+            Huy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            color="warning"
+            @click="confirmBulkUpdateStatus"
+          >
+            Cap nhat
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
+
+    <VDialog
+      v-model="isImportDialogVisible"
+      max-width="480"
+    >
+      <VCard title="Nhap linh vuc tai lieu">
+        <VCardText>
+          <VFileInput
+            v-model="importFile"
+            label="Chon file Excel / CSV"
+            accept=".xlsx,.xls,.csv"
+            prepend-icon="tabler-upload"
+          />
+        </VCardText>
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isImportDialogVisible = false"
+          >
+            Huy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            @click="importData"
+          >
+            Import
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
 
     <ActionSnackbar
       v-model="snackbar.show"

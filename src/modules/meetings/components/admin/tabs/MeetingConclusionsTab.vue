@@ -153,6 +153,7 @@ const submitEdit = async () => {
           Danh sách Kết luận
         </h5>
         <VBtn
+          v-if="$can('create', 'MeetingConclusion')"
           prepend-icon="tabler-plus"
           @click="isAddDialogVisible = true"
         >
@@ -168,10 +169,16 @@ const submitEdit = async () => {
         class="text-no-wrap"
       >
         <template #item.actions="{ item }">
-          <IconBtn @click="openEditDialog(item)">
+          <IconBtn
+            v-if="$can('update', 'MeetingConclusion')"
+            @click="openEditDialog(item)"
+          >
             <VIcon icon="tabler-pencil" />
           </IconBtn>
-          <IconBtn @click="deleteItem(item)">
+          <IconBtn
+            v-if="$can('delete', 'MeetingConclusion')"
+            @click="deleteItem(item)"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
