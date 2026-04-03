@@ -28,12 +28,12 @@ const statusOptions = [
 ]
 
 const headers = [
-  { title: 'Loại cuộc họp', key: 'name' },
-  { title: 'Mô tả', key: 'description' },
-  { title: 'Nhóm dự họp', key: 'attendee_groups_count', sortable: false },
-  { title: 'Loại TL', key: 'document_types_count', sortable: false },
-  { title: 'Cuộc họp', key: 'meetings_count', sortable: false },
+  { title: 'STT', key: 'stt', sortable: false },
+  { title: 'Tên', key: 'name' },
+  { title: 'Mô tả', key: 'description', sortable: false },
   { title: 'Trạng thái', key: 'status' },
+  { title: 'Tạo', key: 'created_info', sortable: false },
+  { title: 'Cập nhật', key: 'updated_info', sortable: false },
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
@@ -80,6 +80,8 @@ const refFormEdit = ref()
 const rules = {
   required: value => !!value || 'Trường này là bắt buộc',
 }
+
+const getRowNumber = index => ((page.value - 1) * itemsPerPage.value) + index + 1
 
 const openConfirmDialog = options => {
   confirmDialog.value = {
@@ -230,7 +232,7 @@ const exportData = async () => {
 
 const importData = async () => {
   if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui long chon file import.', 'warning')
+    showSnackbar('Vui lòng chọn file import.', 'warning')
 
     return
   }
@@ -244,10 +246,10 @@ const importData = async () => {
     await importMeetingTypes(payload)
     isImportDialogVisible.value = false
     importFile.value = []
-    showSuccess('Import loai cuoc hop thanh cong.')
+    showSuccess('Import loại cuộc họp thành công.')
     fetchItems()
   } catch (error) {
-    showError(error, 'Khong the import loai cuoc hop.')
+    showError(error, 'Không thể import loại cuộc họp.')
   } finally {
     isSubmitting.value = false
   }
@@ -339,7 +341,7 @@ const importData = async () => {
           prepend-icon="tabler-upload"
           @click="isImportDialogVisible = true"
         >
-          Nhap Du Lieu
+          Nhập dữ liệu
         </VBtn>
         <VBtn
           variant="outlined"
@@ -347,14 +349,15 @@ const importData = async () => {
           :loading="isExporting"
           @click="exportData"
         >
-          Xuất Dữ Liệu
+          Xuất dữ liệu
         </VBtn>
         <VBtn
+          v-if="$can('create', 'MeetingType')"
           color="primary"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
         >
-          Thêm Mới
+          Thêm mới
         </VBtn>
       </div>
     </div>
@@ -372,53 +375,30 @@ const importData = async () => {
         item-value="id"
         class="text-no-wrap"
       >
+        <template #item.stt="{ index }">
+          <span class="text-body-2 text-disabled">{{ getRowNumber(index) }}</span>
+        </template>
+
         <template #item.name="{ item }">
           <span class="font-weight-medium">{{ item.name }}</span>
         </template>
 
-        <template #item.attendee_groups_count="{ item }">
-          <VChip
-            size="small"
-            color="primary"
-            variant="tonal"
-          >
-            <VIcon
-              start
-              icon="tabler-users-group"
-              size="14"
-            />
-            {{ item.attendee_groups_count || 0 }}
-          </VChip>
+        <template #item.description="{ item }">
+          <span>{{ item.description || '---' }}</span>
         </template>
 
-        <template #item.document_types_count="{ item }">
-          <VChip
-            size="small"
-            color="info"
-            variant="tonal"
-          >
-            <VIcon
-              start
-              icon="tabler-category"
-              size="14"
-            />
-            {{ item.document_types_count || 0 }}
-          </VChip>
+        <template #item.created_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.created_at || '---' }}</span>
+          </div>
         </template>
 
-        <template #item.meetings_count="{ item }">
-          <VChip
-            size="small"
-            color="warning"
-            variant="tonal"
-          >
-            <VIcon
-              start
-              icon="tabler-calendar-event"
-              size="14"
-            />
-            {{ item.meetings_count || 0 }}
-          </VChip>
+        <template #item.updated_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.updated_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.updated_at || '---' }}</span>
+          </div>
         </template>
 
         <template #item.status="{ item }">
@@ -660,11 +640,11 @@ const importData = async () => {
       v-model="isImportDialogVisible"
       max-width="480"
     >
-      <VCard title="Nhap loai cuoc hop">
+      <VCard title="Nhập loại cuộc họp">
         <VCardText>
           <VFileInput
             v-model="importFile"
-            label="Chon file Excel / CSV"
+            label="Chọn file Excel / CSV"
             accept=".xlsx,.xls,.csv"
             prepend-icon="tabler-upload"
           />
@@ -675,7 +655,7 @@ const importData = async () => {
             variant="tonal"
             @click="isImportDialogVisible = false"
           >
-            Huy
+            Hủy
           </VBtn>
           <VBtn
             :loading="isSubmitting"

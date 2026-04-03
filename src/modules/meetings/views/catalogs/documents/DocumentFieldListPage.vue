@@ -29,9 +29,12 @@ const statusOptions = [
 ]
 
 const headers = [
-  { title: 'Tên Lĩnh vực', key: 'name' },
-  { title: 'Mô tả', key: 'description' },
+  { title: 'STT', key: 'stt', sortable: false },
+  { title: 'Tên', key: 'name' },
+  { title: 'Mô tả', key: 'description', sortable: false },
   { title: 'Trạng thái', key: 'status' },
+  { title: 'Tạo', key: 'created_info', sortable: false },
+  { title: 'Cập nhật', key: 'updated_info', sortable: false },
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
@@ -61,6 +64,8 @@ const formData = ref({
   description: '',
   status: 'active',
 })
+
+const getRowNumber = index => ((page.value - 1) * itemsPerPage.value) + index + 1
 
 const openAddDialog = () => {
   formData.value = { name: '', description: '', status: 'active' }
@@ -136,14 +141,14 @@ const bulkDelete = () => {
   if (!selectedRows.value.length) return
 
   openConfirmDialog({
-    title: 'Xoa hang loat linh vuc',
-    message: `Ban co chac chan muon xoa ${selectedRows.value.length} linh vuc da chon khong?`,
-    confirmText: 'Xoa',
+    title: 'Xóa hàng loạt lĩnh vực',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} lĩnh vực đã chọn không?`,
+    confirmText: 'Xóa',
     confirmColor: 'error',
     action: async () => {
       await bulkDeleteDocumentFields({ ids: selectedRows.value })
       selectedRows.value = []
-      showSuccess('Xoa hang loat linh vuc thanh cong.')
+      showSuccess('Xóa hàng loạt lĩnh vực thành công.')
       fetchItems()
     },
   })
@@ -160,10 +165,10 @@ const confirmBulkUpdateStatus = async () => {
     await bulkUpdateDocumentFields({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
     selectedRows.value = []
     isBulkUpdateDialogVisible.value = false
-    showSuccess('Cap nhat trang thai hang loat linh vuc thanh cong.')
+    showSuccess('Cập nhật trạng thái hàng loạt lĩnh vực thành công.')
     fetchItems()
   } catch (err) {
-    showError(err, 'Khong the cap nhat trang thai hang loat.')
+    showError(err, 'Không thể cập nhật trạng thái hàng loạt.')
     console.error('Bulk update document fields failed:', err)
   } finally {
     isSubmitting.value = false
@@ -210,7 +215,7 @@ const exportData = async () => {
 
 const importData = async () => {
   if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui long chon file import.', 'warning')
+    showSnackbar('Vui lòng chọn file import.', 'warning')
 
     return
   }
@@ -224,10 +229,10 @@ const importData = async () => {
     await importDocumentFields(payload)
     isImportDialogVisible.value = false
     importFile.value = []
-    showSuccess('Import linh vuc tai lieu thanh cong.')
+    showSuccess('Import lĩnh vực tài liệu thành công.')
     fetchItems()
   } catch (error) {
-    showError(error, 'Khong the import linh vuc tai lieu.')
+    showError(error, 'Không thể import lĩnh vực tài liệu.')
   } finally {
     isSubmitting.value = false
   }
@@ -316,7 +321,7 @@ const importData = async () => {
           prepend-icon="tabler-upload"
           @click="isImportDialogVisible = true"
         >
-          Nhap Du Lieu
+          Nhập dữ liệu
         </VBtn>
         <VBtn
           variant="outlined"
@@ -324,14 +329,15 @@ const importData = async () => {
           :loading="isExporting"
           @click="exportData"
         >
-          Xuất Dữ Liệu
+          Xuất dữ liệu
         </VBtn>
         <VBtn
+          v-if="$can('create', 'MeetingDocumentField')"
           color="primary"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
         >
-          Thêm Mới
+          Thêm mới
         </VBtn>
       </div>
     </div>
@@ -348,8 +354,30 @@ const importData = async () => {
         class="text-no-wrap"
         show-select
       >
+        <template #item.stt="{ index }">
+          <span class="text-body-2 text-disabled">{{ getRowNumber(index) }}</span>
+        </template>
+
         <template #item.name="{ item }">
           <span class="font-weight-medium">{{ item.name }}</span>
+        </template>
+
+        <template #item.description="{ item }">
+          <span>{{ item.description || '---' }}</span>
+        </template>
+
+        <template #item.created_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.created_at || '---' }}</span>
+          </div>
+        </template>
+
+        <template #item.updated_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.updated_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.updated_at || '---' }}</span>
+          </div>
         </template>
 
         <template #item.status="{ item }">
@@ -363,7 +391,10 @@ const importData = async () => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn @click="openEditDialog(item)">
+            <IconBtn
+              v-if="$can('update', 'MeetingDocumentField')"
+              @click="openEditDialog(item)"
+            >
               <VIcon icon="tabler-pencil" />
               <VTooltip
                 activator="parent"
@@ -372,7 +403,10 @@ const importData = async () => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="toggleItemStatus(item)">
+            <IconBtn
+              v-if="$can('update', 'MeetingDocumentField')"
+              @click="toggleItemStatus(item)"
+            >
               <VIcon
                 :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
                 :color="item.status === 'active' ? 'success' : 'warning'"
@@ -384,7 +418,10 @@ const importData = async () => {
                 Đổi trạng thái
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item)">
+            <IconBtn
+              v-if="$can('delete', 'MeetingDocumentField')"
+              @click="deleteItem(item)"
+            >
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -528,12 +565,12 @@ const importData = async () => {
       v-model="isBulkUpdateDialogVisible"
       max-width="420"
     >
-      <VCard title="Cap nhat trang thai hang loat">
+      <VCard title="Cập nhật trạng thái hàng loạt">
         <VCardText>
           <AppSelect
             v-model="bulkUpdateStatusValue"
             :items="statusOptions"
-            label="Trang thai moi"
+            label="Trạng thái mới"
           />
         </VCardText>
         <VCardText class="d-flex justify-end gap-3 flex-wrap">
@@ -542,14 +579,14 @@ const importData = async () => {
             variant="tonal"
             @click="isBulkUpdateDialogVisible = false"
           >
-            Huy
+            Hủy
           </VBtn>
           <VBtn
             :loading="isSubmitting"
             color="warning"
             @click="confirmBulkUpdateStatus"
           >
-            Cap nhat
+            Cập nhật
           </VBtn>
         </VCardText>
       </VCard>
@@ -559,11 +596,11 @@ const importData = async () => {
       v-model="isImportDialogVisible"
       max-width="480"
     >
-      <VCard title="Nhap linh vuc tai lieu">
+      <VCard title="Nhập lĩnh vực tài liệu">
         <VCardText>
           <VFileInput
             v-model="importFile"
-            label="Chon file Excel / CSV"
+            label="Chọn file Excel / CSV"
             accept=".xlsx,.xls,.csv"
             prepend-icon="tabler-upload"
           />
@@ -574,7 +611,7 @@ const importData = async () => {
             variant="tonal"
             @click="isImportDialogVisible = false"
           >
-            Huy
+            Hủy
           </VBtn>
           <VBtn
             :loading="isSubmitting"

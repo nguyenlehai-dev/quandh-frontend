@@ -91,6 +91,7 @@ function buildMeetingPayload(formData) {
   const cleanAgendas = (formData.agendas || []).map(agenda => ({
     ...(agenda.id ? { id: agenda.id } : {}),
     title: agenda.title,
+    description: agenda.description || null,
     duration: agenda.duration || null,
     presenter_id: agenda.presenter_id || null,
   }))
@@ -103,6 +104,8 @@ function buildMeetingPayload(formData) {
       position: attendee.position || null,
       meeting_role: normalizeMeetingRole(attendee.meeting_role),
       attendance_status: attendee.attendance_status || 'pending',
+      absence_reason: attendee.attendance_status === 'absent' ? (attendee.absence_reason || null) : null,
+      delegated_to_id: attendee.attendance_status === 'delegated' ? (attendee.delegated_to_id || null) : null,
     }))
 
   return {
@@ -213,13 +216,19 @@ export function useMeetingEditPage() {
         start_at: formatMeetingDateToInput(data.start_at),
         end_at: formatMeetingDateToInput(data.end_at),
         status: data.status || 'draft',
-        agendas: data.agendas || [],
+        agendas: (data.agendas || []).map(agenda => ({
+          ...agenda,
+          description: agenda.description || '',
+          presenter_id: agenda.presenter_id || null,
+        })),
         attendees: (data.participants || []).map(participant => ({
           id: participant.id,
           user_id: participant.user_id,
           position: participant.position || '',
           meeting_role: participant.meeting_role || 'delegate',
           attendance_status: participant.attendance_status || 'pending',
+          absence_reason: participant.absence_reason || '',
+          delegated_to_id: participant.delegated_to_id || null,
         })),
       }
     }
@@ -320,6 +329,7 @@ export function useMeetingEditPage() {
 
     formData.value.agendas.push({
       title: '',
+      description: '',
       duration: 0,
       presenter_id: null,
       start_time: '',
@@ -349,6 +359,8 @@ export function useMeetingEditPage() {
       position: '',
       meeting_role: 'delegate',
       attendance_status: 'pending',
+      absence_reason: '',
+      delegated_to_id: null,
     })
   }
 

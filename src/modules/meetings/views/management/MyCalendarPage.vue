@@ -5,6 +5,7 @@ import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
+import listPlugin from '@fullcalendar/list'
 import viLocale from '@fullcalendar/core/locales/vi'
 import { fetchMyCalendar } from '@/modules/meetings/services/meetingService'
 import '@/modules/meetings/assets/meeting-styles.css'
@@ -13,7 +14,7 @@ const router = useRouter()
 const isLoading = ref(false)
 
 const calendarOptions = ref({
-  plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+  plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin],
   initialView: 'dayGridMonth',
   locales: [viLocale],
   locale: 'vi',

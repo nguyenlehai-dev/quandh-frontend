@@ -5,7 +5,7 @@ import {
   fetchMeeting,
 } from '@/modules/meetings/services/meetingService'
 import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import AgendaTab from '@/modules/meetings/components/admin/live-tabs/AgendaTab.vue'
@@ -75,6 +75,7 @@ const loadMeeting = async () => {
     if (res.success && res.data) {
       meeting.value = res.data
       meetingStore.setCurrentMeeting(res.data)
+      meetingStore.subscribeToMeeting(res.data.id)
       meetingStatus.value = res.data.status || 'draft'
       if (meetingStatus.value === 'in_progress' || meetingStatus.value === 'active') {
         startCountdown()
@@ -128,7 +129,14 @@ onMounted(() => {
   loadMeeting()
 })
 
+watch(() => meetingStore.currentMeeting?.status, status => {
+  if (!status) return
+
+  meetingStatus.value = status
+}, { immediate: true })
+
 onUnmounted(() => {
+  meetingStore.unsubscribeFromMeeting()
   if (countdownInterval) clearInterval(countdownInterval)
 })
 </script>
@@ -207,13 +215,13 @@ onUnmounted(() => {
                   >Thời gian còn lại</span>
                   <VChip
                     size="small"
-                    :color="meetingStatus === 'active' ? '#fee2e2' : meetingStatus === 'completed' ? '#f1f5f9' : '#fef3c7'"
-                    :text-color="meetingStatus === 'active' ? '#ef4444' : meetingStatus === 'completed' ? '#64748b' : '#d97706'"
+                    :color="['active', 'in_progress'].includes(meetingStatus) ? '#fee2e2' : meetingStatus === 'completed' ? '#f1f5f9' : '#fef3c7'"
+                    :text-color="['active', 'in_progress'].includes(meetingStatus) ? '#ef4444' : meetingStatus === 'completed' ? '#64748b' : '#d97706'"
                     style="font-weight: 700;"
                     variant="flat"
                   >
-                    <span :style="{ color: meetingStatus === 'active' ? '#ef4444' : meetingStatus === 'completed' ? '#64748b' : '#d97706' }">
-                      {{ meetingStatus === 'active' ? 'Đang diễn ra' : meetingStatus === 'completed' ? 'Đã kết thúc' : 'Chưa bắt đầu' }}
+                    <span :style="{ color: ['active', 'in_progress'].includes(meetingStatus) ? '#ef4444' : meetingStatus === 'completed' ? '#64748b' : '#d97706' }">
+                      {{ ['active', 'in_progress'].includes(meetingStatus) ? 'Đang diễn ra' : meetingStatus === 'completed' ? 'Đã kết thúc' : 'Chưa bắt đầu' }}
                     </span>
                   </VChip>
                 </div>
@@ -222,7 +230,7 @@ onUnmounted(() => {
                     color="#fee2e2"
                     size="36"
                     variant="flat"
-                    class="mr-1"
+                    style="margin-inline-end: 4px;"
                   >
                     <VIcon
                       size="20"
@@ -254,14 +262,14 @@ onUnmounted(() => {
                 </VBtn>
 
                 <VBtn
-                  v-if="meetingStatus === 'active'"
+                  v-if="['active', 'in_progress'].includes(meetingStatus)"
                   color="#fee2e2"
                   variant="flat"
-                  prepend-icon="tabler-hand-stop"
+                  prepend-icon="tabler-player-stop"
                   style="color: #ef4444; border-radius: 20px; font-weight: 600; padding: 0 20px; text-transform: none; font-size: 0.95rem;"
                   @click="handleEndMeeting"
                 >
-                  Tạm Dừng Cuộc Họp
+                  Kết thúc cuộc họp
                 </VBtn>
                 
                 <VBtn

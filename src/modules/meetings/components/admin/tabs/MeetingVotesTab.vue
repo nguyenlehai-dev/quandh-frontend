@@ -3,6 +3,7 @@
 /* eslint-disable padding-line-between-statements */
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
+import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
 import {
   closeVoting,
   createMeetingVote,
@@ -35,6 +36,7 @@ const isResultDialogVisible = ref(false)
 
 const confirmDialog = ref({ title: '', message: '', confirmText: 'Xac nhan', confirmColor: 'primary', action: null })
 const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+const meetingStore = useMeetingStore()
 
 const defaultFormData = () => ({
   title: '',
@@ -76,6 +78,7 @@ const votingStatusLabel = status => votingStatusOptions[status]?.label || status
 const votingStatusColor = status => votingStatusOptions[status]?.color || 'secondary'
 const votingChoiceLabel = choice => votingChoiceOptions[choice]?.label || choice
 const votingChoiceColor = choice => votingChoiceOptions[choice]?.color || 'secondary'
+const unwrapPayload = response => response?.data?.data ?? response?.data ?? response
 
 const agendaOptions = () => agendas.value.map(agenda => ({
   title: agenda.title,
@@ -102,7 +105,7 @@ const loadMeetingAgendas = async () => {
 
   try {
     const res = await fetchMeeting(props.meetingId)
-    const meeting = res.data || {}
+    const meeting = unwrapPayload(res) || {}
 
     agendas.value = meeting.agendas || []
   }
@@ -123,7 +126,7 @@ const loadData = async () => {
   try {
     const res = await fetchMeetingVotes(props.meetingId)
 
-    items.value = (res.data || []).map(normalizeVoting)
+    items.value = (unwrapPayload(res) || []).map(normalizeVoting)
   }
   catch (error) {
     console.error(error)
@@ -142,6 +145,13 @@ const loadInitialData = async () => {
 }
 
 watch(() => props.meetingId, loadInitialData, { immediate: true })
+
+watch(() => meetingStore.lastEvent, event => {
+  if (!event || Number(event.meeting_id) !== Number(props.meetingId)) return
+  if (!['voting.status.changed', 'voting.results.changed'].includes(event.type)) return
+
+  loadData()
+}, { deep: true })
 
 const openConfirmDialog = options => {
   confirmDialog.value = { ...confirmDialog.value, ...options }
@@ -261,7 +271,7 @@ const openResultsDialog = async item => {
 
   try {
     const res = await fetchVotingResults(props.meetingId, item.id)
-    votingResults.value = res.data || null
+    votingResults.value = unwrapPayload(res) || null
   }
   catch (error) {
     console.error(error)

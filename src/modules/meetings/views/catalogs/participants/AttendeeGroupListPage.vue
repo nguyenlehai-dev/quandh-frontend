@@ -9,6 +9,7 @@ import {
   createAttendeeGroup,
   deleteAttendeeGroup,
   exportAttendeeGroups,
+  fetchAttendeeGroup,
   importAttendeeGroups,
   updateAttendeeGroup,
 } from '@/modules/meetings/services/meetingService'
@@ -17,6 +18,7 @@ import { computed, ref } from 'vue'
 
 const searchQuery = ref('')
 const statusFilter = ref('')
+const meetingTypeFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
 const selectedRows = ref([])
@@ -39,10 +41,12 @@ const statusOptions = [
 ]
 
 const headers = [
-  { title: 'Tên Nhóm', key: 'name' },
-  { title: 'Loại cuộc họp', key: 'meeting_type_name' },
-  { title: 'Thành viên', key: 'members_count' },
+  { title: 'STT', key: 'stt', sortable: false },
+  { title: 'Tên', key: 'name' },
+  { title: 'Mô tả', key: 'description', sortable: false },
   { title: 'Trạng thái', key: 'status' },
+  { title: 'Tạo', key: 'created_info', sortable: false },
+  { title: 'Cập nhật', key: 'updated_info', sortable: false },
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
@@ -51,6 +55,7 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
+    meeting_type_id: computed(() => meetingTypeFilter.value || undefined),
     limit: itemsPerPage,
     page,
   },
@@ -93,21 +98,33 @@ const formData = ref({
   member_ids: [],
 })
 
+const getRowNumber = index => ((page.value - 1) * itemsPerPage.value) + index + 1
+
 const openAddDialog = () => {
   formData.value = { name: '', description: '', status: 'active', meeting_type_id: null, member_ids: [] }
   isAddDialogVisible.value = true
 }
 
-const openEditDialog = item => {
-  selectedItemId.value = item.id
-  formData.value = {
-    name: item.name,
-    description: item.description || '',
-    status: item.status,
-    meeting_type_id: item.meeting_type_id,
-    member_ids: item.members?.map(m => m.id) || [],
+const openEditDialog = async item => {
+  isSubmitting.value = true
+  try {
+    const response = await fetchAttendeeGroup(item.id)
+    const detail = response.data
+
+    selectedItemId.value = item.id
+    formData.value = {
+      name: detail.name,
+      description: detail.description || '',
+      status: detail.status,
+      meeting_type_id: detail.meeting_type_id,
+      member_ids: detail.members?.map(member => member.id) || [],
+    }
+    isEditDialogVisible.value = true
+  } catch (error) {
+    showError(error, 'Không thể tải chi tiết nhóm người dự họp.')
+  } finally {
+    isSubmitting.value = false
   }
-  isEditDialogVisible.value = true
 }
 
 const openConfirmDialog = options => {
@@ -179,14 +196,14 @@ const bulkDelete = () => {
   if (!selectedRows.value.length) return
 
   openConfirmDialog({
-    title: 'Xoa hang loat nhom',
-    message: `Ban co chac chan muon xoa ${selectedRows.value.length} nhom da chon khong?`,
-    confirmText: 'Xoa',
+    title: 'Xóa hàng loạt nhóm',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} nhóm đã chọn không?`,
+    confirmText: 'Xóa',
     confirmColor: 'error',
     action: async () => {
       await bulkDeleteAttendeeGroups({ ids: selectedRows.value })
       selectedRows.value = []
-      showSuccess('Xoa hang loat nhom nguoi du hop thanh cong.')
+      showSuccess('Xóa hàng loạt nhóm người dự họp thành công.')
       fetchItems()
     },
   })
@@ -203,10 +220,10 @@ const confirmBulkUpdateStatus = async () => {
     await bulkUpdateAttendeeGroups({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
     selectedRows.value = []
     isBulkUpdateDialogVisible.value = false
-    showSuccess('Cap nhat trang thai hang loat nhom nguoi du hop thanh cong.')
+    showSuccess('Cập nhật trạng thái hàng loạt nhóm người dự họp thành công.')
     fetchItems()
   } catch (err) {
-    showError(err, 'Khong the cap nhat trang thai hang loat.')
+    showError(err, 'Không thể cập nhật trạng thái hàng loạt.')
     console.error('Bulk update attendee groups failed:', err)
   } finally {
     isSubmitting.value = false
@@ -234,9 +251,18 @@ const toggleItemStatus = item => {
 const isMembersDialogVisible = ref(false)
 const selectedGroup = ref(null)
 
-const openMembersDialog = item => {
-  selectedGroup.value = item
-  isMembersDialogVisible.value = true
+const openMembersDialog = async item => {
+  isSubmitting.value = true
+  try {
+    const response = await fetchAttendeeGroup(item.id)
+
+    selectedGroup.value = response.data
+    isMembersDialogVisible.value = true
+  } catch (error) {
+    showError(error, 'Không thể tải danh sách thành viên.')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const isExporting = ref(false)
@@ -249,6 +275,7 @@ const exportData = async () => {
     const res = await exportAttendeeGroups({
       search: searchQuery.value || undefined,
       status: statusFilter.value || undefined,
+      meeting_type_id: meetingTypeFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
@@ -264,7 +291,7 @@ const exportData = async () => {
 
 const importData = async () => {
   if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui long chon file import.', 'warning')
+    showSnackbar('Vui lòng chọn file import.', 'warning')
 
     return
   }
@@ -278,10 +305,10 @@ const importData = async () => {
     await importAttendeeGroups(payload)
     isImportDialogVisible.value = false
     importFile.value = []
-    showSuccess('Import nhom nguoi du hop thanh cong.')
+    showSuccess('Import nhóm người dự họp thành công.')
     fetchItems()
   } catch (error) {
-    showError(error, 'Khong the import nhom nguoi du hop.')
+    showError(error, 'Không thể import nhóm người dự họp.')
   } finally {
     isSubmitting.value = false
   }
@@ -305,7 +332,7 @@ const importData = async () => {
         <VRow>
           <VCol
             cols="12"
-            md="6"
+            md="4"
           >
             <div class="text-body-2 font-weight-medium mb-1">
               Tìm kiếm
@@ -318,7 +345,21 @@ const importData = async () => {
           </VCol>
           <VCol
             cols="12"
-            md="6"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loại cuộc họp
+            </div>
+            <AppSelect
+              v-model="meetingTypeFilter"
+              :items="[{ title: 'Tất cả loại cuộc họp', value: '' }, ...meetingTypeOptions]"
+              placeholder="Lọc theo loại cuộc họp"
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="4"
           >
             <div class="text-body-2 font-weight-medium mb-1">
               Trạng thái
@@ -372,7 +413,7 @@ const importData = async () => {
           prepend-icon="tabler-upload"
           @click="isImportDialogVisible = true"
         >
-          Nhap Du Lieu
+          Nhập dữ liệu
         </VBtn>
         <VBtn
           variant="outlined"
@@ -380,7 +421,7 @@ const importData = async () => {
           :loading="isExporting"
           @click="exportData"
         >
-          Xuất Dữ Liệu
+          Xuất dữ liệu
         </VBtn>
         <VBtn
           v-if="$can('create', 'AttendeeGroup')"
@@ -388,7 +429,7 @@ const importData = async () => {
           prepend-icon="tabler-plus"
           @click="openAddDialog"
         >
-          Thêm Mới
+          Thêm mới
         </VBtn>
       </div>
     </div>
@@ -406,40 +447,35 @@ const importData = async () => {
         class="text-no-wrap"
         show-select
       >
+        <template #item.stt="{ index }">
+          <span class="text-body-2 text-disabled">{{ getRowNumber(index) }}</span>
+        </template>
+
         <template #item.name="{ item }">
-          <span class="font-weight-medium">{{ item.name }}</span>
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.name }}</span>
+            <span class="text-body-2 text-disabled">
+              {{ item.members_count || 0 }} thành viên<span v-if="item.meeting_type_name"> • {{ item.meeting_type_name }}</span>
+            </span>
+          </div>
         </template>
 
-        <template #item.meeting_type_name="{ item }">
-          <VChip
-            v-if="item.meeting_type_name"
-            size="small"
-            color="primary"
-            variant="tonal"
-          >
-            {{ item.meeting_type_name }}
-          </VChip>
-          <span
-            v-else
-            class="text-disabled"
-          >Chưa gắn</span>
+        <template #item.description="{ item }">
+          <span>{{ item.description || '---' }}</span>
         </template>
 
-        <template #item.members_count="{ item }">
-          <VChip
-            size="small"
-            :color="item.members_count > 0 ? 'info' : 'secondary'"
-            variant="tonal"
-            class="cursor-pointer"
-            @click="openMembersDialog(item)"
-          >
-            <VIcon
-              start
-              icon="tabler-users"
-              size="14"
-            />
-            {{ item.members_count || 0 }} người
-          </VChip>
+        <template #item.created_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.created_at || '---' }}</span>
+          </div>
+        </template>
+
+        <template #item.updated_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.updated_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.updated_at || '---' }}</span>
+          </div>
         </template>
 
         <template #item.status="{ item }">
@@ -453,6 +489,18 @@ const importData = async () => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
+            <IconBtn
+              v-if="$can('update', 'AttendeeGroup')"
+              @click="openMembersDialog(item)"
+            >
+              <VIcon icon="tabler-users" />
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Xem thành viên
+              </VTooltip>
+            </IconBtn>
             <IconBtn
               v-if="$can('update', 'AttendeeGroup')"
               @click="openEditDialog(item)"
@@ -729,11 +777,11 @@ const importData = async () => {
       v-model="isImportDialogVisible"
       max-width="480"
     >
-      <VCard title="Nhap nhom nguoi du hop">
+      <VCard title="Nhập nhóm người dự họp">
         <VCardText>
           <VFileInput
             v-model="importFile"
-            label="Chon file Excel / CSV"
+            label="Chọn file Excel / CSV"
             accept=".xlsx,.xls,.csv"
             prepend-icon="tabler-upload"
           />
@@ -744,7 +792,7 @@ const importData = async () => {
             variant="tonal"
             @click="isImportDialogVisible = false"
           >
-            Huy
+            Hủy
           </VBtn>
           <VBtn
             :loading="isSubmitting"
@@ -770,12 +818,12 @@ const importData = async () => {
       v-model="isBulkUpdateDialogVisible"
       max-width="420"
     >
-      <VCard title="Cap nhat trang thai hang loat">
+      <VCard title="Cập nhật trạng thái hàng loạt">
         <VCardText>
           <AppSelect
             v-model="bulkUpdateStatusValue"
             :items="statusOptions"
-            label="Trang thai moi"
+            label="Trạng thái mới"
           />
         </VCardText>
         <VCardText class="d-flex justify-end gap-3 flex-wrap">
@@ -784,14 +832,14 @@ const importData = async () => {
             variant="tonal"
             @click="isBulkUpdateDialogVisible = false"
           >
-            Huy
+            Hủy
           </VBtn>
           <VBtn
             :loading="isSubmitting"
             color="warning"
             @click="confirmBulkUpdateStatus"
           >
-            Cap nhat
+            Cập nhật
           </VBtn>
         </VCardText>
       </VCard>

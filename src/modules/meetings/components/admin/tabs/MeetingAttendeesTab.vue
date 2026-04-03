@@ -25,6 +25,9 @@ const formData = ref({
   user_id: null,
   position: '',
   meeting_role: 'delegate',
+  attendance_status: 'pending',
+  absence_reason: '',
+  delegated_to_id: null,
 })
 
 // Dialog Edit
@@ -36,10 +39,14 @@ const editFormData = ref({
   user_name: '',
   position: '',
   meeting_role: 'delegate',
+  attendance_status: 'pending',
+  absence_reason: '',
+  delegated_to_id: null,
 })
 
 const headers = [
   { title: 'Thành viên', key: 'user_name' },
+  { title: 'Chức vụ', key: 'position' },
   { title: 'Vai trò', key: 'meeting_role' },
   { title: 'Điểm danh', key: 'attendance_status' },
   { title: 'Hành động', key: 'actions', sortable: false },
@@ -128,7 +135,7 @@ const submitAdd = async () => {
     await createMeetingParticipant(props.meetingId, formData.value)
 
     isAddDialogVisible.value = false
-    formData.value = { user_id: null, position: '', meeting_role: 'delegate' }
+    formData.value = { user_id: null, position: '', meeting_role: 'delegate', attendance_status: 'pending', absence_reason: '', delegated_to_id: null }
     showSuccess('Thêm cán bộ tham dự thành công.')
     loadData()
   } catch (err) {
@@ -145,6 +152,9 @@ const openEditDialog = item => {
     user_name: item.user_name || '',
     position: item.position || '',
     meeting_role: item.meeting_role || 'delegate',
+    attendance_status: item.attendance_status || 'pending',
+    absence_reason: item.absence_reason || '',
+    delegated_to_id: item.delegated_to_id || null,
   }
   isEditDialogVisible.value = true
 }
@@ -157,6 +167,9 @@ const submitEdit = async () => {
     await updateMeetingParticipant(props.meetingId, selectedParticipantId.value, {
       position: editFormData.value.position,
       meeting_role: editFormData.value.meeting_role,
+      attendance_status: editFormData.value.attendance_status,
+      absence_reason: editFormData.value.attendance_status === 'absent' ? editFormData.value.absence_reason : null,
+      delegated_to_id: editFormData.value.attendance_status === 'delegated' ? editFormData.value.delegated_to_id : null,
     })
     isEditDialogVisible.value = false
     showSuccess('Cập nhật thành viên thành công.')
@@ -208,9 +221,9 @@ onMounted(() => {
         <template #item.attendance_status="{ item }">
           <VChip
             size="small"
-            :color="item.attendance_status === 'present' ? 'success' : 'error'"
+            :color="item.attendance_status === 'present' ? 'success' : item.attendance_status === 'absent' ? 'error' : item.attendance_status === 'delegated' ? 'warning' : 'secondary'"
           >
-            {{ item.attendance_status === 'present' ? 'Có mặt' : 'Vắng mặt' }}
+            {{ item.attendance_status === 'present' ? 'Có mặt' : item.attendance_status === 'absent' ? 'Vắng mặt' : item.attendance_status === 'delegated' ? 'Ủy quyền' : 'Chờ điểm danh' }}
           </VChip>
         </template>
         <template #item.actions="{ item }">
@@ -279,6 +292,48 @@ onMounted(() => {
                 label="Vai trò cuộc họp"
               />
             </VCol>
+
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppSelect
+                v-model="formData.attendance_status"
+                :items="[
+                  { title: 'Chờ điểm danh', value: 'pending' },
+                  { title: 'Có mặt', value: 'present' },
+                  { title: 'Vắng mặt', value: 'absent' },
+                  { title: 'Ủy quyền', value: 'delegated' }
+                ]"
+                label="Trạng thái"
+              />
+            </VCol>
+
+            <VCol
+              v-if="formData.attendance_status === 'absent'"
+              cols="12"
+            >
+              <AppTextarea
+                v-model="formData.absence_reason"
+                label="Lý do vắng mặt"
+                rows="2"
+                placeholder="Nhập lý do vắng mặt"
+              />
+            </VCol>
+
+            <VCol
+              v-if="formData.attendance_status === 'delegated'"
+              cols="12"
+            >
+              <AppAutocomplete
+                v-model="formData.delegated_to_id"
+                :items="usersList"
+                item-title="name"
+                item-value="id"
+                label="Người được ủy quyền"
+                placeholder="Chọn người được ủy quyền"
+              />
+            </VCol>
           </VRow>
         </VCardText>
 
@@ -339,6 +394,48 @@ onMounted(() => {
                   { title: 'Đại biểu', value: 'delegate' }
                 ]"
                 label="Vai trò cuộc họp"
+              />
+            </VCol>
+
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppSelect
+                v-model="editFormData.attendance_status"
+                :items="[
+                  { title: 'Chờ điểm danh', value: 'pending' },
+                  { title: 'Có mặt', value: 'present' },
+                  { title: 'Vắng mặt', value: 'absent' },
+                  { title: 'Ủy quyền', value: 'delegated' }
+                ]"
+                label="Trạng thái"
+              />
+            </VCol>
+
+            <VCol
+              v-if="editFormData.attendance_status === 'absent'"
+              cols="12"
+            >
+              <AppTextarea
+                v-model="editFormData.absence_reason"
+                label="Lý do vắng mặt"
+                rows="2"
+                placeholder="Nhập lý do vắng mặt"
+              />
+            </VCol>
+
+            <VCol
+              v-if="editFormData.attendance_status === 'delegated'"
+              cols="12"
+            >
+              <AppAutocomplete
+                v-model="editFormData.delegated_to_id"
+                :items="usersList"
+                item-title="name"
+                item-value="id"
+                label="Người được ủy quyền"
+                placeholder="Chọn người được ủy quyền"
               />
             </VCol>
           </VRow>

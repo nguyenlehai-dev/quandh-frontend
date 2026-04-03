@@ -6,6 +6,7 @@ import {
 } from '../configs'
 
 export const fetchAttendeeGroups = params => $api(API_ATTENDEE_GROUPS, { params })
+export const fetchAttendeeGroup = id => $api(`${API_ATTENDEE_GROUPS}/${id}`)
 export const createAttendeeGroup = data => $api(API_ATTENDEE_GROUPS, { method: 'POST', body: data })
 export const updateAttendeeGroup = (id, data) => $api(`${API_ATTENDEE_GROUPS}/${id}`, { method: 'PUT', body: data })
 export const deleteAttendeeGroup = id => $api(`${API_ATTENDEE_GROUPS}/${id}`, { method: 'DELETE' })

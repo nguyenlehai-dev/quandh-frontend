@@ -33,6 +33,9 @@ const createDefaultFormData = () => ({
   description: '',
   meeting_document_type_id: null,
   meeting_document_field_id: null,
+  issuing_agency_name: '',
+  signer_name: '',
+  signer_position: '',
   files: [],
   remove_file_ids: [],
   existingFiles: [],
@@ -79,6 +82,8 @@ const headers = [
   { title: 'Ten Tai lieu', key: 'title' },
   { title: 'Loai tai lieu', key: 'document_type_name' },
   { title: 'Linh vuc', key: 'document_field_name' },
+  { title: 'Co quan ban hanh', key: 'issuing_agency_name' },
+  { title: 'Nguoi ky', key: 'signer_name' },
   { title: 'Nguoi upload', key: 'created_by' },
   { title: 'Hanh dong', key: 'actions', sortable: false },
 ]
@@ -147,6 +152,9 @@ const openEditDialog = item => {
     description: item.description || '',
     meeting_document_type_id: item.meeting_document_type_id || item.document_type_id || null,
     meeting_document_field_id: item.meeting_document_field_id || item.document_field_id || null,
+    issuing_agency_name: item.issuing_agency_name || '',
+    signer_name: item.signer_name || '',
+    signer_position: item.signer_position || '',
     files: [],
     remove_file_ids: [],
     existingFiles: [...(item.files || [])],
@@ -203,6 +211,9 @@ const submitForm = async () => {
     if (formData.value.description) payload.append('description', formData.value.description)
     if (formData.value.meeting_document_type_id) payload.append('meeting_document_type_id', formData.value.meeting_document_type_id)
     if (formData.value.meeting_document_field_id) payload.append('meeting_document_field_id', formData.value.meeting_document_field_id)
+    if (formData.value.issuing_agency_name) payload.append('issuing_agency_name', formData.value.issuing_agency_name)
+    if (formData.value.signer_name) payload.append('signer_name', formData.value.signer_name)
+    if (formData.value.signer_position) payload.append('signer_position', formData.value.signer_position)
 
     filesToUpload.forEach(file => payload.append('files[]', file))
     formData.value.remove_file_ids.forEach(id => payload.append('remove_file_ids[]', id))
@@ -322,6 +333,36 @@ const submitForm = async () => {
                 show-size
                 variant="outlined"
                 multiple
+              />
+            </VCol>
+
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppTextField
+                v-model="formData.issuing_agency_name"
+                label="Co quan ban hanh"
+                placeholder="Nhap co quan ban hanh"
+              />
+            </VCol>
+
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <AppTextField
+                v-model="formData.signer_name"
+                label="Nguoi ky"
+                placeholder="Nhap ten nguoi ky"
+              />
+            </VCol>
+
+            <VCol cols="12">
+              <AppTextField
+                v-model="formData.signer_position"
+                label="Chuc vu nguoi ky"
+                placeholder="Nhap chuc vu nguoi ky"
               />
             </VCol>
 

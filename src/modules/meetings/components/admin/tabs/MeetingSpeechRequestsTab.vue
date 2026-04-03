@@ -2,6 +2,7 @@
 /* eslint-disable camelcase */
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
+import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
 import {
   approveSpeechRequest,
   deleteSpeechRequest,
@@ -20,6 +21,7 @@ const isConfirmDialogVisible = ref(false)
 const isConfirming = ref(false)
 const confirmDialog = ref({ title: '', message: '', confirmText: 'Xac nhan', confirmColor: 'primary', action: null })
 const { snackbar, showSuccess, showError } = useActionFeedback()
+const meetingStore = useMeetingStore()
 
 const headers = [
   { title: 'Dai bieu', key: 'participant_name' },
@@ -37,6 +39,7 @@ const speechRequestStatusOptions = {
 
 const speechRequestStatusLabel = status => speechRequestStatusOptions[status]?.label || status
 const speechRequestStatusColor = status => speechRequestStatusOptions[status]?.color || 'secondary'
+const unwrapPayload = response => response?.data?.data ?? response?.data ?? response
 
 const normalizeSpeechRequest = item => ({
   ...item,
@@ -55,7 +58,7 @@ const loadData = async () => {
   try {
     const res = await fetchSpeechRequests(props.meetingId)
 
-    items.value = (res.data || []).map(normalizeSpeechRequest)
+    items.value = (unwrapPayload(res) || []).map(normalizeSpeechRequest)
   }
   catch (error) {
     console.error(error)
@@ -67,6 +70,13 @@ const loadData = async () => {
 }
 
 watch(() => props.meetingId, loadData, { immediate: true })
+
+watch(() => meetingStore.lastEvent, event => {
+  if (!event || Number(event.meeting_id) !== Number(props.meetingId)) return
+  if (event.type !== 'speech.request.changed') return
+
+  loadData()
+}, { deep: true })
 
 const openConfirmDialog = options => {
   confirmDialog.value = { ...confirmDialog.value, ...options }

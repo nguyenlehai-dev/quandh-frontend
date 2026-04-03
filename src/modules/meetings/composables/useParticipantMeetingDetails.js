@@ -58,6 +58,62 @@ export function useParticipantMeetingDetails() {
   const countdownDisplay = ref('00:00:00')
   const userData = useCookie('userData')
 
+  const unwrapPayload = response => response?.data?.data ?? response?.data ?? response ?? null
+
+  const normalizeMeeting = payload => {
+    if (!payload) return null
+
+    const participants = (payload.participants || []).map(participant => ({
+      ...participant,
+      user: participant.user || (participant.user_id ? {
+        id: participant.user_id,
+        name: participant.user_name || 'N/A',
+        email: participant.user_email || null,
+      } : null),
+      delegated_user: participant.delegated_user || (participant.delegated_to_id ? {
+        id: participant.delegated_to_id,
+        name: participant.delegated_user_name || 'N/A',
+      } : null),
+    }))
+
+    const agendas = (payload.agendas || []).map(agenda => ({
+      ...agenda,
+      presenter: agenda.presenter || (agenda.presenter_id ? {
+        id: agenda.presenter_id,
+        name: agenda.presenter_name || '',
+      } : null),
+    }))
+
+    const votes = (payload.votings || payload.votes || []).map(vote => ({
+      ...vote,
+      voting_type: 'agree_disagree',
+      agree_count: vote.agree_count ?? vote.results_summary?.agree ?? 0,
+      disagree_count: vote.disagree_count ?? vote.results_summary?.disagree ?? 0,
+      abstain_count: vote.abstain_count ?? vote.results_summary?.abstain ?? 0,
+    }))
+
+    return {
+      ...payload,
+      meeting_type: payload.meeting_type_name || payload.meeting_type?.name || payload.meeting_type || null,
+      participants,
+      agendas,
+      votings: votes,
+      votes,
+    }
+  }
+
+  const normalizeSpeechRequests = payload => {
+    const items = Array.isArray(payload) ? payload : []
+
+    return items.map(item => ({
+      ...item,
+      participant: item.participant ? {
+        ...item.participant,
+        user: item.participant.user || null,
+      } : null,
+    }))
+  }
+
   const currentUserParticipant = computed(() => {
     if (!meeting.value?.participants || !userData.value) return null
 
@@ -69,9 +125,9 @@ export function useParticipantMeetingDetails() {
     const total = participants.length
     const present = participants.filter(participant => participant.attendance_status === 'present').length
     const absent = participants.filter(participant => participant.attendance_status === 'absent').length
-    const guest = participants.filter(participant => participant.meeting_role === 'guest').length
+    const delegated = participants.filter(participant => participant.attendance_status === 'delegated').length
 
-    return { total, present, absent, guest }
+    return { total, present, absent, delegated }
   })
 
   const speechRequestList = computed(() => speechRequests.value.filter(item => item.status === 'pending' || item.status === 'approved'))
@@ -121,7 +177,7 @@ export function useParticipantMeetingDetails() {
 
     try {
       const res = await fetchAvailableDelegates(meeting.value.id)
-      availableUsers.value = res.data || []
+      availableUsers.value = unwrapPayload(res) || []
     }
     catch (error) {
       console.error('Failed to load users for delegation:', error)
@@ -139,10 +195,13 @@ export function useParticipantMeetingDetails() {
     try {
       const res = await selfCheckinMeetingParticipant(meeting.value.id, payload)
       if (currentUserParticipant.value)
-        Object.assign(currentUserParticipant.value, res.data.data)
+        Object.assign(currentUserParticipant.value, unwrapPayload(res))
 
       isAbsentDialogOpen.value = false
       isDelegateDialogOpen.value = false
+      absenceReason.value = ''
+      delegatedToId.value = null
+      await loadMeeting()
     }
     catch (error) {
       console.error('Checkin failed:', error)
@@ -157,7 +216,7 @@ export function useParticipantMeetingDetails() {
 
     try {
       const res = await fetchMeetingQrToken(route.params.id)
-      qrTokenPreview.value = res.data?.qr_token || ''
+      qrTokenPreview.value = unwrapPayload(res)?.qr_token || ''
     }
     catch (error) {
       console.error('Failed to load qr token preview:', error)
@@ -172,14 +231,15 @@ export function useParticipantMeetingDetails() {
     try {
       const res = await qrCheckinMeeting(meeting.value.id, qrCheckinToken.value)
       if (currentUserParticipant.value)
-        Object.assign(currentUserParticipant.value, res.data?.data || res.data)
+        Object.assign(currentUserParticipant.value, unwrapPayload(res))
 
       isQrCheckinDialogOpen.value = false
       qrCheckinToken.value = ''
+      await loadMeeting()
     }
     catch (error) {
       console.error('QR checkin failed:', error)
-      qrCheckinError.value = error?.response?._data?.message || error?.data?.message || 'Khong the diem danh bang QR.'
+      qrCheckinError.value = error?.response?._data?.message || error?.data?.message || 'Không thể điểm danh bằng QR.'
     }
     finally {
       isCheckinSubmitting.value = false
@@ -195,8 +255,8 @@ export function useParticipantMeetingDetails() {
         fetchSpeechRequests(route.params.id).catch(() => ({ data: [] })),
       ])
 
-      meeting.value = res.data
-      speechRequests.value = speechRes.data || []
+      meeting.value = normalizeMeeting(unwrapPayload(res))
+      speechRequests.value = normalizeSpeechRequests(unwrapPayload(speechRes) || [])
       meetingStore.setCurrentMeeting(meeting.value)
       meetingStore.subscribeToMeeting(meeting.value.id)
 
@@ -204,9 +264,15 @@ export function useParticipantMeetingDetails() {
       isSpeakRequested.value = !!currentUserSpeechRequest
       speechRequestId.value = currentUserSpeechRequest?.id || null
 
-      if (notesRes.data && notesRes.data.length > 0) {
-        personalNotes.value = notesRes.data[0].content
-        personalNoteId.value = notesRes.data[0].id
+      const notes = unwrapPayload(notesRes)
+
+      if (Array.isArray(notes) && notes.length > 0) {
+        personalNotes.value = notes[0].content
+        personalNoteId.value = notes[0].id
+      }
+      else {
+        personalNotes.value = ''
+        personalNoteId.value = null
       }
 
       startCountdown()
@@ -232,7 +298,7 @@ export function useParticipantMeetingDetails() {
         content: speechRequestForm.value.content.trim(),
       })
 
-      speechRequestId.value = res.data?.id || null
+      speechRequestId.value = unwrapPayload(res)?.id || null
       isSpeakRequested.value = true
       isSpeechRequestDialogOpen.value = false
       speechRequestForm.value = {
@@ -243,7 +309,7 @@ export function useParticipantMeetingDetails() {
     }
     catch (error) {
       console.error('Failed to request speak:', error)
-      speechRequestError.value = error?.response?._data?.message || error?.data?.message || 'Khong the dang ky phat bieu.'
+      speechRequestError.value = error?.response?._data?.message || error?.data?.message || 'Không thể đăng ký phát biểu.'
     }
     finally {
       isRequestingSpeak.value = false
@@ -273,6 +339,7 @@ export function useParticipantMeetingDetails() {
       isVotingModalOpen.value = false
       activeVote.value = null
       selectedVoteAnswer.value = null
+      await loadMeeting()
     }
     catch (error) {
       console.error('Failed to submit vote:', error)
@@ -300,7 +367,7 @@ export function useParticipantMeetingDetails() {
     if (!presenterId || !meeting.value?.participants) return ''
     const participant = meeting.value.participants.find(item => item.user_id === presenterId)
 
-    return participant?.user?.name || ''
+    return participant?.user?.name || meeting.value.agendas?.find(item => item.presenter_id === presenterId)?.presenter?.name || ''
   }
 
   const getChairperson = () => {
@@ -329,6 +396,13 @@ export function useParticipantMeetingDetails() {
       meeting.value.status = newValue.status
   }, { deep: true })
 
+  watch(() => meetingStore.lastEvent, event => {
+    if (!event || Number(event.meeting_id) !== Number(meeting.value?.id)) return
+    if (event.type !== 'speech.request.changed') return
+
+    loadMeeting()
+  }, { deep: true })
+
   watchDebounced(
     personalNotes,
     async newValue => {
@@ -346,7 +420,7 @@ export function useParticipantMeetingDetails() {
         }
         else {
           const res = await createPersonalNote(meeting.value.id, { content: newValue })
-          personalNoteId.value = res.data.id
+          personalNoteId.value = unwrapPayload(res)?.id
         }
         lastSaved.value = new Date().toLocaleTimeString('vi-VN')
       }
