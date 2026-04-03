@@ -1,20 +1,25 @@
 <script setup>
-import RoleCards from '../components/RoleCards.vue'
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { downloadRoleTemplate, exportRoles, importRoles } from '../services/roleService'
+import AuthDataActions from '../../shared/AuthDataActions.vue'
+import RoleCards from '../components/RoleCards.vue'
+import {
+  downloadRoleTemplate,
+  fetchRoleStats,
+  importRoles,
+} from '../services/roleService'
 
 const { t } = useI18n()
 const { snackbar, showSuccess, showError } = useActionFeedback()
 
-// ─── Stats ──────────────────────────────────────
-const stats = ref({ total: 0, admin: 0, user: 0 })
+const stats = ref({ total: 0 })
 const roleCardsRef = ref()
+const isExporting = computed(() => roleCardsRef.value?.isExporting?.value ?? roleCardsRef.value?.isExporting ?? false)
 
 const fetchStats = async () => {
   try {
-    const res = await $api('/roles/stats')
+    const response = await fetchRoleStats()
 
-    stats.value = res.data ?? { total: 0, admin: 0, user: 0 }
+    stats.value = response.data ?? { total: 0 }
   }
   catch (err) {
     console.error('Fetch role stats error:', err)
@@ -24,92 +29,45 @@ const fetchStats = async () => {
 onMounted(() => fetchStats())
 
 const widgetData = computed(() => [
-  { title: t('roles.roles.list.total_roles'), value: stats.value.total ?? 0, icon: 'tabler-shield', iconColor: 'primary' },
-  { title: t('roles.roles.list.admin_roles'), value: stats.value.admin ?? 0, icon: 'tabler-shield-check', iconColor: 'success' },
-  { title: t('roles.roles.list.user_roles'), value: stats.value.user ?? 0, icon: 'tabler-users-group', iconColor: 'warning' },
+  {
+    title: t('roles.roles.list.total_roles'),
+    value: stats.value.total ?? 0,
+    subtitle: t('roles.roles.list.total_roles_subtitle'),
+    icon: 'tabler-shield-check',
+    iconColor: 'primary',
+  },
 ])
 
-// ─── Export ─────────────────────────────────────
-const isExporting = ref(false)
-
 const handleExport = async () => {
-  isExporting.value = true
-  try {
-    const blob = await exportRoles()
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
-
-    a.href = url
-    a.download = `roles_${new Date().toISOString().slice(0, 10)}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    }, 5000)
-  }
-  catch (err) {
-    console.error('Export error:', err)
-  }
-  finally {
-    isExporting.value = false
-  }
+  await roleCardsRef.value?.exportRoles?.()
 }
 
-// ─── Import ─────────────────────────────────────
-const isImportDialogVisible = ref(false)
-const importFile = ref(null)
-const isImporting = ref(false)
-
-const handleImport = async () => {
-  if (!importFile.value) return
-  isImporting.value = true
+const handleImport = async file => {
   try {
-    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
-
     await importRoles(file)
-    isImportDialogVisible.value = false
-    importFile.value = null
-    showSuccess('Import dữ liệu vai trò thành công.')
+    showSuccess('Import du lieu vai tro thanh cong.')
     await fetchStats()
     await roleCardsRef.value?.refreshRoles?.()
   }
   catch (err) {
-    console.error('Import error:', err)
-    showError(err, 'Không thể import dữ liệu vai trò.')
-  }
-  finally {
-    isImporting.value = false
+    console.error('Import roles error:', err)
+    showError(err, 'Khong the import du lieu vai tro.')
+    throw err
   }
 }
 
-// ─── Download Template ──────────────────────────
-const isDownloadingTemplate = ref(false)
-
 const handleDownloadTemplate = async () => {
-  isDownloadingTemplate.value = true
   try {
-    const blob = await downloadRoleTemplate()
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
-
-    a.href = url
-    a.download = 'roles_template.xlsx'
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    }, 5000)
+    await downloadRoleTemplate()
   }
   catch (err) {
-    console.error('Download template error:', err)
+    console.error('Download role template error:', err)
+    showError(err, 'Khong the tai file mau vai tro.')
   }
-  finally {
-    isDownloadingTemplate.value = false
-  }
+}
+
+const handleCreate = () => {
+  roleCardsRef.value?.openCreateDialog?.()
 }
 </script>
 
@@ -121,7 +79,6 @@ const handleDownloadTemplate = async () => {
         class="mb-4"
       >
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
-          <!-- Tiêu đề & Icon Header -->
           <div class="d-flex align-center gap-4">
             <VAvatar
               color="info"
@@ -139,134 +96,77 @@ const handleDownloadTemplate = async () => {
               <h3 class="text-h3 font-weight-bold mb-1">
                 {{ t('roles.roles.list.title') }}
               </h3>
-              <span class="text-body-2 text-disabled">{{ t('roles.roles.list.description') }}</span>
+              <span class="text-body-2 text-disabled">
+                {{ t('roles.roles.list.description') }}
+              </span>
             </div>
           </div>
 
-          <!-- Các Nút Hành Động -->
-          <div class="d-flex gap-2">
-            <!-- 👉 Export -->
-            <VBtn
-              v-if="$can('export', 'Role')"
-              variant="tonal"
-              color="secondary"
-              prepend-icon="tabler-upload"
-              :loading="isExporting"
-              @click="handleExport"
-            >
-              {{ t('roles.roles.export.button') }}
-            </VBtn>
-
-            <!-- 👉 Import -->
-            <VBtn
-              v-if="$can('import', 'Role')"
-              variant="tonal"
-              color="info"
-              prepend-icon="tabler-download"
-              @click="isImportDialogVisible = true"
-            >
-              {{ t('roles.roles.import.button') }}
-            </VBtn>
-          </div>
+          <AuthDataActions
+            :show-import="$can('import', 'Role')"
+            :show-template="$can('import', 'Role')"
+            :show-export="$can('export', 'Role')"
+            :show-create="$can('create', 'Role')"
+            create-label="Them Moi"
+            :import-label="t('roles.roles.import.button')"
+            import-subtitle="Nap file Excel vao he thong"
+            template-subtitle="Lay mau Excel dung cot ma backend dang nhan"
+            :export-label="t('roles.roles.export.button')"
+            export-subtitle="Xuat danh sach hien tai ra file"
+            :import-dialog-title="t('roles.roles.import.dialog_title')"
+            :import-hint="t('roles.roles.import.helper_text')"
+            :select-file-label="t('roles.roles.import.file_label')"
+            :cancel-text="t('roles.roles.import.cancel')"
+            :import-text="t('roles.roles.import.confirm')"
+            :export-loading="isExporting"
+            :import-handler="handleImport"
+            :template-handler="handleDownloadTemplate"
+            :export-handler="handleExport"
+            :create-handler="handleCreate"
+          />
         </div>
       </VCol>
 
-      <!-- 👉 Roles Cards -->
-      <VCol cols="12">
-        <div class="d-flex mb-6">
-          <VRow>
-            <VCol
-              v-for="(data, idx) in widgetData"
-              :key="idx"
-              cols="12"
-              md="4"
-              sm="6"
+      <VCol
+        v-for="(data, idx) in widgetData"
+        :key="idx"
+        cols="12"
+        md="4"
+      >
+        <VCard class="roles-stat-card">
+          <VCardText class="roles-stat-card__body d-flex align-center justify-space-between">
+            <div>
+              <p class="text-body-2 roles-stat-card__label mb-2">
+                {{ data.title }}
+              </p>
+              <h3 class="text-h3 roles-stat-card__value mb-1">
+                {{ data.value }}
+              </h3>
+              <span class="text-caption text-disabled">{{ data.subtitle }}</span>
+            </div>
+
+            <VAvatar
+              :color="data.iconColor"
+              variant="tonal"
+              rounded="lg"
+              size="50"
+              class="roles-stat-card__icon"
             >
-              <VCard>
-                <VCardText>
-                  <div class="d-flex justify-space-between">
-                    <div class="d-flex flex-column gap-y-1">
-                      <div class="text-body-1 text-high-emphasis">
-                        {{ data.title }}
-                      </div>
-                      <h4 class="text-h4">
-                        {{ data.value }}
-                      </h4>
-                    </div>
-                    <VAvatar
-                      :color="data.iconColor"
-                      variant="tonal"
-                      rounded
-                      size="42"
-                    >
-                      <VIcon
-                        :icon="data.icon"
-                        size="26"
-                      />
-                    </VAvatar>
-                  </div>
-                </VCardText>
-              </VCard>
-            </VCol>
-          </VRow>
-        </div>
+              <VIcon
+                :icon="data.icon"
+                size="28"
+              />
+            </VAvatar>
+          </VCardText>
+        </VCard>
+      </VCol>
+
+      <VCol cols="12">
         <RoleCards
           ref="roleCardsRef"
           @changed="fetchStats"
         />
       </VCol>
-
-
-
-      <!-- 👉 Import Dialog -->
-      <VDialog
-        v-model="isImportDialogVisible"
-        max-width="500"
-      >
-        <VCard :title="t('roles.roles.import.dialog_title')">
-          <VCardText>
-            <div class="mb-5">
-              <VBtn
-                variant="tonal"
-                color="success"
-                size="small"
-                prepend-icon="tabler-download"
-                :loading="isDownloadingTemplate"
-                @click="handleDownloadTemplate"
-              >
-                {{ t('roles.roles.import.download_template') }}
-              </VBtn>
-              <div class="text-caption mt-1 text-disabled">
-                {{ t('roles.roles.import.helper_text') }}
-              </div>
-            </div>
-            
-            <VFileInput
-              v-model="importFile"
-              :label="t('roles.roles.import.file_label')"
-              accept=".xlsx,.xls,.csv"
-              prepend-icon="tabler-file-spreadsheet"
-            />
-          </VCardText>
-          <VCardActions>
-            <VSpacer />
-            <VBtn
-              variant="tonal"
-              @click="isImportDialogVisible = false"
-            >
-              {{ t('roles.roles.import.cancel') }}
-            </VBtn>
-            <VBtn
-              color="primary"
-              :loading="isImporting"
-              :disabled="!importFile"
-              @click="handleImport"
-            >
-              {{ t('roles.roles.import.confirm') }}
-            </VBtn>
-          </VCardActions>
-        </VCard>
-      </VDialog>
 
       <ActionSnackbar
         v-model="snackbar.show"
@@ -276,3 +176,40 @@ const handleDownloadTemplate = async () => {
     </VRow>
   </div>
 </template>
+
+<style scoped>
+.roles-stat-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  border-radius: 18px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.roles-stat-card::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.95), rgba(var(--v-theme-info), 0.65));
+  content: '';
+}
+
+.roles-stat-card__body {
+  padding: 22px 24px;
+}
+
+.roles-stat-card__label {
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  letter-spacing: 0.01em;
+}
+
+.roles-stat-card__value {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.roles-stat-card__icon {
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.08);
+}
+</style>

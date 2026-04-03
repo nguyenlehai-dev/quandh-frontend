@@ -3,6 +3,7 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { createUser, fetchUser, updateUser } from '../services/userService'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -83,7 +84,12 @@ const resetCreateForm = async () => {
   userFormRef.value?.resetValidation()
 }
 
-const normalizeUserStatus = status => status === 'active' ? 'active' : 'inactive'
+const normalizeUserStatus = status => {
+  if (status === 'active') return 'active'
+  if (status === 'banned') return 'banned'
+
+  return 'inactive'
+}
 
 const getRoleName = roleId => {
   const role = roles.value.find(item => item.id === roleId)
@@ -133,7 +139,7 @@ const fetchInitialData = async () => {
     const [rolesRes, orgsRes, userRes] = await Promise.allSettled([
       $api('/roles?limit=100'),
       $api('/organizations?limit=100'),
-      $api(`/users/${userId.value}`),
+      fetchUser(userId.value),
     ])
 
     roles.value = rolesRes.status === 'fulfilled' ? normalizeCollection(rolesRes.value) : []
@@ -246,10 +252,10 @@ const saveUser = async (goBack = false) => {
       payload.password_confirmation = password_confirmation.value
     }
 
-    await $api(isCreateMode.value ? '/users' : `/users/${userId.value}`, {
-      method: isCreateMode.value ? 'POST' : 'PUT',
-      body: payload,
-    })
+    if (isCreateMode.value)
+      await createUser(payload)
+    else
+      await updateUser(userId.value, payload)
 
     if (isCreateMode.value) {
       if (goBack) {
@@ -346,9 +352,9 @@ const goBack = () => {
                 <VCol cols="12">
                   <AppTextField
                     v-model="userDetail.user_name"
-                    :rules="[requiredValidator]"
+                    :rules="[]"
                     :label="t('user.user.edit.fields.username')"
-                    :readonly="!isCreateMode || isReadOnly"
+                    :readonly="isReadOnly"
                   />
                 </VCol>
                 <VCol cols="12">
@@ -395,6 +401,10 @@ const goBack = () => {
                     <VRadio
                       :label="t('user.user.edit.status.inactive')"
                       value="inactive"
+                    />
+                    <VRadio
+                      :label="t('user.user.edit.status.banned')"
+                      value="banned"
                     />
                   </VRadioGroup>
                 </VCol>

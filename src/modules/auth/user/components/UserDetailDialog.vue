@@ -1,4 +1,5 @@
 <script setup>
+import { formatAuthDateTime } from '../../shared/dateTime'
 import { useUserStore } from '../stores/useUserStore'
 
 const props = defineProps({
@@ -173,7 +174,7 @@ const onDialogChange = val => {
                       Ngày tạo:
                     </VListItemTitle>
                     <VListItemSubtitle class="text-body-1 mt-1">
-                      {{ userDetail.created_at || 'N/A' }}
+                      {{ formatAuthDateTime(userDetail.created_at) }}
                     </VListItemSubtitle>
                   </VListItem>
 

@@ -1,7 +1,7 @@
-import { createNavItem } from '../../shared/moduleFactory'
+import { createNavGroup, createNavItem } from '../../shared/moduleFactory'
 import { permissionsNavItem } from '../../permissions/router/navigation'
 
-export const navigation = createNavItem({
+export const navigation = createNavGroup({
   titleKey: 'navigation.navigation.system.roles_permissions',
   icon: 'tabler-shield-lock',
   children: [

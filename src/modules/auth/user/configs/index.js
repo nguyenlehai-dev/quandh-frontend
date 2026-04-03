@@ -8,9 +8,9 @@ export const DEFAULT_PER_PAGE = 10
 export const PER_PAGE_OPTIONS = DEFAULT_PER_PAGE_OPTIONS
 
 export const USER_STATUSES = [
-  { title: 'Đang hoạt động', value: 'active', color: 'success' },
-  { title: 'Chờ duyệt', value: 'pending', color: 'warning' },
-  { title: 'Ngưng hoạt động', value: 'inactive', color: 'secondary' },
+  { title: 'Dang hoat dong', value: 'active', color: 'success' },
+  { title: 'Tam khoa', value: 'inactive', color: 'warning' },
+  { title: 'Bi cam', value: 'banned', color: 'error' },
 ]
 
 export const USER_ROLES = [

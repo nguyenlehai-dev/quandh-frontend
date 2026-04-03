@@ -57,7 +57,6 @@ Services:
 | PATCH | `/organizations/bulk-status` | `bulkUpdateOrganizationStatus` | Cap nhat trang thai hang loat |
 | GET | `/organizations/stats` | `fetchOrganizationStats` | Thong ke to chuc |
 | GET | `/organizations/export` | `exportOrganizations` | Xuat Excel |
-| GET | `/organizations/template` | `downloadOrganizationTemplate` | Tai file mau |
 | POST | `/organizations/import` | `importOrganizations` | Nhap Excel |
 
 ## Users
@@ -80,7 +79,6 @@ Services:
 | PATCH | `/users/bulk-status` | `bulkUpdateUserStatus` | Cap nhat trang thai hang loat |
 | GET | `/users/stats` | `fetchUserStats` | Thong ke user |
 | GET | `/users/export` | `exportUsers` | Xuat Excel |
-| GET | `/users/template` | `downloadUserTemplate` | Tai file mau |
 | POST | `/users/import` | `importUsers` | Nhap Excel |
 
 ## Activity Logs

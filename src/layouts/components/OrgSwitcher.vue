@@ -34,7 +34,7 @@ const handleSwitchOrg = async () => {
       v-if="showSwitcher"
       variant="tonal"
       color="primary"
-      class="px-3"
+      class="org-switcher-btn px-3"
       height="40"
       @click="handleSwitchOrg"
     >
@@ -58,6 +58,12 @@ const handleSwitchOrg = async () => {
 .org-header-info {
   display: flex;
   align-items: center;
+  min-inline-size: 0;
+}
+
+.org-switcher-btn {
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .org-name-text {
@@ -65,5 +71,25 @@ const handleSwitchOrg = async () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-inline-size: 16rem;
+}
+
+@media (max-width: 600px) {
+  .org-header-info,
+  .org-switcher-btn {
+    inline-size: 100%;
+  }
+
+  .org-switcher-btn {
+    justify-content: flex-start;
+    padding-inline: 0.75rem !important;
+  }
+
+  .org-name-text {
+    max-inline-size: calc(100vw - 14rem);
+  }
 }
 </style>

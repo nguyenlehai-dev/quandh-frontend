@@ -4,7 +4,7 @@ export default {
     title: 'User List',
     filter: 'Filters',
     search_label: 'Search users',
-    search_placeholder: 'Enter user name',
+    search_placeholder: 'Enter name, email, or username',
     role_label: 'Role',
     role_placeholder: 'Select role',
     organization_label: 'Organization',
@@ -31,8 +31,7 @@ export default {
     save: 'Save',
     cancel: 'Cancel',
     import_dialog_title: 'Import data from Excel',
-    download_template: 'Download Template',
-    import_hint: '* Please download the template, fill in the data, and upload it back to the system.',
+    import_hint: '* Upload an Excel file using the exported columns: name, email, user_name, password, status.',
     select_excel: 'Select Excel file',
     import: 'Import',
     no_update: 'Not updated',
@@ -52,6 +51,7 @@ export default {
   status: {
     active: 'Active',
     inactive: 'Inactive',
+    banned: 'Banned',
     inactive_view: 'Inactive',
   },
   widgets: {
@@ -60,7 +60,7 @@ export default {
     active_title: 'Active users',
     active_subtitle: 'Users currently active',
     inactive_title: 'Inactive users',
-    inactive_subtitle: 'Users currently inactive',
+    inactive_subtitle: 'Inactive or banned users',
   },
   view: {
     title: 'User Profile Details',
@@ -72,6 +72,7 @@ export default {
     status: 'Status',
     active: 'Active',
     inactive: 'Inactive',
+    banned: 'Banned',
     roles_organizations: 'Roles & Organizations',
     permissions_hint: 'Permission details',
     role_name: 'Role Name',
@@ -194,6 +195,7 @@ export default {
     status: {
       active: 'Active',
       inactive: 'Inactive',
+      banned: 'Banned',
     },
     empty_role: 'Please select a role',
     save_edit: 'Save & Edit',

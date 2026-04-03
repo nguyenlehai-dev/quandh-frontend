@@ -25,7 +25,6 @@ export default {
     { method: 'PATCH', endpoint: '/organizations/bulk-status', service: 'bulkUpdateOrganizationStatus', description: 'Cap nhat trang thai hang loat' },
     { method: 'GET', endpoint: '/organizations/stats', service: 'fetchOrganizationStats', description: 'Thong ke to chuc' },
     { method: 'GET', endpoint: '/organizations/export', service: 'exportOrganizations', description: 'Xuat Excel' },
-    { method: 'GET', endpoint: '/organizations/template', service: 'downloadOrganizationTemplate', description: 'Tai file mau' },
     { method: 'POST', endpoint: '/organizations/import', service: 'importOrganizations', description: 'Nhap Excel' },
   ],
 }

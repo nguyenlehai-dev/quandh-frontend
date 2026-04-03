@@ -3,15 +3,26 @@
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import { useRouter } from 'vue-router'
-import { downloadUserTemplate, exportUsers, importUsers } from '../services/userService'
+import { formatAuthDateTime } from '../../shared/dateTime'
+import { exportRowsToExcel } from '../../shared/excelExport'
+import { buildAuthQueryString } from '../../shared/queryParams'
+import AuthDataActions from '../../shared/AuthDataActions.vue'
+import {
+  bulkDeleteUsers as bulkDeleteUsersRequest,
+  bulkUpdateUserStatus,
+  changeUserStatus as changeUserStatusRequest,
+  deleteUser as deleteUserRequest,
+  downloadUserImportTemplate,
+  fetchUserStats,
+  fetchUsers as fetchUsersRequest,
+  importUsers,
+} from '../services/userService'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const searchQuery = ref('')
 const selectedStatus = ref()
-const selectedRole = ref()
-const selectedOrg = ref()
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
@@ -28,8 +39,8 @@ const headers = [
   { title: t('user.user.headers.name'), key: 'name' },
   { title: t('user.user.headers.email'), key: 'email' },
   { title: t('user.user.headers.roles'), key: 'roles', sortable: false },
-  { title: t('user.user.headers.updated_at'), key: 'updated_at', sortable: true },
-  { title: t('user.user.headers.status'), key: 'status' },
+  { title: t('user.user.headers.updated_at'), key: 'updated_at', sortable: false },
+  { title: t('user.user.headers.status'), key: 'status', sortable: false },
   { title: t('user.user.headers.actions'), key: 'actions', sortable: false },
 ]
 
@@ -62,46 +73,37 @@ const fetchDependencies = async () => {
 }
 
 const getRoleName = roleId => {
-  const r = roles.value.find(x => x.id === roleId)
+  const role = roles.value.find(item => item.id === roleId)
 
-  return r ? r.name : roleId
+  return role ? role.name : roleId
 }
 
 const getOrgName = orgId => {
-  const o = organizations.value.find(x => x.id === orgId)
+  const organization = organizations.value.find(item => item.id === orgId)
 
-  return o ? o.name : orgId
+  return organization ? organization.name : orgId
 }
 
-const formatDate = dateString => {
-  if (!dateString) return t('user.user.list.no_update')
+const buildListParams = () => ({
+  search: searchQuery.value || undefined,
+  status: selectedStatus.value || undefined,
+  limit: itemsPerPage.value,
+  page: page.value,
+  sort_by: sortBy.value,
+  sort_order: orderBy.value,
+})
 
-  const safeDateString = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString
-  const d = new Date(safeDateString)
-
-  if (Number.isNaN(d.getTime())) return dateString
-
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`
-}
+const buildExportParams = () => ({
+  ...buildListParams(),
+})
 
 const fetchUsers = async () => {
   loading.value = true
   try {
-    const res = await $api('/users', {
-      params: {
-        search: searchQuery.value || undefined,
-        status: selectedStatus.value || undefined,
-        role_id: selectedRole.value || undefined,
-        organization_id: selectedOrg.value || undefined,
-        limit: itemsPerPage.value,
-        page: page.value,
-        sort_by: sortBy.value,
-        sort_order: orderBy.value,
-      },
-    })
+    const response = await fetchUsersRequest(buildListParams())
 
-    users.value = res.data ?? []
-    totalUsers.value = res.meta?.total ?? res.total ?? 0
+    users.value = response.data ?? []
+    totalUsers.value = response.meta?.total ?? response.total ?? 0
   }
   catch (err) {
     console.error('Fetch users error:', err)
@@ -115,14 +117,12 @@ const fetchUsers = async () => {
 
 const fetchStats = async () => {
   try {
-    const res = await $api('/users/stats', {
-      params: {
-        search: searchQuery.value,
-        status: selectedStatus.value,
-      },
+    const response = await fetchUserStats({
+      search: searchQuery.value,
+      status: selectedStatus.value,
     })
 
-    stats.value = res.data ?? { total: 0, active: 0, inactive: 0 }
+    stats.value = response.data ?? { total: 0, active: 0, inactive: 0 }
   }
   catch (err) {
     console.error('Fetch stats error:', err)
@@ -130,7 +130,7 @@ const fetchStats = async () => {
 }
 
 let filterTimeout
-watch([searchQuery, selectedStatus, selectedRole, selectedOrg], () => {
+watch([searchQuery, selectedStatus], () => {
   clearTimeout(filterTimeout)
   filterTimeout = setTimeout(() => {
     page.value = 1
@@ -149,31 +149,33 @@ onMounted(() => {
   fetchDependencies()
 })
 
-const resetFilters = () => {
-  searchQuery.value = ''
-  selectedStatus.value = null
-  selectedRole.value = null
-  selectedOrg.value = null
-}
-
 const statusOptions = [
   { title: t('user.user.status.active'), value: 'active' },
   { title: t('user.user.status.inactive'), value: 'inactive' },
+  { title: t('user.user.status.banned'), value: 'banned' },
 ]
 
-const normalizeUserStatus = stat => stat?.toLowerCase() === 'active' ? 'active' : 'inactive'
+const normalizeUserStatus = stat => {
+  const normalized = `${stat || ''}`.toLowerCase()
+
+  if (normalized === 'active') return 'active'
+  if (normalized === 'banned') return 'banned'
+
+  return 'inactive'
+}
 
 const resolveUserStatusVariant = stat => {
-  const s = normalizeUserStatus(stat)
+  const status = normalizeUserStatus(stat)
 
-  if (s === 'active') return 'success'
-  if (s === 'inactive') return 'warning'
+  if (status === 'active') return 'success'
+  if (status === 'inactive') return 'warning'
+  if (status === 'banned') return 'error'
 
   return 'primary'
 }
 
 const resolveStatusText = stat => {
-  const found = statusOptions.find(s => s.value === normalizeUserStatus(stat))
+  const found = statusOptions.find(item => item.value === normalizeUserStatus(stat))
 
   return found ? found.title : stat
 }
@@ -212,7 +214,7 @@ const openCreateUserPage = () => {
 
 const isConfirmDialogVisible = ref(false)
 const isConfirming = ref(false)
-const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xac nhan', confirmColor: 'primary', action: null })
 const { snackbar, showSuccess, showError } = useActionFeedback()
 
 const openConfirmDialog = options => {
@@ -222,67 +224,71 @@ const openConfirmDialog = options => {
 
 const executeConfirmedAction = async () => {
   if (!confirmDialog.value.action) return
+
   isConfirming.value = true
   try {
     await confirmDialog.value.action()
     isConfirmDialogVisible.value = false
   }
   catch (err) {
-    showError(err, 'Không thể thực hiện thao tác này.')
+    showError(err, 'Khong the thuc hien thao tac nay.')
   }
   finally {
     isConfirming.value = false
   }
 }
 
-const deleteUser = async id => {
+const deleteUser = id => {
   openConfirmDialog({
-    title: 'Xóa người dùng',
-    message: 'Bạn có chắc chắn muốn xóa người dùng này không?',
-    confirmText: 'Xóa',
+    title: 'Xoa nguoi dung',
+    message: 'Ban co chac chan muon xoa nguoi dung nay khong?',
+    confirmText: 'Xoa',
     confirmColor: 'error',
     action: async () => {
-      await $api(`/users/${id}`, { method: 'DELETE' })
+      await deleteUserRequest(id)
 
       const idx = selectedRows.value.findIndex(row => row === id)
       if (idx !== -1) selectedRows.value.splice(idx, 1)
-      showSuccess('Xóa người dùng thành công.')
+
+      showSuccess('Xoa nguoi dung thanh cong.')
       fetchUsers()
       fetchStats()
     },
   })
 }
 
-const bulkDeleteUsers = async () => {
+const bulkDeleteUsers = () => {
   if (!selectedRows.value.length) return
+
   openConfirmDialog({
-    title: 'Xóa hàng loạt người dùng',
-    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} người dùng đã chọn không?`,
-    confirmText: 'Xóa',
+    title: 'Xoa hang loat nguoi dung',
+    message: `Ban co chac chan muon xoa ${selectedRows.value.length} nguoi dung da chon khong?`,
+    confirmText: 'Xoa',
     confirmColor: 'error',
     action: async () => {
-      await $api('/users/bulk-delete', { method: 'POST', body: { ids: selectedRows.value } })
+      await bulkDeleteUsersRequest(selectedRows.value)
       selectedRows.value = []
-      showSuccess('Xóa hàng loạt người dùng thành công.')
+      showSuccess('Xoa hang loat nguoi dung thanh cong.')
       fetchUsers()
       fetchStats()
     },
   })
 }
 
-const bulkChangeStatus = async newStatus => {
+const bulkChangeStatus = newStatus => {
   if (!selectedRows.value.length) return
+
   const nextLabel = resolveStatusText(newStatus)
 
   openConfirmDialog({
-    title: 'Đổi trạng thái hàng loạt',
-    message: `Bạn có chắc chắn muốn chuyển ${selectedRows.value.length} người dùng đã chọn sang "${nextLabel}" không?`,
-    confirmText: 'Đổi trạng thái',
+    title: 'Doi trang thai hang loat',
+    message: `Ban co chac chan muon chuyen ${selectedRows.value.length} nguoi dung da chon sang "${nextLabel}" khong?`,
+    confirmText: 'Doi trang thai',
     confirmColor: 'warning',
     action: async () => {
-      await $api('/users/bulk-status', { method: 'PATCH', body: { ids: selectedRows.value, status: newStatus } })
+      await bulkUpdateUserStatus(selectedRows.value, newStatus)
       selectedRows.value = []
-      showSuccess('Cập nhật trạng thái hàng loạt thành công.')
+      showSuccess('Cap nhat trang thai hang loat thanh cong.')
       fetchUsers()
       fetchStats()
     },
@@ -293,13 +299,13 @@ const changeUserStatus = (item, newStatus) => {
   const nextLabel = resolveStatusText(newStatus)
 
   openConfirmDialog({
-    title: 'Đổi trạng thái người dùng',
-    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang "${nextLabel}" không?`,
-    confirmText: 'Đổi trạng thái',
+    title: 'Doi trang thai nguoi dung',
+    message: `Ban co chac chan muon chuyen "${item.name}" sang "${nextLabel}" khong?`,
+    confirmText: 'Doi trang thai',
     confirmColor: 'warning',
     action: async () => {
-      await $api(`/users/${item.id}/status`, { method: 'PATCH', body: { status: newStatus } })
-      showSuccess('Cập nhật trạng thái người dùng thành công.')
+      await changeUserStatusRequest(item.id, newStatus)
+      showSuccess('Cap nhat trang thai nguoi dung thanh cong.')
       fetchUsers()
       fetchStats()
     },
@@ -311,30 +317,55 @@ const isExporting = ref(false)
 const handleExport = async () => {
   isExporting.value = true
   try {
-    const blob = await exportUsers({
-      search: searchQuery.value,
-      status: selectedStatus.value,
-      sort_by: sortBy.value,
-      sort_order: orderBy.value,
-      page: page.value,
-      limit: itemsPerPage.value,
+    if (selectedRows.value.length) {
+      const selectedUsers = users.value.filter(item => selectedRows.value.includes(item.id))
+
+      exportRowsToExcel({
+        rows: selectedUsers.map(item => ({
+          name: item.name || '',
+          email: item.email || '',
+          user_name: item.user_name || '',
+          status: normalizeUserStatus(item.status),
+          roles: (item.assignments || [])
+            .map(assign => `${getRoleName(assign.role_id)} (${(assign.organization_ids || []).map(getOrgName).join(', ')})`)
+            .join(' | '),
+          updated_at: formatAuthDateTime(item.updated_at || item.created_at, { fallback: '' }),
+        })),
+        headers: ['name', 'email', 'user_name', 'status', 'roles', 'updated_at'],
+        sheetName: 'Users',
+        fileName: `users_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 28 },
+          { wch: 32 },
+          { wch: 22 },
+          { wch: 14 },
+          { wch: 48 },
+          { wch: 22 },
+        ],
+      })
+
+      return
+    }
+
+    const blob = await $api(`/users/export?${buildAuthQueryString(buildExportParams())}`, {
+      responseType: 'blob',
     })
 
     const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
+    const anchor = document.createElement('a')
 
-    a.href = url
-    a.download = `users_${new Date().toISOString().slice(0, 10)}.xlsx`
-    document.body.appendChild(a)
-    a.click()
+    anchor.href = url
+    anchor.download = `users_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(anchor)
+    anchor.click()
     setTimeout(() => {
-      document.body.removeChild(a)
+      document.body.removeChild(anchor)
       window.URL.revokeObjectURL(url)
     }, 5000)
   }
   catch (err) {
-    showError(err, 'Không thể xuất dữ liệu người dùng.')
+    showError(err, 'Khong the xuat du lieu nguoi dung.')
     console.error('Export error:', err)
   }
   finally {
@@ -342,55 +373,16 @@ const handleExport = async () => {
   }
 }
 
-const isImportDialogVisible = ref(false)
-const importFile = ref(null)
-const isImporting = ref(false)
-
-const handleImport = async () => {
-  if (!importFile.value) return
-  isImporting.value = true
+const handleImport = async file => {
   try {
-    await importUsers(importFile.value)
-    isImportDialogVisible.value = false
-    importFile.value = null
-    showSuccess('Import dữ liệu người dùng thành công.')
+    await importUsers(file)
+    showSuccess('Import du lieu nguoi dung thanh cong.')
     fetchUsers()
     fetchStats()
   }
   catch (err) {
-    showError(err, 'Không thể import dữ liệu người dùng.')
+    showError(err, 'Khong the import du lieu nguoi dung.')
     console.error('Import error:', err)
-  }
-  finally {
-    isImporting.value = false
-  }
-}
-
-const isDownloadingTemplate = ref(false)
-
-const handleDownloadTemplate = async () => {
-  isDownloadingTemplate.value = true
-  try {
-    const blob = await downloadUserTemplate()
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
-
-    a.href = url
-    a.download = 'users_template.xlsx'
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    }, 5000)
-  }
-  catch (err) {
-    showError(err, 'Không thể tải file mẫu.')
-    console.error('Download template error:', err)
-  }
-  finally {
-    isDownloadingTemplate.value = false
   }
 }
 </script>
@@ -438,62 +430,72 @@ const handleDownloadTemplate = async () => {
       </VRow>
     </div>
 
-    <VCard class="mb-6">
-      <VCardText class="pb-2">
-        <div class="d-flex align-center gap-2 mb-4">
-          <VIcon
-            icon="tabler-filter"
-            color="primary"
-          />
-          <div class="text-h6 font-weight-medium">
-            {{ t('user.user.list.filter') }}
+    <VCard class="organization-main-card mb-6">
+      <VCardItem class="pb-4 organization-main-card__header">
+        <template #prepend>
+          <div class="d-flex align-center organization-toolbar-title">
+            <VIcon
+              icon="tabler-filter"
+              color="primary"
+              size="24"
+              class="me-2"
+            />
+            <h5 class="text-h5 text-primary mb-0 font-weight-medium">
+              {{ t('user.user.list.filter') }}
+            </h5>
           </div>
-        </div>
+        </template>
+
+        <template #append>
+          <AuthDataActions
+            :show-import="$can('import', 'User')"
+            :show-template="$can('import', 'User')"
+            :show-export="$can('export', 'User')"
+            :show-create="$can('create', 'User')"
+            :create-label="t('user.user.list.add_new')"
+            :import-label="t('user.user.list.import_data')"
+            import-subtitle="Nap file Excel vao he thong"
+            template-label="Tai file mau import"
+            template-subtitle="Lay mau Excel dung cot ma backend dang nhan"
+            :export-label="t('user.user.list.export_data')"
+            export-subtitle="Xuat danh sach hien tai ra file"
+            :import-dialog-title="t('user.user.list.import_dialog_title')"
+            :import-hint="t('user.user.list.import_hint')"
+            :select-file-label="t('user.user.list.select_excel')"
+            :cancel-text="t('user.user.list.cancel')"
+            :import-text="t('user.user.list.import')"
+            :export-loading="isExporting"
+            :import-handler="handleImport"
+            :template-handler="downloadUserImportTemplate"
+            :export-handler="handleExport"
+            :create-handler="openCreateUserPage"
+          />
+        </template>
+      </VCardItem>
+
+      <VCardText class="pb-6 organization-filter-panel">
         <VRow>
           <VCol
             cols="12"
-            md="3"
+            md="9"
+            class="organization-filter-col"
           >
             <AppTextField
               v-model="searchQuery"
+              class="organization-filter-input"
               :label="t('user.user.list.search_label')"
               :placeholder="t('user.user.list.search_placeholder')"
+              density="compact"
             />
           </VCol>
           <VCol
             cols="12"
             md="3"
-          >
-            <AppSelect
-              v-model="selectedRole"
-              :items="roles"
-              item-title="name"
-              item-value="id"
-              :label="t('user.user.list.role_label')"
-              :placeholder="t('user.user.list.role_placeholder')"
-              clearable
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="3"
-          >
-            <AppSelect
-              v-model="selectedOrg"
-              :items="organizations"
-              item-title="name"
-              item-value="id"
-              :label="t('user.user.list.organization_label')"
-              :placeholder="t('user.user.list.organization_placeholder')"
-              clearable
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="3"
+            class="organization-filter-col"
           >
             <AppSelect
               v-model="selectedStatus"
+              class="organization-filter-input"
               :items="statusOptions"
               :label="t('user.user.list.status_label')"
               :placeholder="t('user.user.list.status_placeholder')"
@@ -501,52 +503,6 @@ const handleDownloadTemplate = async () => {
             />
           </VCol>
         </VRow>
-      </VCardText>
-
-      <VCardText class="pt-0 d-flex justify-end gap-3 flex-wrap">
-        <VBtn
-          variant="outlined"
-          color="secondary"
-          @click="resetFilters"
-        >
-          <VIcon
-            icon="tabler-refresh"
-            start
-          /> {{ t('user.user.list.reset') }}
-        </VBtn>
-        <VBtn
-          v-if="$can('import', 'User')"
-          variant="outlined"
-          color="primary"
-          @click="isImportDialogVisible = true"
-        >
-          <VIcon
-            icon="tabler-upload"
-            start
-          /> {{ t('user.user.list.import_data') }}
-        </VBtn>
-        <VBtn
-          v-if="$can('export', 'User')"
-          variant="outlined"
-          color="primary"
-          :loading="isExporting"
-          @click="handleExport"
-        >
-          <VIcon
-            icon="tabler-download"
-            start
-          /> {{ t('user.user.list.export_data') }}
-        </VBtn>
-        <VBtn
-          v-if="$can('create', 'User')"
-          color="primary"
-          @click="openCreateUserPage"
-        >
-          <VIcon
-            icon="tabler-plus"
-            start
-          /> {{ t('user.user.list.add_new') }}
-        </VBtn>
       </VCardText>
 
       <template v-if="selectedRows.length > 0">
@@ -581,11 +537,11 @@ const handleDownloadTemplate = async () => {
             </template>
             <VList>
               <VListItem
-                v-for="s in statusOptions"
-                :key="s.value"
-                @click="bulkChangeStatus(s.value)"
+                v-for="status in statusOptions"
+                :key="status.value"
+                @click="bulkChangeStatus(status.value)"
               >
-                <VListItemTitle>{{ s.title }}</VListItemTitle>
+                <VListItemTitle>{{ status.title }}</VListItemTitle>
               </VListItem>
             </VList>
           </VMenu>
@@ -690,7 +646,7 @@ const handleDownloadTemplate = async () => {
                 size="16"
               />
             </VAvatar>
-            <span class="text-body-2 text-info font-weight-medium">{{ formatDate(item.updated_at || item.created_at) }}</span>
+            <span class="text-body-2 text-info font-weight-medium">{{ formatAuthDateTime(item.updated_at || item.created_at, { fallback: t('user.user.list.no_update') }) }}</span>
           </div>
         </template>
 
@@ -748,11 +704,11 @@ const handleDownloadTemplate = async () => {
               </template>
               <VList>
                 <VListItem
-                  v-for="s in statusOptions.filter(s => s.value !== item.status)"
-                  :key="s.value"
-                  @click="changeUserStatus(item, s.value)"
+                  v-for="status in statusOptions.filter(option => option.value !== normalizeUserStatus(item.status))"
+                  :key="status.value"
+                  @click="changeUserStatus(item, status.value)"
                 >
-                  <VListItemTitle>{{ s.title }}</VListItemTitle>
+                  <VListItemTitle>{{ status.title }}</VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
@@ -797,54 +753,64 @@ const handleDownloadTemplate = async () => {
       :message="snackbar.message"
       :color="snackbar.color"
     />
-
-    <VDialog
-      v-model="isImportDialogVisible"
-      max-width="500"
-    >
-      <VCard :title="t('user.user.list.import_dialog_title')">
-        <VCardText>
-          <div class="mb-5">
-            <VBtn
-              variant="tonal"
-              color="success"
-              size="small"
-              prepend-icon="tabler-download"
-              :loading="isDownloadingTemplate"
-              @click="handleDownloadTemplate"
-            >
-              {{ t('user.user.list.download_template') }}
-            </VBtn>
-            <div class="text-caption mt-1 text-disabled">
-              {{ t('user.user.list.import_hint') }}
-            </div>
-          </div>
-
-          <VFileInput
-            v-model="importFile"
-            :label="t('user.user.list.select_excel')"
-            accept=".xlsx,.xls,.csv"
-            prepend-icon="tabler-file-spreadsheet"
-          />
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn
-            variant="tonal"
-            @click="isImportDialogVisible = false"
-          >
-            {{ t('user.user.list.cancel') }}
-          </VBtn>
-          <VBtn
-            color="primary"
-            :loading="isImporting"
-            :disabled="!importFile"
-            @click="handleImport"
-          >
-            {{ t('user.user.list.import') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
   </div>
 </template>
+
+<style scoped>
+.organization-main-card__header {
+  padding-block-end: 8px;
+}
+
+.organization-toolbar-title {
+  min-height: 40px;
+}
+
+.organization-filter-panel {
+  padding-block-start: 8px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 1), rgba(var(--v-theme-primary), 0.015));
+}
+
+.organization-filter-col {
+  display: flex;
+  align-items: center;
+}
+
+.organization-filter-input {
+  flex: 1 1 auto;
+}
+
+.organization-filter-input :deep(.v-input) {
+  inline-size: 100%;
+}
+
+.organization-filter-input :deep(.v-field) {
+  min-block-size: 46px;
+}
+
+.organization-filter-input :deep(.v-field__input) {
+  align-items: center;
+  min-block-size: 46px;
+  padding-block: 0;
+}
+
+.organization-filter-input :deep(.v-label) {
+  margin-block-end: 6px;
+}
+
+@media (max-width: 959px) {
+  .organization-main-card__header {
+    padding-block-end: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .organization-toolbar-title {
+    min-height: auto;
+    align-items: center;
+  }
+
+  .organization-filter-col {
+    inline-size: 100%;
+  }
+}
+</style>

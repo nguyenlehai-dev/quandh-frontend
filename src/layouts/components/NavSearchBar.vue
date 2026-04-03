@@ -171,9 +171,9 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 <template>
   <div
-    class="d-flex align-center cursor-pointer px-3 rounded"
+    class="app-nav-search d-flex align-center cursor-pointer px-3 rounded"
     v-bind="$attrs"
-    style="user-select: none; border: 1px solid rgba(var(--v-border-color), 0.5); height: 40px; min-width: 280px; max-width: 400px; background-color: rgb(var(--v-theme-surface))"
+    style="user-select: none; border: 1px solid rgba(var(--v-border-color), 0.5); height: 40px; background-color: rgb(var(--v-theme-surface))"
     @click="isAppSearchBarVisible = !isAppSearchBarVisible; Shepherd.activeTour?.cancel()"
   >
     <VIcon
@@ -320,6 +320,27 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
   .card-list {
     --v-card-list-gap: 8px;
+  }
+}
+
+.app-nav-search {
+  inline-size: min(100%, 400px);
+  min-inline-size: 0;
+}
+
+@media (max-width: 959px) {
+  .app-nav-search {
+    inline-size: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-nav-search {
+    padding-inline: 0.75rem !important;
+  }
+
+  .app-nav-search .meta-key {
+    display: none !important;
   }
 }
 </style>

@@ -4,6 +4,9 @@
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import { ref, watch, onMounted } from 'vue'
 import { ability } from '@/plugins/casl/ability'
+import { formatAuthDateTime } from '../../shared/dateTime'
+import { exportRowsToExcel } from '../../shared/excelExport'
+import { buildAuthQueryString } from '../../shared/queryParams'
 
 const { t } = useI18n()
 
@@ -48,14 +51,11 @@ const canViewLogStats = computed(() => ability.can('stats', 'ActivityLog'))
 const canExportLogs = computed(() => ability.can('export', 'ActivityLog'))
 const canBulkDeleteLogs = computed(() => ability.can('bulkDestroy', 'ActivityLog'))
 
-const formatDate = dateString => {
-  if (!dateString) return ''
-  const safeDateString = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString
-  const d = new Date(safeDateString)
-  if (isNaN(d.getTime())) return dateString
-
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`
-}
+const buildExportParams = () => ({
+  search: searchQuery.value || undefined,
+  method_type: selectedMethod.value || undefined,
+  status_code: selectedStatus.value || undefined,
+})
 
 const fetchLogs = async () => {
   if (!canViewLogList.value) {
@@ -183,14 +183,39 @@ const handleExport = async () => {
   if (!canExportLogs.value) return
   isExporting.value = true
   try {
-    const blob = await $api('/log-activities/export', {
-      method: 'GET',
+    if (selectedRows.value.length) {
+      const selectedLogs = logs.value.filter(item => selectedRows.value.includes(item.id))
+
+      exportRowsToExcel({
+        rows: selectedLogs.map(item => ({
+          description: item.description || '',
+          user_name: item.user_name || item.causer?.name || '',
+          ip_address: item.ip_address || '',
+          method_type: item.method_type || '',
+          route: item.route || '',
+          status_code: item.status_code ?? '',
+          created_at: formatAuthDateTime(item.created_at, { fallback: '' }),
+        })),
+        headers: ['description', 'user_name', 'ip_address', 'method_type', 'route', 'status_code', 'created_at'],
+        sheetName: 'ActivityLogs',
+        fileName: `activity_logs_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 36 },
+          { wch: 24 },
+          { wch: 18 },
+          { wch: 12 },
+          { wch: 40 },
+          { wch: 14 },
+          { wch: 22 },
+        ],
+      })
+      showSuccess('Xuat nhat ky hoat dong thanh cong.')
+
+      return
+    }
+
+    const blob = await $api(`/log-activities/export?${buildAuthQueryString(buildExportParams())}`, {
       responseType: 'blob',
-      params: {
-        search: searchQuery.value || undefined,
-        method_type: selectedMethod.value || undefined,
-        status_code: selectedStatus.value || undefined,
-      },
     })
 
     const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -443,7 +468,7 @@ const resolveStatusColor = status => {
                 size="16"
               />
             </VAvatar>
-            <span class="text-body-2 text-disabled">{{ formatDate(item.created_at) }}</span>
+            <span class="text-body-2 text-disabled">{{ formatAuthDateTime(item.created_at, { fallback: '' }) }}</span>
           </div>
         </template>
 

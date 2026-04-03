@@ -4,6 +4,7 @@ import { themeConfig } from '@themeConfig'
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'
+import MobileNavUserPanel from '@/layouts/components/MobileNavUserPanel.vue'
 import NavBarNotifications from '@/layouts/components/NavBarNotifications.vue'
 import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import NavbarShortcuts from '@/layouts/components/NavbarShortcuts.vue'
@@ -20,38 +21,54 @@ const navItems = computed(() => getVerticalNavItems())
 
 <template>
   <VerticalNavLayout :nav-items="navItems">
+    <template #before-vertical-nav-items>
+      <MobileNavUserPanel section="header" />
+    </template>
+
+    <template #after-vertical-nav-items>
+      <MobileNavUserPanel section="footer" />
+    </template>
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div class="d-flex h-100 align-center w-100 gap-4">
-        <IconBtn
-          id="vertical-nav-toggle-btn"
-          class="ms-n3 d-lg-none"
-          @click="toggleVerticalOverlayNavActive(true)"
-        >
-          <VIcon
-            size="26"
-            icon="tabler-menu-2"
-          />
-        </IconBtn>
+      <div class="app-navbar-shell">
+        <div class="app-navbar-shell__primary">
+          <IconBtn
+            id="vertical-nav-toggle-btn"
+            class="app-navbar-shell__toggle ms-n3 d-lg-none"
+            @click="toggleVerticalOverlayNavActive(true)"
+          >
+            <VIcon
+              size="26"
+              icon="tabler-menu-2"
+            />
+          </IconBtn>
 
-        <NavSearchBar class="ms-0" />
+          <NavSearchBar class="app-navbar-shell__search ms-0" />
+        </div>
 
-        <VSpacer />
+        <div class="app-navbar-shell__secondary">
+          <OrgSwitcher class="app-navbar-shell__org-switcher" />
 
-        <div
-          class="d-flex h-100 align-center"
-          style="gap: 4px;"
-        >
-          <OrgSwitcher />
-
-          <NavBarI18n
-            v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
-            :languages="themeConfig.app.i18n.langConfig"
-          />
-          <NavbarThemeSwitcher />
-          <NavbarShortcuts />
-          <NavBarNotifications class="me-1" />
-          <UserProfile />
+          <div class="app-navbar-shell__actions">
+            <div class="app-navbar-shell__action app-navbar-shell__action--i18n">
+              <NavBarI18n
+                v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
+                :languages="themeConfig.app.i18n.langConfig"
+              />
+            </div>
+            <div class="app-navbar-shell__action app-navbar-shell__action--theme">
+              <NavbarThemeSwitcher />
+            </div>
+            <div class="app-navbar-shell__action app-navbar-shell__action--shortcuts">
+              <NavbarShortcuts />
+            </div>
+            <div class="app-navbar-shell__action app-navbar-shell__action--notifications">
+              <NavBarNotifications class="me-1" />
+            </div>
+            <div class="app-navbar-shell__action app-navbar-shell__action--profile">
+              <UserProfile />
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -91,6 +108,112 @@ const navItems = computed(() => getVerticalNavItems())
 
   .layout-footer {
     max-inline-size: 100% !important;
+  }
+}
+
+.app-navbar-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: 0.125rem;
+}
+
+.app-navbar-shell__primary,
+.app-navbar-shell__secondary,
+.app-navbar-shell__actions {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.app-navbar-shell__primary {
+  flex: 1 1 auto;
+  gap: 0.75rem;
+}
+
+.app-navbar-shell__search {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.app-navbar-shell__secondary {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.app-navbar-shell__actions {
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+}
+
+.app-navbar-shell__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 959px) {
+  .app-navbar-shell {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .app-navbar-shell__primary,
+  .app-navbar-shell__secondary {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .app-navbar-shell__secondary {
+    gap: 0.75rem;
+  }
+
+  .app-navbar-shell__org-switcher {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-navbar-shell {
+    gap: 0.75rem;
+    padding-block: 0.25rem;
+  }
+
+  .app-navbar-shell__primary {
+    gap: 0.5rem;
+  }
+
+  .app-navbar-shell__secondary {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .app-navbar-shell__org-switcher {
+    flex: 1 1 100%;
+    min-inline-size: 0;
+  }
+
+  .app-navbar-shell__actions {
+    inline-size: 100%;
+    justify-content: flex-end;
+    gap: 0.125rem;
+  }
+
+  .app-navbar-shell__action--i18n,
+  .app-navbar-shell__action--theme,
+  .app-navbar-shell__action--shortcuts,
+  .app-navbar-shell__action--profile {
+    display: none;
+  }
+
+  .app-navbar-shell__action--notifications {
+    margin-inline-start: auto;
   }
 }
 </style>
