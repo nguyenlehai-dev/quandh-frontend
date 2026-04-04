@@ -292,7 +292,7 @@ const openResultsDialog = async item => {
         </h5>
         <VSpacer />
         <VBtn
-          v-if="$can('create', 'MeetingVoting')"
+          v-if="$can('store', 'MeetingVoting')"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
         >
@@ -381,7 +381,7 @@ const openResultsDialog = async item => {
             <VIcon icon="tabler-player-stop" />
           </IconBtn>
           <IconBtn
-            v-if="$can('delete', 'MeetingVoting') && item.status === 'pending'"
+            v-if="$can('destroy', 'MeetingVoting') && item.status === 'pending'"
             color="error"
             @click="deleteItem(item)"
           >

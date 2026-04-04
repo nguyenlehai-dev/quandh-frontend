@@ -38,7 +38,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-document-fields', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meeting-document-fields', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -332,7 +332,7 @@ const importData = async () => {
           Xuất dữ liệu
         </VBtn>
         <VBtn
-          v-if="$can('create', 'MeetingDocumentField')"
+          v-if="$can('store', 'MeetingDocumentField')"
           color="primary"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
@@ -419,7 +419,7 @@ const importData = async () => {
               </VTooltip>
             </IconBtn>
             <IconBtn
-              v-if="$can('delete', 'MeetingDocumentField')"
+              v-if="$can('destroy', 'MeetingDocumentField')"
               @click="deleteItem(item)"
             >
               <VIcon

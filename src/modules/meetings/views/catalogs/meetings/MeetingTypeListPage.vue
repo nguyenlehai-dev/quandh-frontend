@@ -37,7 +37,7 @@ const headers = [
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/meeting-types', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meeting-types', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -352,7 +352,7 @@ const importData = async () => {
           Xuất dữ liệu
         </VBtn>
         <VBtn
-          v-if="$can('create', 'MeetingType')"
+          v-if="$can('store', 'MeetingType')"
           color="primary"
           prepend-icon="tabler-plus"
           @click="openAddDialog"
@@ -440,7 +440,7 @@ const importData = async () => {
               </VTooltip>
             </IconBtn>
             <IconBtn
-              v-if="$can('delete', 'MeetingType')"
+              v-if="$can('destroy', 'MeetingType')"
               @click="deleteItem(item)"
             >
               <VIcon

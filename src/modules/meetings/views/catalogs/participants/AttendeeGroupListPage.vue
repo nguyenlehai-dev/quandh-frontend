@@ -51,7 +51,7 @@ const headers = [
 ]
 
 // Fetch danh sách nhóm
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meetings/attendee-groups', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/attendee-groups', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
@@ -65,7 +65,7 @@ const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
 // Fetch danh sách Loại cuộc họp (cho dropdown)
-const { data: meetingTypesData } = useApi('/meetings/meeting-types?limit=100')
+const { data: meetingTypesData } = useApi('/meeting-types?limit=100')
 
 const meetingTypeOptions = computed(() => {
   const types = meetingTypesData.value?.data ?? []

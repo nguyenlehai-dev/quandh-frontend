@@ -2,15 +2,16 @@
 /* eslint-disable padding-line-between-statements */
 
 import {
-  castVote,
+  castParticipantVote,
   createPersonalNote,
   createSpeechRequest,
-  deleteSpeechRequest,
   fetchAvailableDelegates,
-  fetchMeeting,
-  fetchMeetingQrToken,
+  fetchCurrentVoting,
+  fetchMySpeechRequests,
+  fetchParticipantMeeting,
+  fetchParticipantMeetingConclusions,
+  fetchParticipantMeetingDocuments,
   fetchPersonalNotes,
-  fetchSpeechRequests,
   qrCheckinMeeting,
   selfCheckinMeetingParticipant,
   updatePersonalNote,
@@ -184,16 +185,12 @@ export function useParticipantMeetingDetails() {
     }
   }
 
-  const handleSelfCheckin = async status => {
+  const handleSelfCheckin = async () => {
     if (!meeting.value?.id) return
     isCheckinSubmitting.value = true
 
-    const payload = { attendance_status: status }
-    if (status === 'absent') payload.absence_reason = absenceReason.value
-    if (status === 'delegated') payload.delegated_to_id = delegatedToId.value
-
     try {
-      const res = await selfCheckinMeetingParticipant(meeting.value.id, payload)
+      const res = await selfCheckinMeetingParticipant(meeting.value.id)
       if (currentUserParticipant.value)
         Object.assign(currentUserParticipant.value, unwrapPayload(res))
 
@@ -208,18 +205,6 @@ export function useParticipantMeetingDetails() {
     }
     finally {
       isCheckinSubmitting.value = false
-    }
-  }
-
-  const loadQrTokenPreview = async () => {
-    if (!route.params.id) return
-
-    try {
-      const res = await fetchMeetingQrToken(route.params.id)
-      qrTokenPreview.value = unwrapPayload(res)?.qr_token || ''
-    }
-    catch (error) {
-      console.error('Failed to load qr token preview:', error)
     }
   }
 
@@ -249,13 +234,21 @@ export function useParticipantMeetingDetails() {
   const loadMeeting = async () => {
     loading.value = true
     try {
-      const [res, notesRes, speechRes] = await Promise.all([
-        fetchMeeting(route.params.id),
+      const [meetingRes, documentsRes, conclusionsRes, currentVotingRes, notesRes, speechRes] = await Promise.all([
+        fetchParticipantMeeting(route.params.id),
+        fetchParticipantMeetingDocuments(route.params.id).catch(() => ({ data: [] })),
+        fetchParticipantMeetingConclusions(route.params.id).catch(() => ({ data: [] })),
+        fetchCurrentVoting(route.params.id).catch(() => ({ data: null })),
         fetchPersonalNotes(route.params.id).catch(() => ({ data: [] })),
-        fetchSpeechRequests(route.params.id).catch(() => ({ data: [] })),
+        fetchMySpeechRequests(route.params.id).catch(() => ({ data: [] })),
       ])
 
-      meeting.value = normalizeMeeting(unwrapPayload(res))
+      meeting.value = normalizeMeeting(unwrapPayload(meetingRes))
+      meeting.value.documents = unwrapPayload(documentsRes) || meeting.value.documents || []
+      meeting.value.conclusions = unwrapPayload(conclusionsRes) || meeting.value.conclusions || []
+      const currentVoting = unwrapPayload(currentVotingRes)
+      if (currentVoting)
+        meeting.value.votings = [currentVoting]
       speechRequests.value = normalizeSpeechRequests(unwrapPayload(speechRes) || [])
       meetingStore.setCurrentMeeting(meeting.value)
       meetingStore.subscribeToMeeting(meeting.value.id)
@@ -276,7 +269,7 @@ export function useParticipantMeetingDetails() {
       }
 
       startCountdown()
-      loadQrTokenPreview()
+      qrTokenPreview.value = ''
     }
     catch (error) {
       console.error('Failed to load meeting details', error)
@@ -320,10 +313,7 @@ export function useParticipantMeetingDetails() {
     if (!meeting.value?.id || !speechRequestId.value) return
 
     try {
-      await deleteSpeechRequest(meeting.value.id, speechRequestId.value)
-      isSpeakRequested.value = false
-      speechRequestId.value = null
-      await loadMeeting()
+      speechRequestError.value = 'Backend hien tai khong mo API participant de huy dang ky phat bieu.'
     }
     catch (error) {
       console.error('Failed to cancel speak request:', error)
@@ -335,7 +325,7 @@ export function useParticipantMeetingDetails() {
 
     isSubmittingVote.value = true
     try {
-      await castVote(meeting.value.id, activeVote.value.id, selectedVoteAnswer.value)
+      await castParticipantVote(meeting.value.id, activeVote.value.id, selectedVoteAnswer.value)
       isVotingModalOpen.value = false
       activeVote.value = null
       selectedVoteAnswer.value = null
@@ -480,4 +470,3 @@ export function useParticipantMeetingDetails() {
     submitVote,
   }
 }
-

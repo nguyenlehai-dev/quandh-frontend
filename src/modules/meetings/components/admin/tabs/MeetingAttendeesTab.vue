@@ -195,7 +195,7 @@ onMounted(() => {
           Người dự họp
         </h5>
         <VBtn
-          v-if="$can('create', 'MeetingParticipant')"
+          v-if="$can('store', 'MeetingParticipant')"
           prepend-icon="tabler-plus"
           @click="isAddDialogVisible = true"
         >
@@ -234,7 +234,7 @@ onMounted(() => {
             <VIcon icon="tabler-pencil" />
           </IconBtn>
           <IconBtn
-            v-if="$can('delete', 'MeetingParticipant')"
+            v-if="$can('destroy', 'MeetingParticipant')"
             @click="deleteItem(item)"
           >
             <VIcon icon="tabler-trash" />

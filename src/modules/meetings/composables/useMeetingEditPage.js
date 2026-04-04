@@ -142,7 +142,7 @@ export function useMeetingEditPage() {
   const meetingTypeList = ref([])
   const attendeeGroupsForType = ref([])
   const selectedGroupIds = ref([])
-  const canCreateMeeting = computed(() => ability.can('create', 'Meeting'))
+  const canCreateMeeting = computed(() => ability.can('store', 'Meeting'))
   const canUpdateMeeting = computed(() => ability.can('update', 'Meeting'))
   const canEditMeeting = computed(() => isEditMode.value ? canUpdateMeeting.value : canCreateMeeting.value)
   const canSaveAndAdd = computed(() => isEditMode.value ? canUpdateMeeting.value && canCreateMeeting.value : canCreateMeeting.value)
@@ -174,7 +174,7 @@ export function useMeetingEditPage() {
 
     if (!tab.subject) return true
 
-    return ability.can('read', tab.subject)
+    return ability.can('index', tab.subject)
   }
 
   const visibleTabs = computed(() => tabsConfig.value.filter(tab => isTabVisible(tab.value)))

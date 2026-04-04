@@ -188,7 +188,7 @@ const deleteItem = item => {
             <VIcon icon="tabler-x" />
           </IconBtn>
           <IconBtn
-            v-if="$can('delete', 'MeetingSpeechRequest')"
+            v-if="$can('destroy', 'MeetingSpeechRequest')"
             color="error"
             @click="deleteItem(item)"
           >

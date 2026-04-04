@@ -246,7 +246,7 @@ const submitForm = async () => {
           Danh sach Tai lieu
         </h5>
         <VBtn
-          v-if="$can('create', 'MeetingDocument')"
+          v-if="$can('store', 'MeetingDocument')"
           prepend-icon="tabler-plus"
           @click="openCreateDialog"
         >
@@ -269,7 +269,7 @@ const submitForm = async () => {
             <VIcon icon="tabler-edit" />
           </IconBtn>
           <IconBtn
-            v-if="$can('delete', 'MeetingDocument')"
+            v-if="$can('destroy', 'MeetingDocument')"
             @click="deleteItem(item)"
           >
             <VIcon icon="tabler-trash" />

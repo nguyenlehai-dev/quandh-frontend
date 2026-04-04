@@ -56,7 +56,7 @@ const typeOptions = [
   { title: 'An danh', value: 'anonymous' },
 ]
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-votings', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/admin/meetings/all-votings', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     meeting_type_id: computed(() => meetingTypeId.value || undefined),

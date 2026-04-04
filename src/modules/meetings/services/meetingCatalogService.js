@@ -15,6 +15,10 @@ export const bulkUpdateAttendeeGroups = data => $api(`${API_ATTENDEE_GROUPS}/bul
 export const changeAttendeeGroupStatus = (id, status) => $api(`${API_ATTENDEE_GROUPS}/${id}/status`, { method: 'PATCH', body: { status } })
 export const exportAttendeeGroups = params => $api(`${API_ATTENDEE_GROUPS}/export`, { params, responseType: 'blob' })
 export const importAttendeeGroups = data => $api(`${API_ATTENDEE_GROUPS}/import`, { method: 'POST', body: data })
+export const fetchAttendeeGroupMembers = attendeeGroupId => $api(`${API_ATTENDEE_GROUPS}/${attendeeGroupId}/members`)
+export const createAttendeeGroupMember = (attendeeGroupId, data) => $api(`${API_ATTENDEE_GROUPS}/${attendeeGroupId}/members`, { method: 'POST', body: data })
+export const updateAttendeeGroupMember = (attendeeGroupId, memberId, data) => $api(`${API_ATTENDEE_GROUPS}/${attendeeGroupId}/members/${memberId}`, { method: 'PUT', body: data })
+export const deleteAttendeeGroupMember = (attendeeGroupId, memberId) => $api(`${API_ATTENDEE_GROUPS}/${attendeeGroupId}/members/${memberId}`, { method: 'DELETE' })
 
 export const fetchDocumentTypes = params => $api(API_DOCUMENT_TYPES, { params })
 export const createDocumentType = data => $api(API_DOCUMENT_TYPES, { method: 'POST', body: data })

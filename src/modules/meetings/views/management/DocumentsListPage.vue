@@ -57,7 +57,7 @@ const headers = computed(() => [
   { title: t('meetings.meetings.list_pages.common.actions'), key: 'actions', sortable: false },
 ])
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-documents', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/admin/meetings/all-documents', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     meeting_type_id: computed(() => meetingTypeId.value || undefined),

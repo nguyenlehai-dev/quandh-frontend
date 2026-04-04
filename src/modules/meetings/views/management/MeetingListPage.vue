@@ -318,7 +318,7 @@ const exportData = async () => {
           </template>
           Tinh nang dang duoc phat trien
         </VTooltip>
-        <VBtn v-if="$can('create', 'Meeting')" color="primary" prepend-icon="tabler-plus" :to="{ name: 'meetings-create' }">
+        <VBtn v-if="$can('store', 'Meeting')" color="primary" prepend-icon="tabler-plus" :to="{ name: 'meetings-create' }">
           Them cuoc hop
         </VBtn>
       </div>
@@ -383,7 +383,7 @@ const exportData = async () => {
               <VTooltip activator="parent" location="top">Dieu hanh cuoc hop</VTooltip>
             </IconBtn>
 
-            <IconBtn v-else-if="$can('read', 'Meeting')" :to="{ name: 'meetings-participant-details', params: { id: item.id } }">
+            <IconBtn v-else-if="$can('show', 'Meeting')" :to="{ name: 'meetings-edit', params: { id: item.id } }">
               <VIcon icon="tabler-eye" />
               <VTooltip activator="parent" location="top">Xem chi tiet</VTooltip>
             </IconBtn>
@@ -412,7 +412,7 @@ const exportData = async () => {
                   <VListItemTitle>{{ statusOption.title }}</VListItemTitle>
                 </VListItem>
                 <VDivider class="my-1" />
-                <VListItem v-if="$can('delete', 'Meeting')" @click="deleteItem(item.id)">
+                <VListItem v-if="$can('destroy', 'Meeting')" @click="deleteItem(item.id)">
                   <template #prepend>
                     <VIcon icon="tabler-trash" size="18" color="error" />
                   </template>

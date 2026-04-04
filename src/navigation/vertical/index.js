@@ -7,11 +7,28 @@
 // Khi them module moi, chi can tao router/navigation.js trong module
 // -> sidebar tu dong cap nhat, khong can sua file nay.
 import { getModuleNavigation } from '@/modules/_loader'
+import { navigation as meetingsNavigation } from '@/modules/meetings/router/navigation'
 import nonModuleItems from './non-module-items'
 
+const navContainsRoute = (items, targetRoute) => {
+  return (items || []).some(item => {
+    if (item?.to === targetRoute)
+      return true
+
+    if (Array.isArray(item?.children))
+      return navContainsRoute(item.children, targetRoute)
+
+    return false
+  })
+}
+
 export function getVerticalNavItems() {
+  const moduleNavigation = getModuleNavigation()
+  const hasMeetingsNavigation = navContainsRoute(moduleNavigation, 'meetings-list')
+
   return [
-    ...getModuleNavigation(),
+    ...moduleNavigation,
+    ...(hasMeetingsNavigation ? [] : [{ heading: meetingsNavigation.title }, meetingsNavigation]),
     ...nonModuleItems,
   ]
 }
