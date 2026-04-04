@@ -1,4 +1,5 @@
 <script setup>
+import { resetPassword as requestResetPassword } from '@/services/auth'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
@@ -39,10 +40,7 @@ const submitResetPassword = async () => {
   errorMessage.value = ''
 
   try {
-    const res = await $api('/auth/reset-password', {
-      method: 'POST',
-      body: form.value,
-    })
+    const res = await requestResetPassword(form.value)
 
     successMessage.value = res?.message || t('auth.auth.reset_password.success')
 

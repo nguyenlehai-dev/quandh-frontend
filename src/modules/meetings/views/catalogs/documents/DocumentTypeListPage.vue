@@ -1,8 +1,21 @@
 <script setup>
-/* eslint-disable camelcase */
+/* eslint-disable camelcase, padding-line-between-statements */
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { deleteDocumentType, createDocumentType, updateDocumentType, exportDocumentTypes, changeDocumentTypeStatus } from '@/modules/meetings/services/meetingService'
+import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
+import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
+import {
+  bulkDeleteDocumentTypes,
+  bulkUpdateDocumentTypes,
+  changeDocumentTypeStatus,
+  createDocumentType,
+  downloadDocumentTypeImportTemplate,
+  deleteDocumentType,
+  exportDocumentTypes,
+  importDocumentTypes,
+  updateDocumentType,
+} from '@/modules/meetings/services/meetingService'
+import { ability } from '@/plugins/casl/ability'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -10,6 +23,8 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const itemsPerPage = ref(10)
 const page = ref(1)
+const selectedRows = ref([])
+const meetingTypeFilter = ref('')
 const sortBy = ref()
 const orderBy = ref()
 const isConfirmDialogVisible = ref(false)
@@ -31,17 +46,20 @@ const statusOptions = [
 ]
 
 const headers = [
-  { title: 'Tên Loại tài liệu', key: 'name' },
-  { title: 'Loại cuộc họp', key: 'meeting_type_name' },
-  { title: 'Mô tả', key: 'description' },
+  { title: 'STT', key: 'stt', sortable: false },
+  { title: 'Tên', key: 'name' },
+  { title: 'Mô tả', key: 'description', sortable: false },
   { title: 'Trạng thái', key: 'status' },
+  { title: 'Tạo', key: 'created_info', sortable: false },
+  { title: 'Cập nhật', key: 'updated_info', sortable: false },
   { title: 'Hành động', key: 'actions', sortable: false },
 ]
 
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/document-types', {
+const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meeting-document-types', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     status: computed(() => statusFilter.value || undefined),
+    meeting_type_id: computed(() => meetingTypeFilter.value || undefined),
     limit: itemsPerPage,
     page,
     sort_by: computed(() => sortBy.value || undefined),
@@ -52,8 +70,10 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
+const selectedDocumentTypes = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
+
 // Fetch danh sách Loại cuộc họp (cho dropdown)
-const { data: meetingTypesData } = useApi('/meetings/meeting-types?limit=100')
+const { data: meetingTypesData } = useApi('/meeting-types?limit=100')
 
 const meetingTypeOptions = computed(() => {
   const types = meetingTypesData.value?.data ?? []
@@ -65,13 +85,16 @@ const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
 const selectedItemId = ref(null)
-
+const isBulkUpdateDialogVisible = ref(false)
+const bulkUpdateStatusValue = ref('active')
 const formData = ref({
   name: '',
   description: '',
   status: 'active',
   meeting_type_id: null,
 })
+
+const getRowNumber = index => ((page.value - 1) * itemsPerPage.value) + index + 1
 
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key
@@ -159,6 +182,44 @@ const deleteItem = item => {
   })
 }
 
+const bulkDelete = () => {
+  if (!selectedRows.value.length) return
+
+  openConfirmDialog({
+    title: 'Xóa hàng loạt loại tài liệu',
+    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} loại tài liệu đã chọn không?`,
+    confirmText: 'Xóa',
+    confirmColor: 'error',
+    action: async () => {
+      await bulkDeleteDocumentTypes({ ids: selectedRows.value })
+      selectedRows.value = []
+      showSuccess('Xóa hàng loạt loại tài liệu thành công.')
+      fetchItems()
+    },
+  })
+}
+
+const bulkUpdateStatus = () => {
+  if (!selectedRows.value.length) return
+  isBulkUpdateDialogVisible.value = true
+}
+
+const confirmBulkUpdateStatus = async () => {
+  isSubmitting.value = true
+  try {
+    await bulkUpdateDocumentTypes({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
+    selectedRows.value = []
+    isBulkUpdateDialogVisible.value = false
+    showSuccess('Cập nhật trạng thái hàng loạt loại tài liệu thành công.')
+    fetchItems()
+  } catch (err) {
+    showError(err, 'Không thể cập nhật trạng thái hàng loạt.')
+    console.error('Bulk update document types failed:', err)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 const toggleItemStatus = item => {
   const nextStatus = item.status === 'active' ? 'inactive' : 'active'
   const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
@@ -179,23 +240,62 @@ const toggleItemStatus = item => {
 const isExporting = ref(false)
 
 const exportData = async () => {
+  if (!ability.can('export', 'MeetingDocumentType')) return
+
   isExporting.value = true
   try {
+    if (selectedDocumentTypes.value.length) {
+      exportRowsToExcel({
+        rows: selectedDocumentTypes.value.map(item => ({
+          name: item.name || '',
+          description: item.description || '',
+          meeting_type_name: item.meeting_type_name || '',
+          status: item.status || '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
+        })),
+        headers: ['name', 'description', 'meeting_type_name', 'status', 'created_at', 'updated_at'],
+        sheetName: 'MeetingDocumentTypes',
+        fileName: `meeting_document_types_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [{ wch: 28 }, { wch: 36 }, { wch: 24 }, { wch: 16 }, { wch: 22 }, { wch: 22 }],
+      })
+
+      return
+    }
+
     const res = await exportDocumentTypes({
       search: searchQuery.value || undefined,
       status: statusFilter.value || undefined,
+      meeting_type_id: meetingTypeFilter.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
       sort_by: sortBy.value || undefined,
       sort_order: orderBy.value || undefined,
     })
 
-    downloadBlob(res, 'loai-tai-lieu.xlsx')
+    downloadBlob(res, 'loai-tai-lieu-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu loại tài liệu.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
+  }
+}
+
+const handleImport = async file => {
+  if (!ability.can('import', 'MeetingDocumentType')) return
+
+  isSubmitting.value = true
+  try {
+    const payload = new FormData()
+    payload.append('file', file)
+    await importDocumentTypes(payload)
+    showSuccess('Import loại tài liệu thành công.')
+    fetchItems()
+  } catch (error) {
+    showError(error, 'Không thể import loại tài liệu.')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -210,7 +310,7 @@ const exportData = async () => {
             icon="tabler-category"
             class="section-icon"
           />
-          Loại tài liệu
+          Loại tài liệu họp
         </div>
       </div>
       <div class="pa-5">
@@ -224,7 +324,21 @@ const exportData = async () => {
             </div>
             <AppTextField
               v-model="searchQuery"
-              placeholder="Tìm kiếm loại tài liệu..."
+              placeholder="Tìm kiếm loại tài liệu họp..."
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loại cuộc họp
+            </div>
+            <AppSelect
+              v-model="meetingTypeFilter"
+              :items="[{ title: 'Tất cả loại cuộc họp', value: '' }, ...meetingTypeOptions]"
+              placeholder="Lọc theo loại cuộc họp"
               density="compact"
             />
           </VCol>
@@ -259,29 +373,56 @@ const exportData = async () => {
           density="compact"
           style="max-inline-size: 80px;"
         />
+        <VBtn
+          v-if="selectedRows.length > 0"
+          color="error"
+          variant="tonal"
+          prepend-icon="tabler-trash"
+          @click="bulkDelete"
+        >
+          Xoa ({{ selectedRows.length }})
+        </VBtn>
+        <VBtn
+          v-if="selectedRows.length > 0"
+          color="warning"
+          variant="tonal"
+          prepend-icon="tabler-exchange"
+          @click="bulkUpdateStatus"
+        >
+          Doi trang thai
+        </VBtn>
       </div>
       <div class="d-flex gap-3">
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-download"
-          :loading="isExporting"
-          @click="exportData"
-        >
-          Xuất Dữ Liệu
-        </VBtn>
-        <VBtn
-          color="primary"
-          prepend-icon="tabler-plus"
-          @click="openAddDialog"
-        >
-          Thêm Mới
-        </VBtn>
+        <AuthDataActions
+          :show-import="$can('import', 'MeetingDocumentType')"
+          :show-template="$can('import', 'MeetingDocumentType')"
+          :show-export="$can('export', 'MeetingDocumentType')"
+          :show-create="$can('store', 'MeetingDocumentType')"
+          create-label="Thêm mới"
+          import-label="Nhập dữ liệu"
+          import-subtitle="Nạp file Excel loại tài liệu họp"
+          template-label="Tải file mẫu import"
+          template-subtitle="Lấy mẫu Excel đúng cột backend đang nhận"
+          export-label="Xuất dữ liệu"
+          export-subtitle="Xuất danh sách loại tài liệu họp"
+          import-dialog-title="Nhập dữ liệu loại tài liệu họp"
+          import-hint="Import hỗ trợ file `.xlsx`, `.xls`, `.csv` theo contract backend hiện tại."
+          select-file-label="Chọn file Excel"
+          cancel-text="Hủy"
+          import-text="Nhập dữ liệu"
+          :export-loading="isExporting"
+          :import-handler="handleImport"
+          :template-handler="downloadDocumentTypeImportTemplate"
+          :export-handler="exportData"
+          :create-handler="openAddDialog"
+        />
       </div>
     </div>
 
     <!-- Data Table -->
     <div class="meeting-section-card mb-6">
       <VDataTableServer
+        v-model="selectedRows"
         v-model:items-per-page="itemsPerPage"
         v-model:page="page"
         :items="items"
@@ -289,25 +430,33 @@ const exportData = async () => {
         :headers="headers"
         :loading="isLoading"
         class="text-no-wrap"
+        show-select
         @update:options="updateOptions"
       >
+        <template #item.stt="{ index }">
+          <span class="text-body-2 text-disabled">{{ getRowNumber(index) }}</span>
+        </template>
+
         <template #item.name="{ item }">
           <span class="font-weight-medium">{{ item.name }}</span>
         </template>
 
-        <template #item.meeting_type_name="{ item }">
-          <VChip
-            v-if="item.meeting_type_name"
-            size="small"
-            color="primary"
-            variant="tonal"
-          >
-            {{ item.meeting_type_name }}
-          </VChip>
-          <span
-            v-else
-            class="text-disabled"
-          >Chưa gắn</span>
+        <template #item.description="{ item }">
+          <span>{{ item.description || '---' }}</span>
+        </template>
+
+        <template #item.created_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.created_at || '---' }}</span>
+          </div>
+        </template>
+
+        <template #item.updated_info="{ item }">
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ item.updated_by || 'N/A' }}</span>
+            <span class="text-body-2 text-disabled">{{ item.updated_at || '---' }}</span>
+          </div>
         </template>
 
         <template #item.status="{ item }">
@@ -321,7 +470,10 @@ const exportData = async () => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn @click="openEditDialog(item)">
+            <IconBtn
+              v-if="$can('update', 'MeetingDocumentType')"
+              @click="openEditDialog(item)"
+            >
               <VIcon icon="tabler-pencil" />
               <VTooltip
                 activator="parent"
@@ -330,7 +482,10 @@ const exportData = async () => {
                 Sửa
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="toggleItemStatus(item)">
+            <IconBtn
+              v-if="$can('update', 'MeetingDocumentType')"
+              @click="toggleItemStatus(item)"
+            >
               <VIcon
                 :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
                 :color="item.status === 'active' ? 'success' : 'warning'"
@@ -342,7 +497,10 @@ const exportData = async () => {
                 Đổi trạng thái
               </VTooltip>
             </IconBtn>
-            <IconBtn @click="deleteItem(item)">
+            <IconBtn
+              v-if="$can('destroy', 'MeetingDocumentType')"
+              @click="deleteItem(item)"
+            >
               <VIcon
                 icon="tabler-trash"
                 color="error"
@@ -372,18 +530,22 @@ const exportData = async () => {
       </VDataTableServer>
     </div>
 
-    <!-- Dialog Thêm mới -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isAddDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Thêm Loại tài liệu">
+      <VCard
+        title="Thêm loại tài liệu họp"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên loại tài liệu *"
+                label="Tên loại tài liệu họp *"
                 required
               />
             </VCol>
@@ -429,20 +591,24 @@ const exportData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
-    <!-- Dialog Cập nhật -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isEditDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Cập nhật Loại tài liệu">
+      <VCard
+        title="Cập nhật loại tài liệu họp"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên loại tài liệu *"
+                label="Tên loại tài liệu họp *"
                 required
               />
             </VCol>
@@ -488,7 +654,7 @@ const exportData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
     <ActionConfirmDialog
       v-model="isConfirmDialogVisible"
@@ -499,6 +665,37 @@ const exportData = async () => {
       :loading="isConfirming"
       @confirm="executeConfirmedAction"
     />
+
+    <VDialog
+      v-model="isBulkUpdateDialogVisible"
+      max-width="420"
+    >
+      <VCard title="Cập nhật trạng thái hàng loạt">
+        <VCardText>
+          <AppSelect
+            v-model="bulkUpdateStatusValue"
+            :items="statusOptions"
+            label="Trạng thái mới"
+          />
+        </VCardText>
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="isBulkUpdateDialogVisible = false"
+          >
+            Hủy
+          </VBtn>
+          <VBtn
+            :loading="isSubmitting"
+            color="warning"
+            @click="confirmBulkUpdateStatus"
+          >
+            Cập nhật
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
 
     <ActionSnackbar
       v-model="snackbar.show"

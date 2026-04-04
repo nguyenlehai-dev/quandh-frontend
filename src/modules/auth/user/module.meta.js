@@ -24,7 +24,6 @@ export default {
     { method: 'PATCH', endpoint: '/users/bulk-status', service: 'bulkUpdateUserStatus', description: 'Cap nhat trang thai hang loat' },
     { method: 'GET', endpoint: '/users/stats', service: 'fetchUserStats', description: 'Thong ke user' },
     { method: 'GET', endpoint: '/users/export', service: 'exportUsers', description: 'Xuat Excel' },
-    { method: 'GET', endpoint: '/users/template', service: 'downloadUserTemplate', description: 'Tai file mau' },
     { method: 'POST', endpoint: '/users/import', service: 'importUsers', description: 'Nhap Excel' },
   ],
 }

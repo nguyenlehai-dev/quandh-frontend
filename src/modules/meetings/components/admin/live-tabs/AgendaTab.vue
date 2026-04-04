@@ -1,4 +1,5 @@
 <script setup>
+import { useMeetingStore } from '@/modules/meetings/stores/useMeetingStore'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -7,6 +8,8 @@ const props = defineProps({
     default: () => ({}),
   },
 })
+
+const meetingStore = useMeetingStore()
 
 // ── Tính toán từ API data ──
 const participants = computed(() => props.meeting.participants || [])
@@ -29,6 +32,7 @@ const attendanceStats = computed(() => {
 })
 
 const agendas = computed(() => props.meeting.agendas || [])
+const activeAgendaId = computed(() => meetingStore.activeAgendaId)
 
 // Formatting helpers
 const formatTimeRange = () => {
@@ -335,7 +339,7 @@ const resolveSecretary = () => {
               >
                 <div
                   class="agenda-num"
-                  :class="{ active: agenda.is_active }"
+                  :class="{ active: activeAgendaId === agenda.id || agenda.is_active }"
                 >
                   {{ i + 1 }}
                 </div>

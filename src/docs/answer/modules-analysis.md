@@ -73,10 +73,13 @@ Muc dich:
 Chuc nang chinh:
 
 - Danh sach nhat ky
-- Loc theo actor, route, action, thoi gian
+- Loc theo route, method, status, thoi gian
 - Thong ke tong quan
+- Xem chi tiet request
 - Xuat file
 - Bulk delete
+- Xoa theo khoang ngay
+- Xoa toan bo
 
 ### Roles
 

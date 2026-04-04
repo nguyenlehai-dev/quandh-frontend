@@ -9,7 +9,7 @@ export function createMeetingsManifest({ routes = [], navigation = null, navOrde
   }
 }
 
-export function createMeetingsNavigationGroup({ titleKey, icon, children = [], action = 'read', subject = 'Meeting' }) {
+export function createMeetingsNavigationGroup({ titleKey, icon, children = [], action, subject }) {
   const t = key => getI18n().global.t(key)
 
   return {
@@ -21,7 +21,7 @@ export function createMeetingsNavigationGroup({ titleKey, icon, children = [], a
   }
 }
 
-export function createMeetingsNavigationItem({ titleKey, to, action = 'read', subject = 'Meeting' }) {
+export function createMeetingsNavigationItem({ titleKey, to, action, subject }) {
   const t = key => getI18n().global.t(key)
 
   return {

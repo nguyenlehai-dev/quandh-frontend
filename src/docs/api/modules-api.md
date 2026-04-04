@@ -17,12 +17,19 @@ Services:
 
 | Method | Endpoint | Service function | Mo ta |
 |---|---|---|---|
+| GET | `/meetings/stats` | `fetchMeetingsOverview` | Thong ke meeting dashboard |
+| GET | `/meetings/export` | `exportMeetings` | Xuat danh sach cuoc hop |
+| POST | `/meetings/import` | `importMeetings` | Nhap danh sach cuoc hop |
 | GET | `/meetings` | `fetchMeetings` | Danh sach cuoc hop |
 | GET | `/meetings/:id` | `fetchMeeting` | Chi tiet cuoc hop |
 | POST | `/meetings` | `createMeeting` | Tao cuoc hop |
 | PUT | `/meetings/:id` | `updateMeeting` | Cap nhat cuoc hop |
 | DELETE | `/meetings/:id` | `deleteMeeting` | Xoa cuoc hop |
 | PATCH | `/meetings/:id/status` | `changeMeetingStatus` | Doi trang thai cuoc hop |
+| GET | `/meetings/meeting-types` | `fetchMeetingTypes` | Danh muc loai cuoc hop |
+| GET | `/meetings/attendee-groups` | `fetchAttendeeGroups` | Danh muc nhom thanh phan tham du |
+| GET | `/meetings/meeting-document-types` | `fetchDocumentTypes` | Danh muc loai tai lieu meeting |
+| GET | `/meetings/meeting-document-fields` | `fetchDocumentFields` | Danh muc linh vuc tai lieu meeting |
 | GET | `/my-meetings` | `fetchMyMeetings` | Danh sach cuoc hop cua toi |
 | GET | `/meetings/all-votings` | `fetchVotes` | Danh sach bieu quyet toan he thong |
 | GET | `/meetings/all-documents` | `fetchDocuments` | Danh sach tai lieu toan he thong |
@@ -50,7 +57,6 @@ Services:
 | PATCH | `/organizations/bulk-status` | `bulkUpdateOrganizationStatus` | Cap nhat trang thai hang loat |
 | GET | `/organizations/stats` | `fetchOrganizationStats` | Thong ke to chuc |
 | GET | `/organizations/export` | `exportOrganizations` | Xuat Excel |
-| GET | `/organizations/template` | `downloadOrganizationTemplate` | Tai file mau |
 | POST | `/organizations/import` | `importOrganizations` | Nhap Excel |
 
 ## Users
@@ -73,7 +79,6 @@ Services:
 | PATCH | `/users/bulk-status` | `bulkUpdateUserStatus` | Cap nhat trang thai hang loat |
 | GET | `/users/stats` | `fetchUserStats` | Thong ke user |
 | GET | `/users/export` | `exportUsers` | Xuat Excel |
-| GET | `/users/template` | `downloadUserTemplate` | Tai file mau |
 | POST | `/users/import` | `importUsers` | Nhap Excel |
 
 ## Activity Logs
@@ -87,9 +92,13 @@ Services:
 | Method | Endpoint | Service function | Mo ta |
 |---|---|---|---|
 | GET | `/log-activities` | `fetchActivityLogs` | Danh sach nhat ky |
+| GET | `/log-activities/{id}` | `fetchActivityLog` | Chi tiet nhat ky |
 | GET | `/log-activities/stats` | `fetchActivityLogStats` | Thong ke nhat ky |
 | GET | `/log-activities/export` | `exportActivityLogs` | Xuat danh sach nhat ky |
+| DELETE | `/log-activities/{id}` | `deleteActivityLog` | Xoa nhat ky |
 | POST | `/log-activities/bulk-delete` | `bulkDeleteActivityLogs` | Xoa hang loat nhat ky |
+| POST | `/log-activities/delete-by-date` | `deleteActivityLogsByDate` | Xoa theo khoang ngay |
+| POST | `/log-activities/clear` | `clearAllActivityLogs` | Xoa toan bo nhat ky |
 
 ## Roles
 

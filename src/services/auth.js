@@ -1,4 +1,4 @@
-/**
+                                                                  /**
  * Auth Service
  *
  * Centralized auth/session helpers for login, logout, org switching, and auth sync.
@@ -127,8 +127,36 @@ const clearClientSession = () => {
   ability.update([])
 }
 
+const ABILITY_ACTION_ALIASES = {
+  index: ['read'],
+  show: ['read'],
+  store: ['create'],
+  destroy: ['delete'],
+}
+
 const normalizeAbilityRules = rules => {
-  const normalizedRules = Array.isArray(rules) ? [...rules] : []
+  const sourceRules = Array.isArray(rules) ? rules : []
+  const dedupedRules = new Map()
+
+  sourceRules.forEach(rule => {
+    const action = rule?.action
+    const subject = rule?.subject
+
+    if (!action || !subject)
+      return
+
+    dedupedRules.set(`${action}:${subject}`, { action, subject })
+
+    const aliasActions = ABILITY_ACTION_ALIASES[action] || []
+    aliasActions.forEach(aliasAction => {
+      dedupedRules.set(`${aliasAction}:${subject}`, {
+        action: aliasAction,
+        subject,
+      })
+    })
+  })
+
+  const normalizedRules = Array.from(dedupedRules.values())
 
   normalizedRules.push({ action: 'read', subject: 'Auth' })
 
@@ -169,6 +197,8 @@ export const login = async (email, password) => {
   const userData = data.user
   const userAbilityRules = normalizeAbilityRules(data.abilities)
 
+  lastFetchMeAt = 0
+
   useCookie(TOKEN_KEY).value = accessToken
   useCookie(USER_KEY).value = userData
   localStorage.setItem(ABILITY_KEY, JSON.stringify(userAbilityRules))
@@ -206,6 +236,7 @@ export const switchOrganization = async orgId => {
 
   useCookie(ORG_KEY).value = data.current_organization_id
   clearSessionRuntimeFlags()
+  lastFetchMeAt = 0
 
   const userAbilityRules = normalizeAbilityRules(data.abilities)
 
@@ -230,9 +261,36 @@ export const logout = async router => {
   }
 
   clearClientSession()
+  lastFetchMeAt = 0
 
   if (router)
     await router.push('/login')
+}
+
+export const forgotPassword = async email => {
+  const res = await api.callApi({
+    method: 'POST',
+    url: '/auth/forgot-password',
+    param: { email },
+  })
+
+  if (res.errors || res.code || res.success === false)
+    throw res
+
+  return res.data || res
+}
+
+export const resetPassword = async payload => {
+  const res = await api.callApi({
+    method: 'POST',
+    url: '/auth/reset-password',
+    param: payload,
+  })
+
+  if (res.errors || res.code || res.success === false)
+    throw res
+
+  return res.data || res
 }
 
 export const getCurrentUser = () => {

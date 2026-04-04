@@ -60,8 +60,8 @@ const loading = ref(false)
 const stats = ref({ total: 0, view: 0, create: 0, update: 0, delete: 0 })
 const organizations = ref([])
 const canViewOrganizations = computed(() => ability.can('index', 'Organization'))
-const canViewLogList = computed(() => ability.can('read', 'ActivityLog'))
-const canViewLogStats = computed(() => ability.can('stats', 'ActivityLog'))
+const canViewLogList = computed(() => ability.can('read', 'LogActivity'))
+const canViewLogStats = computed(() => ability.can('stats', 'LogActivity'))
 
 const fetchDependencies = async () => {
   try {

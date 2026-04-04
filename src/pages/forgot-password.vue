@@ -1,4 +1,5 @@
 <script setup>
+import { forgotPassword as requestForgotPassword } from '@/services/auth'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
@@ -28,10 +29,7 @@ const submitForgotPassword = async () => {
   errorMessage.value = ''
 
   try {
-    const res = await $api('/auth/forgot-password', {
-      method: 'POST',
-      body: { email: email.value },
-    })
+    const res = await requestForgotPassword(email.value)
 
     successMessage.value = res?.message || t('auth.auth.forgot_password.success')
   }

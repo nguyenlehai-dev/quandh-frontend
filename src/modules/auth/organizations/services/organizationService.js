@@ -3,6 +3,7 @@
  */
 import { API_BASE } from '../configs'
 import { createCrudService } from '../../shared/crudServiceFactory'
+import * as XLSX from 'xlsx'
 
 const organizationCrud = createCrudService(API_BASE)
 
@@ -14,8 +15,43 @@ export const deleteOrganization = organizationCrud.deleteOne
 export const bulkDeleteOrganizations = organizationCrud.bulkDelete
 export const fetchOrganizationStats = organizationCrud.fetchStats
 export const exportOrganizations = organizationCrud.exportList
-export const downloadOrganizationTemplate = organizationCrud.downloadTemplate
 export const importOrganizations = organizationCrud.importFile
+export const downloadOrganizationImportTemplate = () => {
+  const rows = [
+    {
+      name: 'Microsoft',
+      slug: 'microsoft',
+      description: 'To chuc cap goc',
+      status: 'active',
+      parent_slug: '',
+      sort_order: 1,
+    },
+    {
+      name: 'Microsoft Surface',
+      slug: 'microsoft-surface',
+      description: 'Don vi truc thuoc Microsoft',
+      status: 'active',
+      parent_slug: 'microsoft',
+      sort_order: 1,
+    },
+  ]
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: ['name', 'slug', 'description', 'status', 'parent_slug', 'sort_order'],
+  })
+  const workbook = XLSX.utils.book_new()
+
+  worksheet['!cols'] = [
+    { wch: 28 },
+    { wch: 24 },
+    { wch: 32 },
+    { wch: 16 },
+    { wch: 24 },
+    { wch: 16 },
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Organizations')
+  XLSX.writeFile(workbook, 'organizations-import-template.xlsx')
+}
 
 export const changeOrganizationStatus = (id, status) => $api(`${API_BASE}/${id}/status`, { method: 'PATCH', body: { status } })
 export const fetchOrganizationTree = params => $api(`${API_BASE}/tree`, { params })

@@ -1,118 +1,235 @@
 <script setup>
-import girlUsingMobile from '@images/pages/girl-using-mobile.png'
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { fetchRole } from '../services/roleService'
+import { formatAuthDateTime } from '../../shared/dateTime'
+import { exportRowsToExcel } from '../../shared/excelExport'
+import { buildAuthQueryString } from '../../shared/queryParams'
+import {
+  bulkDeleteRoles as bulkDeleteRolesRequest,
+  fetchRole,
+  fetchRoles as fetchRolesRequest,
+} from '../services/roleService'
 
 const emit = defineEmits(['changed'])
 const { t } = useI18n()
-
-const roles = ref([])
-const loading = ref(false)
-const editingRole = ref(false)
-const totalItems = ref(0)
-const page = ref(1)
-const itemsPerPage = ref(9)
-const search = ref('')
-const isConfirmDialogVisible = ref(false)
-const isConfirming = ref(false)
-const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
 const { snackbar, showSuccess, showError } = useActionFeedback()
 
-const itemsPerPageOptions = [
-  { title: '6', value: 6 },
-  { title: '9', value: 9 },
-  { title: '12', value: 12 },
+const searchQuery = ref('')
+const fromDate = ref('')
+const toDate = ref('')
+const page = ref(1)
+const itemsPerPage = ref(10)
+const sortBy = ref()
+const orderBy = ref()
+const selectedRows = ref([])
+
+const roles = ref([])
+const totalItems = ref(0)
+const loading = ref(false)
+const editingRole = ref(false)
+const isExporting = ref(false)
+
+const headers = [
+  { title: t('roles.roles.headers.index'), key: 'index', sortable: false, width: 70 },
+  { title: t('roles.roles.headers.name'), key: 'name' },
+  { title: t('roles.roles.headers.guard_name'), key: 'guard_name' },
+  { title: t('roles.roles.headers.permissions'), key: 'permissions', sortable: false },
+  { title: t('roles.roles.headers.updated_at'), key: 'updated_at', sortable: false, width: 180 },
+  { title: t('roles.roles.headers.actions'), key: 'actions', sortable: false, width: 140 },
 ]
 
-const searchLabel = computed(() => {
-  const label = t('roles.roles.list.search_label')
+const permissionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  posts: 'Tin tuc',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  agendas: 'Chuong trinh hop',
+  'meeting-agendas': 'Chuong trinh hop',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
+}
 
-  return label === 'roles.roles.list.search_label' ? 'Tim kiem vai tro' : label
+const permissionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const getPermissionGroupLabel = groupName => permissionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+
+const getPermissionDisplayLabel = permissionName => {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionGroupLabel(groupName)
+  const actionLabel = permissionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
+
+const updateOptions = options => {
+  sortBy.value = options.sortBy[0]?.key
+  orderBy.value = options.sortBy[0]?.order
+}
+
+const buildListParams = () => ({
+  search: searchQuery.value || undefined,
+  'from_date': fromDate.value || undefined,
+  'to_date': toDate.value || undefined,
+  limit: itemsPerPage.value,
+  page: page.value,
+  'sort_by': sortBy.value,
+  'sort_order': orderBy.value,
 })
 
-const searchPlaceholder = computed(() => {
-  const placeholder = t('roles.roles.list.search_placeholder')
-
-  return placeholder === 'roles.roles.list.search_placeholder' ? 'Nhap ten vai tro' : placeholder
+const buildExportParams = () => ({
+  ...buildListParams(),
 })
-
-const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
 
 const fetchRoles = async () => {
   loading.value = true
   try {
-    const res = await $api('/roles', {
-      params: {
-        search: search.value || undefined,
-        limit: itemsPerPage.value,
-        page: page.value,
-        ['sort_by']: 'created_at',
-        ['sort_order']: 'desc',
-      },
-    })
+    const response = await fetchRolesRequest(buildListParams())
 
-    roles.value = (res.data ?? res ?? []).map(role => ({
-      id: role.id,
-      role: role.name,
-      scope: role.scope ?? 'admin',
-      guardName: role.guard_name ?? 'api',
-      totalUsers: role.users_count ?? 0,
-      permissions: role.permissions ?? [],
-    }))
-    totalItems.value = res.meta?.total ?? roles.value.length
-
-    if (!roles.value.length && totalItems.value > 0 && page.value > 1) {
-      page.value = totalPages.value
-      await fetchRoles()
-    }
+    roles.value = response.data ?? []
+    totalItems.value = response.meta?.total ?? response.total ?? 0
   }
   catch (err) {
     console.error('Fetch roles error:', err)
     roles.value = []
     totalItems.value = 0
-    showError(err, 'Không thể tải danh sách vai trò.')
+    showError(err, 'Khong the tai danh sach vai tro.')
   }
   finally {
     loading.value = false
   }
 }
 
-onMounted(() => fetchRoles())
-watch(page, () => fetchRoles())
-watch(itemsPerPage, () => {
-  page.value = 1
-  fetchRoles()
+let filterTimeout
+watch([searchQuery, fromDate, toDate], () => {
+  clearTimeout(filterTimeout)
+  filterTimeout = setTimeout(() => {
+    page.value = 1
+    fetchRoles()
+  }, 300)
 })
-watch(search, () => {
-  page.value = 1
+
+watch([itemsPerPage, page, sortBy, orderBy], () => {
   fetchRoles()
 })
 
-defineExpose({ refreshRoles: fetchRoles })
+onMounted(() => {
+  fetchRoles()
+})
+
+const clearFilters = () => {
+  searchQuery.value = ''
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
+  fetchRoles()
+}
 
 const isRoleDialogVisible = ref(false)
-const roleDetail = ref({ id: null, name: '', permissions: [] })
+const isRoleDetailDialogVisible = ref(false)
 const isAddRoleDialogVisible = ref(false)
+const roleDetail = ref({ id: null, name: '', 'guard_name': 'web', permissions: [] })
 
-const editPermission = async item => {
+const openCreateDialog = () => {
+  isAddRoleDialogVisible.value = true
+}
+
+const showRoleDetail = async item => {
   editingRole.value = true
-  roleDetail.value = { id: null, name: '', permissions: [] }
+  roleDetail.value = { id: null, name: '', 'guard_name': 'web', permissions: [] }
+
   try {
-    const res = await fetchRole(item.id)
-    const detail = res.data ?? res
+    const response = await fetchRole(item.id)
+    const detail = response.data ?? response
 
     roleDetail.value = {
       id: detail.id,
       name: detail.name,
-      scope: detail.scope ?? item.scope,
-      // eslint-disable-next-line camelcase
-      guard_name: detail.guard_name ?? item.guardName ?? 'api',
-      permissions: detail.permissions ?? item.permissions ?? [],
+      'guard_name': detail.guard_name ?? 'web',
+      permissions: detail.permissions ?? [],
     }
   }
   catch (err) {
     console.error('Fetch role detail error:', err)
-    showError(err, 'Không thể tải chi tiết vai trò.')
+    showError(err, 'Khong the tai chi tiet vai tro.')
+  }
+  finally {
+    editingRole.value = false
+    if (roleDetail.value?.id === item.id)
+      isRoleDetailDialogVisible.value = true
+  }
+}
+
+const editRole = async item => {
+  editingRole.value = true
+  roleDetail.value = { id: null, name: '', 'guard_name': 'web', permissions: [] }
+
+  try {
+    const response = await fetchRole(item.id)
+    const detail = response.data ?? response
+
+    roleDetail.value = {
+      id: detail.id,
+      name: detail.name,
+      'guard_name': detail.guard_name ?? 'web',
+      permissions: detail.permissions ?? [],
+    }
+  }
+  catch (err) {
+    console.error('Fetch role detail error:', err)
+    showError(err, 'Khong the tai chi tiet vai tro.')
   }
   finally {
     editingRole.value = false
@@ -130,20 +247,33 @@ const onRoleSaved = payload => {
   emit('changed')
 }
 
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  confirmText: 'Xac nhan',
+  confirmColor: 'primary',
+  action: null,
+})
+
 const openConfirmDialog = options => {
   confirmDialog.value = { ...confirmDialog.value, ...options }
   isConfirmDialogVisible.value = true
 }
 
 const executeConfirmedAction = async () => {
-  if (!confirmDialog.value.action) return
+  if (!confirmDialog.value.action)
+    return
+
   isConfirming.value = true
   try {
     await confirmDialog.value.action()
     isConfirmDialogVisible.value = false
   }
   catch (err) {
-    showError(err, 'Không thể thực hiện thao tác này.')
+    showError(err, 'Khong the thuc hien thao tac nay.')
   }
   finally {
     isConfirming.value = false
@@ -152,199 +282,458 @@ const executeConfirmedAction = async () => {
 
 const deleteRole = item => {
   openConfirmDialog({
-    title: 'Xóa vai trò',
-    message: `Bạn có chắc chắn muốn xóa vai trò "${item.role}" không?`,
-    confirmText: 'Xóa',
+    title: 'Xoa vai tro',
+    message: `Ban co chac chan muon xoa vai tro "${item.name}" khong?`,
+    confirmText: 'Xoa',
     confirmColor: 'error',
     action: async () => {
       await $api(`/roles/${item.id}`, { method: 'DELETE' })
-      showSuccess('Xóa vai trò thành công.')
+      selectedRows.value = selectedRows.value.filter(id => id !== item.id)
+      showSuccess('Xoa vai tro thanh cong.')
       fetchRoles()
       emit('changed')
     },
   })
 }
+
+const bulkDeleteRoles = () => {
+  if (!selectedRows.value.length)
+    return
+
+  openConfirmDialog({
+    title: 'Xoa hang loat vai tro',
+    message: `Ban co chac chan muon xoa ${selectedRows.value.length} vai tro da chon khong?`,
+    confirmText: 'Xoa',
+    confirmColor: 'error',
+    action: async () => {
+      await bulkDeleteRolesRequest(selectedRows.value)
+      selectedRows.value = []
+      showSuccess('Xoa hang loat vai tro thanh cong.')
+      fetchRoles()
+      emit('changed')
+    },
+  })
+}
+
+const exportRoles = async () => {
+  isExporting.value = true
+  try {
+    if (selectedRows.value.length) {
+      const selectedRoles = roles.value.filter(item => selectedRows.value.includes(item.id))
+
+      exportRowsToExcel({
+        rows: selectedRoles.map(item => ({
+          name: item.name || '',
+          'guard_name': item.guard_name || 'web',
+          permissions: (item.permissions || []).map(permission => getPermissionDisplayLabel(permission.name || permission)).join(', '),
+          'permissions_count': item.permissions?.length || 0,
+          'updated_at': formatAuthDateTime(item.updated_at || item.created_at, { fallback: '' }),
+        })),
+        headers: ['name', 'guard_name', 'permissions', 'permissions_count', 'updated_at'],
+        sheetName: 'Roles',
+        fileName: `roles_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 24 },
+          { wch: 16 },
+          { wch: 56 },
+          { wch: 18 },
+          { wch: 22 },
+        ],
+      })
+
+      return
+    }
+
+    const query = buildAuthQueryString(buildExportParams())
+
+    const response = await $api(`/roles/export${query ? `?${query}` : ''}`, {
+      responseType: 'blob',
+    })
+
+    const safeBlob = response instanceof Blob
+      ? response
+      : new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+
+    const url = window.URL.createObjectURL(safeBlob)
+
+    const anchor = document.createElement('a')
+
+    anchor.href = url
+    anchor.download = `roles_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(anchor)
+    anchor.click()
+    setTimeout(() => {
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+  catch (err) {
+    console.error('Export roles error:', err)
+    showError(err, 'Khong the xuat du lieu vai tro.')
+    throw err
+  }
+  finally {
+    isExporting.value = false
+  }
+}
+
+const permissionPreview = permissions => {
+  const items = Array.isArray(permissions) ? permissions : []
+
+  return items.slice(0, 3).map(permission => ({
+    raw: permission,
+    label: getPermissionDisplayLabel(permission.name || permission),
+  }))
+}
+
+defineExpose({
+  exportRoles,
+  fetchRoles,
+  isExporting,
+  openCreateDialog,
+  refreshRoles: fetchRoles,
+  selectedRows,
+})
 </script>
 
 <template>
-  <div>
-    <div class="d-flex justify-space-between align-center flex-wrap gap-4 mb-6">
-      <VTextField
-        v-model="search"
-        :label="searchLabel"
-        :placeholder="searchPlaceholder"
-        prepend-inner-icon="tabler-search"
-        density="comfortable"
-        clearable
-        style="max-inline-size: 360px;"
-      />
-      <VBtn
-        v-if="$can('create', 'Role')"
-        color="primary"
-        prepend-icon="tabler-plus"
-        @click="isAddRoleDialogVisible = true"
-      >
-        Thêm vai trò
-      </VBtn>
-    </div>
-
-    <VRow>
-      <!-- Loading -->
-      <VCol
-        v-if="loading"
-        cols="12"
-        class="text-center"
-      >
-        <VProgressCircular indeterminate />
-      </VCol>
-
-      <!-- 👉 Roles -->
-      <VCol
-        v-for="item in roles"
-        :key="item.role"
-        cols="12"
-        sm="6"
-        lg="4"
-      >
-        <VCard class="h-100">
-          <VCardText class="pb-3">
-            <div class="d-flex justify-space-between align-start mb-2">
-              <span class="text-body-2 text-disabled">{{ t('roles.roles.card.total_users_count', { count: item.totalUsers }) }}</span>
-              <IconBtn
-                size="small"
-                variant="text"
-                color="secondary"
-              >
-                <VIcon
-                  icon="tabler-copy"
-                  size="20"
-                />
-              </IconBtn>
-            </div>
-            <h4 class="text-h4 mb-4 font-weight-bold">
-              {{ item.role }}
-            </h4>
-            <div class="d-flex align-center gap-2">
-              <a
-                v-if="$can('update', 'Role')"
-                href="javascript:void(0)"
-                class="text-info font-weight-medium text-body-2 text-decoration-none"
-                @click="editPermission(item)"
-              >
-                {{ editingRole && roleDetail.id === item.id ? t('roles.roles.card.loading') : t('roles.roles.card.edit_role') }}
-              </a>
-              <IconBtn
-                v-if="$can('delete', 'Role')"
-                size="small"
-                variant="text"
-                color="error"
-                @click="deleteRole(item)"
-              >
-                <VIcon
-                  icon="tabler-trash"
-                  size="18"
-                />
-              </IconBtn>
-            </div>
-          </VCardText>
-        </VCard>
-      </VCol>
-
-      <!-- 👉 Add New Role -->
-      <VCol
-        v-if="$can('create', 'Role')"
-        cols="12"
-        sm="6"
-        lg="4"
-      >
-        <VCard
-          class="h-100"
-          :ripple="false"
-        >
-          <VRow
-            no-gutters
-            class="h-100"
-          >
-            <VCol
-              cols="4"
-              class="d-flex flex-column justify-end align-center mt-3"
-            >
-              <img
-                width="85"
-                :src="girlUsingMobile"
-              >
-            </VCol>
-
-            <VCol
-              cols="8"
-              class="d-flex flex-column align-end justify-center pe-5"
-            >
-              <VBtn
-                size="small"
-                variant="outlined"
-                color="info"
-                class="mb-2"
-                @click="isAddRoleDialogVisible = true"
-              >
-                {{ t('roles.roles.card.create_new_role') }}
-              </VBtn>
-              <span
-                class="text-caption text-end text-disabled"
-                style="line-height: 1.2; max-inline-size: 150px;"
-              >
-                {{ t('roles.roles.card.create_new_role_hint') }}
-              </span>
-            </VCol>
-          </VRow>
-        </VCard>
-        <AddEditRoleDialog
-          v-model:is-dialog-visible="isAddRoleDialogVisible"
-          @saved="onRoleSaved"
+  <VCard class="roles-main-card">
+    <VCardText class="roles-main-card__header pb-3">
+      <div class="d-flex align-center gap-2 mb-4">
+        <VIcon
+          icon="tabler-filter"
+          size="20"
+          color="info"
         />
-      </VCol>
-    </VRow>
-
-    <div class="d-flex align-center justify-space-between flex-wrap gap-4 mt-6">
-      <span class="text-body-2 text-disabled">
-        {{ t('roles.roles.list.showing_summary', { shown: roles.length, total: totalItems }) }}
-      </span>
-
-      <div class="d-flex align-center gap-4">
-        <AppSelect
-          v-model="itemsPerPage"
-          :items="itemsPerPageOptions"
-          density="compact"
-          style="max-inline-size: 88px;"
-        />
-
-        <VPagination
-          v-model="page"
-          :length="totalPages"
-          :total-visible="$vuetify.display.smAndDown ? 4 : 7"
-        />
+        <span class="text-subtitle-1 font-weight-bold">{{ t('roles.roles.list.filter') }}</span>
       </div>
-    </div>
 
-    <AddEditRoleDialog
-      v-model:is-dialog-visible="isRoleDialogVisible"
-      v-model:role-permissions="roleDetail"
-      @saved="onRoleSaved"
-    />
+      <VRow class="roles-filter-row">
+        <VCol
+          cols="12"
+          md="5"
+          class="roles-filter-col"
+        >
+          <div class="roles-filter-input">
+            <AppTextField
+              v-model="searchQuery"
+              :label="t('roles.roles.list.search_label')"
+              :placeholder="t('roles.roles.list.search_placeholder')"
+              prepend-inner-icon="tabler-search"
+              clearable
+            />
+          </div>
+        </VCol>
 
-    <ActionConfirmDialog
-      v-model="isConfirmDialogVisible"
-      :title="confirmDialog.title"
-      :message="confirmDialog.message"
-      :confirm-text="confirmDialog.confirmText"
-      :confirm-color="confirmDialog.confirmColor"
-      :loading="isConfirming"
-      @confirm="executeConfirmedAction"
-    />
+        <VCol
+          cols="12"
+          md="3"
+          class="roles-filter-col"
+        >
+          <div class="roles-filter-input">
+            <AppDateTimePicker
+              v-model="fromDate"
+              :label="t('roles.roles.list.from_date')"
+              :placeholder="t('roles.roles.list.from_date_placeholder')"
+              :config="{ dateFormat: 'Y-m-d' }"
+              clearable
+            />
+          </div>
+        </VCol>
 
-    <ActionSnackbar
-      v-model="snackbar.show"
-      :message="snackbar.message"
-      :color="snackbar.color"
-    />
-  </div>
+        <VCol
+          cols="12"
+          md="3"
+          class="roles-filter-col"
+        >
+          <div class="roles-filter-input">
+            <AppDateTimePicker
+              v-model="toDate"
+              :label="t('roles.roles.list.to_date')"
+              :placeholder="t('roles.roles.list.to_date_placeholder')"
+              :config="{ dateFormat: 'Y-m-d' }"
+              clearable
+            />
+          </div>
+        </VCol>
+
+        <VCol
+          cols="12"
+          md="1"
+          class="roles-filter-col justify-end"
+        >
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            prepend-icon="tabler-rotate-clockwise"
+            @click="clearFilters"
+          >
+            {{ t('roles.roles.list.reset') }}
+          </VBtn>
+        </VCol>
+      </VRow>
+
+      <div
+        v-if="selectedRows.length"
+        class="d-flex align-center justify-space-between flex-wrap gap-3 mt-4"
+      >
+        <div class="text-body-2 text-medium-emphasis">
+          {{ t('roles.roles.list.selected_summary', { count: selectedRows.length }) }}
+        </div>
+
+        <VBtn
+          v-if="$can('delete', 'Role')"
+          color="error"
+          variant="tonal"
+          prepend-icon="tabler-trash"
+          @click="bulkDeleteRoles"
+        >
+          {{ t('roles.roles.list.bulk_delete') }}
+        </VBtn>
+      </div>
+    </VCardText>
+
+    <VDivider />
+
+    <VDataTableServer
+      v-model:items-per-page="itemsPerPage"
+      v-model:model-value="selectedRows"
+      v-model:page="page"
+      :items="roles"
+      item-value="id"
+      :items-length="totalItems"
+      :headers="headers"
+      :loading="loading"
+      class="text-no-wrap roles-table"
+      show-select
+      @update:options="updateOptions"
+    >
+      <template #item.index="{ index }">
+        <span class="text-body-2">
+          {{ (page - 1) * itemsPerPage + index + 1 }}
+        </span>
+      </template>
+
+      <template #item.name="{ item }">
+        <div class="d-flex flex-column gap-1 py-2">
+          <span class="text-body-1 font-weight-medium text-high-emphasis">{{ item.name }}</span>
+          <span class="text-caption text-disabled">ID #{{ item.id }}</span>
+        </div>
+      </template>
+
+      <template #item.guard_name="{ item }">
+        <VChip
+          size="small"
+          color="info"
+          variant="tonal"
+          label
+        >
+          {{ item.guard_name || 'web' }}
+        </VChip>
+      </template>
+
+      <template #item.permissions="{ item }">
+        <div class="d-flex flex-wrap gap-2 py-2">
+          <VChip
+            v-for="permission in permissionPreview(item.permissions)"
+            :key="permission.raw?.id || permission.raw"
+            size="x-small"
+            color="primary"
+            variant="tonal"
+            label
+          >
+            {{ permission.label }}
+          </VChip>
+          <VChip
+            v-if="(item.permissions?.length || 0) > 3"
+            size="x-small"
+            color="secondary"
+            variant="outlined"
+            label
+          >
+            +{{ item.permissions.length - 3 }}
+          </VChip>
+          <span
+            v-if="!item.permissions?.length"
+            class="text-body-2 text-disabled"
+          >
+            {{ t('roles.roles.list.no_permissions') }}
+          </span>
+        </div>
+      </template>
+
+      <template #item.updated_at="{ item }">
+        <span class="text-body-2 text-info font-weight-medium">
+          {{ formatAuthDateTime(item.updated_at || item.created_at, { fallback: t('roles.roles.list.no_update') }) }}
+        </span>
+      </template>
+
+      <template #item.actions="{ item }">
+        <div class="d-flex align-center">
+          <IconBtn
+            v-if="$can('show', 'Role')"
+            variant="text"
+            color="info"
+            size="small"
+            @click="showRoleDetail(item)"
+          >
+            <VIcon
+              icon="tabler-eye"
+              size="20"
+            />
+          </IconBtn>
+
+          <IconBtn
+            v-if="$can('update', 'Role')"
+            variant="text"
+            color="primary"
+            size="small"
+            @click="editRole(item)"
+          >
+            <VIcon
+              :icon="editingRole && roleDetail.id === item.id ? 'tabler-loader-2' : 'tabler-pencil'"
+              size="20"
+            />
+          </IconBtn>
+
+          <IconBtn
+            v-if="$can('delete', 'Role')"
+            variant="text"
+            color="error"
+            size="small"
+            @click="deleteRole(item)"
+          >
+            <VIcon
+              icon="tabler-trash"
+              size="20"
+            />
+          </IconBtn>
+        </div>
+      </template>
+
+      <template #bottom>
+        <TablePagination
+          v-model:page="page"
+          :items-per-page="itemsPerPage"
+          :total-items="totalItems"
+        />
+      </template>
+    </VDataTableServer>
+  </VCard>
+
+  <AddEditRoleDialog
+    v-model:is-dialog-visible="isAddRoleDialogVisible"
+    @saved="onRoleSaved"
+  />
+
+  <AddEditRoleDialog
+    v-model:is-dialog-visible="isRoleDialogVisible"
+    v-model:role-permissions="roleDetail"
+    @saved="onRoleSaved"
+  />
+
+  <AddEditRoleDialog
+    v-model:is-dialog-visible="isRoleDetailDialogVisible"
+    v-model:role-permissions="roleDetail"
+    readonly
+  />
+
+  <ActionConfirmDialog
+    v-model="isConfirmDialogVisible"
+    :title="confirmDialog.title"
+    :message="confirmDialog.message"
+    :confirm-text="confirmDialog.confirmText"
+    :confirm-color="confirmDialog.confirmColor"
+    :loading="isConfirming"
+    @confirm="executeConfirmedAction"
+  />
+
+  <ActionSnackbar
+    v-model="snackbar.show"
+    :message="snackbar.message"
+    :color="snackbar.color"
+  />
 </template>
+
+<style scoped>
+.roles-main-card {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.roles-main-card__header {
+  padding-block: 20px 16px;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04), rgba(var(--v-theme-surface), 0)),
+    linear-gradient(90deg, rgba(var(--v-theme-info), 0.04), transparent 30%);
+}
+
+.roles-filter-row {
+  align-items: center;
+}
+
+.roles-filter-col {
+  display: flex;
+  align-items: center;
+}
+
+.roles-filter-input {
+  flex: 1 1 auto;
+}
+
+.roles-filter-input :deep(.v-input) {
+  inline-size: 100%;
+}
+
+.roles-filter-input :deep(.v-field) {
+  min-block-size: 46px;
+}
+
+.roles-filter-input :deep(.v-field__input) {
+  align-items: center;
+  min-block-size: 46px;
+  padding-block: 0;
+}
+
+.roles-filter-input :deep(.v-label) {
+  margin-block-end: 6px;
+}
+
+.roles-table :deep(.v-data-table-header__content) {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.roles-table :deep(tbody tr) {
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.roles-table :deep(tbody tr:hover) {
+  background: rgba(var(--v-theme-primary), 0.03);
+}
+
+.roles-table :deep(td),
+.roles-table :deep(th) {
+  border-color: rgba(var(--v-border-color), 0.6);
+}
+
+@media (max-width: 959px) {
+  .roles-main-card__header {
+    padding-block-end: 8px;
+  }
+
+  .roles-filter-row {
+    row-gap: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .roles-filter-col {
+    inline-size: 100%;
+  }
+}
+</style>

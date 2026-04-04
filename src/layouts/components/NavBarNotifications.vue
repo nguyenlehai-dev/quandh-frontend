@@ -7,6 +7,12 @@ const NOTIFICATIONS_FORBIDDEN_KEY = 'userNotificationsForbidden'
 const notificationsForbidden = ref(sessionStorage.getItem(NOTIFICATIONS_FORBIDDEN_KEY) === '1')
 const router = useRouter()
 
+const disableNotificationsRuntime = () => {
+  notificationsForbidden.value = true
+  sessionStorage.setItem(NOTIFICATIONS_FORBIDDEN_KEY, '1')
+  notifications.value = []
+}
+
 const fetchNotifications = async () => {
   if (notificationsForbidden.value) return
 
@@ -19,10 +25,13 @@ const fetchNotifications = async () => {
     }
   }
   catch (error) {
-    if (error?.status === 403 || error?.statusCode === 403) {
-      notificationsForbidden.value = true
-      sessionStorage.setItem(NOTIFICATIONS_FORBIDDEN_KEY, '1')
-      notifications.value = []
+    if (
+      error?.status === 403
+      || error?.statusCode === 403
+      || error?.status === 404
+      || error?.statusCode === 404
+    ) {
+      disableNotificationsRuntime()
 
       return
     }
@@ -49,7 +58,10 @@ const removeNotification = async notificationId => {
     await $api(`/user/notifications/${notificationId}`, { method: 'DELETE' })
     notifications.value = notifications.value.filter(n => n.id !== notificationId)
   }
-  catch {}
+  catch (error) {
+    if (error?.status === 404 || error?.statusCode === 404)
+      disableNotificationsRuntime()
+  }
 }
 
 const markRead = async notificationIds => {
@@ -66,7 +78,10 @@ const markRead = async notificationIds => {
         item.isSeen = true
     })
   }
-  catch {}
+  catch (error) {
+    if (error?.status === 404 || error?.statusCode === 404)
+      disableNotificationsRuntime()
+  }
 }
 
 const markUnRead = async notificationIds => {
@@ -83,7 +98,10 @@ const markUnRead = async notificationIds => {
         item.isSeen = false
     })
   }
-  catch {}
+  catch (error) {
+    if (error?.status === 404 || error?.statusCode === 404)
+      disableNotificationsRuntime()
+  }
 }
 
 const handleNotificationClick = notification => {

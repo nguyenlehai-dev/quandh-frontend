@@ -4,7 +4,21 @@
 import AddEditOrganizationDrawer from '@/components/dialogs/AddEditOrganizationDrawer.vue'
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import { ability } from '@/plugins/casl/ability'
-import { downloadOrganizationTemplate, exportOrganizations, importOrganizations } from '../services/organizationService'
+import { formatAuthDateTime } from '../../shared/dateTime'
+import { exportRowsToExcel } from '../../shared/excelExport'
+import { buildAuthQueryString } from '../../shared/queryParams'
+import AuthDataActions from '../../shared/AuthDataActions.vue'
+import OrganizationDetailDialog from '../components/OrganizationDetailDialog.vue'
+import {
+  bulkDeleteOrganizations,
+  bulkUpdateOrganizationStatus,
+  changeOrganizationStatus as changeOrganizationStatusRequest,
+  deleteOrganization as deleteOrganizationRequest,
+  downloadOrganizationImportTemplate,
+  fetchOrganizationStats,
+  fetchOrganizations as fetchOrganizationsRequest,
+  importOrganizations,
+} from '../services/organizationService'
 
 const { t } = useI18n()
 
@@ -14,12 +28,32 @@ const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
 const orderBy = ref()
+const selectionSeeds = ref([])
 const selectedRows = ref([])
 
-const updateOptions = options => {
-  sortBy.value = options.sortBy[0]?.key
-  orderBy.value = options.sortBy[0]?.order
-}
+const organizations = ref([])
+const totalOrganizations = ref(0)
+const loading = ref(false)
+const stats = ref({ total: 0, active: 0, inactive: 0 })
+
+const isDialogVisible = ref(false)
+const editingOrganization = ref(null)
+const selectedOrganizationId = ref(null)
+const isDetailDialogVisible = ref(false)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const isExporting = ref(false)
+
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  confirmText: 'Xac nhan',
+  confirmColor: 'primary',
+  action: null,
+})
+
+const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+const currentOrganizationId = computed(() => Number(useCookie('currentOrganizationId').value) || null)
 
 const headers = [
   { title: t('organizations.organizations.headers.index'), key: 'index', sortable: false, width: '70px' },
@@ -27,101 +61,39 @@ const headers = [
   { title: t('organizations.organizations.headers.parent'), key: 'parent' },
   { title: t('organizations.organizations.headers.status'), key: 'status', sortable: false, width: '140px' },
   { title: t('organizations.organizations.headers.updated_at'), key: 'updated_at' },
-  { title: t('organizations.organizations.headers.actions'), key: 'actions', sortable: false, align: 'center', width: '120px' },
+  { title: t('organizations.organizations.headers.actions'), key: 'actions', sortable: false, align: 'center', width: '180px' },
 ]
-
-const organizations = ref([])
-const totalOrganizations = ref(0)
-const loading = ref(false)
-const stats = ref({ total: 0, active: 0, inactive: 0 })
-
-const fetchOrganizations = async () => {
-  loading.value = true
-  try {
-    const res = await $api('/organizations', {
-      params: {
-        search: searchQuery.value,
-        status: selectedStatus.value,
-        limit: itemsPerPage.value,
-        page: page.value,
-        sort_by: sortBy.value,
-        sort_order: orderBy.value,
-      },
-    })
-
-    organizations.value = res.data ?? []
-    totalOrganizations.value = res.meta?.total ?? res.total ?? 0
-  }
-  catch (err) {
-    console.error('Fetch organizations error:', err)
-    organizations.value = []
-    totalOrganizations.value = 0
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-const fetchStats = async () => {
-  try {
-    const res = await $api('/organizations/stats', {
-      params: {
-        search: searchQuery.value,
-        status: selectedStatus.value,
-      },
-    })
-
-    stats.value = res.data ?? { total: 0, active: 0, inactive: 0 }
-  }
-  catch (err) {
-    console.error('Fetch org stats error:', err)
-  }
-}
-
-watchDebounced([searchQuery, selectedStatus], () => {
-  page.value = 1
-  fetchOrganizations()
-  fetchStats()
-}, { debounce: 500 })
-
-watch([itemsPerPage, page, sortBy, orderBy], () => {
-  fetchOrganizations()
-})
-
-onMounted(() => {
-  fetchOrganizations()
-  fetchStats()
-})
 
 const statusOptions = [
   { title: t('organizations.organizations.status.active'), value: 'active' },
   { title: t('organizations.organizations.status.inactive'), value: 'inactive' },
 ]
 
-const resolveStatusVariant = status => {
-  if (status === 'active')
-    return { color: 'success', text: t('organizations.organizations.status.active') }
-
-  return { color: 'error', text: t('organizations.organizations.status.inactive') }
-}
-
-const widgetData = computed(() => [
-  { title: t('organizations.organizations.widgets.total'), value: stats.value.total ?? 0, icon: 'tabler-building', iconColor: 'primary' },
-  { title: t('organizations.organizations.widgets.active'), value: stats.value.active ?? 0, icon: 'tabler-building-community', iconColor: 'success' },
-  { title: t('organizations.organizations.widgets.inactive'), value: stats.value.inactive ?? 0, icon: 'tabler-building-skyscraper', iconColor: 'warning' },
-])
-
-const isDialogVisible = ref(false)
-const editingOrganization = ref(null)
-const isConfirmDialogVisible = ref(false)
-const isConfirming = ref(false)
-const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
-const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
-const currentOrganizationId = computed(() => Number(useCookie('currentOrganizationId').value) || null)
-
-const isCurrentOrganization = organizationId => Number(organizationId) === currentOrganizationId.value
-
 const selectedOrganizations = computed(() => organizations.value.filter(item => selectedRows.value.includes(item.id)))
+
+const organizationById = computed(() => {
+  const map = new Map()
+
+  organizations.value.forEach(item => {
+    map.set(Number(item.id), item)
+  })
+
+  return map
+})
+
+const childIdsByParentId = computed(() => {
+  const map = new Map()
+
+  organizations.value.forEach(item => {
+    const parentId = item.parent_id == null ? null : Number(item.parent_id)
+    if (!map.has(parentId))
+      map.set(parentId, [])
+
+    map.get(parentId).push(Number(item.id))
+  })
+
+  return map
+})
 
 const bulkStatusOptions = computed(() => {
   if (!selectedOrganizations.value.length)
@@ -135,8 +107,248 @@ const bulkStatusOptions = computed(() => {
     if (!candidateOrganizations.length)
       return false
 
-    return candidateOrganizations.some(item => item.status !== option.value)
+    return candidateOrganizations.some(item => !hasInactiveParent(item) && item.status !== option.value)
   })
+})
+
+const widgetData = computed(() => [
+  { title: t('organizations.organizations.widgets.total'), value: stats.value.total ?? 0, icon: 'tabler-building', iconColor: 'primary' },
+  { title: t('organizations.organizations.widgets.active'), value: stats.value.active ?? 0, icon: 'tabler-building-community', iconColor: 'success' },
+  { title: t('organizations.organizations.widgets.inactive'), value: stats.value.inactive ?? 0, icon: 'tabler-building-skyscraper', iconColor: 'warning' },
+])
+
+const updateOptions = options => {
+  sortBy.value = options.sortBy[0]?.key
+  orderBy.value = options.sortBy[0]?.order
+}
+
+const isCurrentOrganization = organizationId => Number(organizationId) === currentOrganizationId.value
+const hasInactiveParent = item => item?.parent?.status === 'inactive'
+
+const resolveStatusVariant = status => {
+  if (status === 'active')
+    return { color: 'success', text: t('organizations.organizations.status.active') }
+
+  return { color: 'error', text: t('organizations.organizations.status.inactive') }
+}
+
+const resolveEffectiveStatusVariant = item => {
+  if (hasInactiveParent(item)) {
+    return {
+      color: 'warning',
+      text: 'Phu thuoc cha dang ngung',
+    }
+  }
+
+  return resolveStatusVariant(item.status)
+}
+
+const getTreeIndentStyle = item => {
+  const depth = Number(item?.depth || 0)
+
+  return {
+    paddingInlineStart: `${depth * 24}px`,
+  }
+}
+
+const getAncestorIds = organizationId => {
+  const ancestorIds = []
+  let currentId = Number(organizationId)
+
+  while (organizationById.value.has(currentId)) {
+    const currentOrganization = organizationById.value.get(currentId)
+    const parentId = currentOrganization?.parent_id == null ? null : Number(currentOrganization.parent_id)
+
+    if (parentId == null || !organizationById.value.has(parentId))
+      break
+
+    ancestorIds.push(parentId)
+    currentId = parentId
+  }
+
+  return ancestorIds
+}
+
+const getDescendantIds = organizationId => {
+  const descendantIds = []
+  const stack = [...(childIdsByParentId.value.get(Number(organizationId)) || [])]
+
+  while (stack.length) {
+    const childId = stack.pop()
+
+    descendantIds.push(childId)
+
+    const nestedChildIds = childIdsByParentId.value.get(childId) || []
+
+    nestedChildIds.forEach(nestedChildId => stack.push(nestedChildId))
+  }
+
+  return descendantIds
+}
+
+const resolveSelectedRowsFromSeeds = seedIds => {
+  const selectedIdSet = new Set()
+
+  seedIds
+    .map(id => Number(id))
+    .filter(id => organizationById.value.has(id))
+    .forEach(id => {
+      selectedIdSet.add(id)
+      getAncestorIds(id).forEach(ancestorId => selectedIdSet.add(ancestorId))
+      getDescendantIds(id).forEach(descendantId => selectedIdSet.add(descendantId))
+    })
+
+  return organizations.value
+    .map(item => Number(item.id))
+    .filter(id => selectedIdSet.has(id))
+}
+
+const syncSelectedRows = () => {
+  selectionSeeds.value = selectionSeeds.value
+    .map(id => Number(id))
+    .filter(id => organizationById.value.has(id))
+
+  selectedRows.value = resolveSelectedRowsFromSeeds(selectionSeeds.value)
+}
+
+const handleSelectionChange = nextSelectedIds => {
+  const nextIds = (nextSelectedIds || []).map(id => Number(id))
+  const currentSelectedSet = new Set(selectedRows.value.map(id => Number(id)))
+  const nextSelectedSet = new Set(nextIds)
+  const seedSet = new Set(selectionSeeds.value.map(id => Number(id)))
+
+  const addedIds = nextIds.filter(id => !currentSelectedSet.has(id))
+  const removedIds = [...currentSelectedSet].filter(id => !nextSelectedSet.has(id))
+
+  addedIds.forEach(id => {
+    if (organizationById.value.has(id))
+      seedSet.add(id)
+  })
+
+  removedIds.forEach(id => {
+    seedSet.delete(id)
+    getAncestorIds(id).forEach(ancestorId => seedSet.delete(ancestorId))
+    getDescendantIds(id).forEach(descendantId => seedSet.delete(descendantId))
+  })
+
+  selectionSeeds.value = [...seedSet]
+  selectedRows.value = resolveSelectedRowsFromSeeds(selectionSeeds.value)
+}
+
+const clearSelectedOrganizations = () => {
+  selectionSeeds.value = []
+  selectedRows.value = []
+}
+
+const buildListParams = () => ({
+  search: searchQuery.value,
+  status: selectedStatus.value,
+  limit: itemsPerPage.value,
+  page: page.value,
+  sort_by: sortBy.value,
+  sort_order: orderBy.value,
+})
+
+const buildExportParams = () => ({
+  ...buildListParams(),
+})
+
+const sortOrganizationsAsTree = items => {
+  if (!Array.isArray(items) || !items.length)
+    return []
+
+  const groupedByParent = new Map()
+
+  items.forEach(item => {
+    const parentKey = item.parent_id == null ? 'root' : String(item.parent_id)
+
+    if (!groupedByParent.has(parentKey))
+      groupedByParent.set(parentKey, [])
+
+    groupedByParent.get(parentKey).push(item)
+  })
+
+  groupedByParent.forEach(group => {
+    group.sort((a, b) => {
+      const depthDelta = Number(a.depth || 0) - Number(b.depth || 0)
+      if (depthDelta !== 0)
+        return depthDelta
+
+      const sortDelta = Number(a.sort_order || 0) - Number(b.sort_order || 0)
+      if (sortDelta !== 0)
+        return sortDelta
+
+      return Number(a.id || 0) - Number(b.id || 0)
+    })
+  })
+
+  const flattened = []
+
+  const appendChildren = parentId => {
+    const parentKey = parentId == null ? 'root' : String(parentId)
+    const children = groupedByParent.get(parentKey) || []
+
+    children.forEach(item => {
+      flattened.push(item)
+      appendChildren(item.id)
+    })
+  }
+
+  appendChildren(null)
+
+  return flattened
+}
+
+const fetchOrganizations = async () => {
+  loading.value = true
+  try {
+    const response = await fetchOrganizationsRequest(buildListParams())
+
+    organizations.value = sortOrganizationsAsTree(response.data ?? [])
+    totalOrganizations.value = response.meta?.total ?? response.total ?? 0
+  }
+  catch (error) {
+    console.error('Fetch organizations error:', error)
+    organizations.value = []
+    totalOrganizations.value = 0
+  }
+  finally {
+    loading.value = false
+    syncSelectedRows()
+  }
+}
+
+const fetchStats = async () => {
+  try {
+    const response = await fetchOrganizationStats({
+      search: searchQuery.value,
+      status: selectedStatus.value,
+    })
+
+    stats.value = response.data ?? { total: 0, active: 0, inactive: 0 }
+  }
+  catch (error) {
+    console.error('Fetch organization stats error:', error)
+  }
+}
+
+watchDebounced([searchQuery, selectedStatus], () => {
+  page.value = 1
+  fetchOrganizations()
+  fetchStats()
+}, { debounce: 500 })
+
+watch([itemsPerPage, page, sortBy, orderBy], () => {
+  fetchOrganizations()
+})
+
+watch(organizations, () => {
+  syncSelectedRows()
+})
+
+onMounted(() => {
+  fetchOrganizations()
+  fetchStats()
 })
 
 const openAddDialog = () => {
@@ -151,6 +363,12 @@ const openEditDialog = item => {
   isDialogVisible.value = true
 }
 
+const openDetailDialog = item => {
+  if (!ability.can('read', 'Organization')) return
+  selectedOrganizationId.value = item.id
+  isDetailDialogVisible.value = true
+}
+
 const openConfirmDialog = options => {
   confirmDialog.value = { ...confirmDialog.value, ...options }
   isConfirmDialogVisible.value = true
@@ -158,34 +376,44 @@ const openConfirmDialog = options => {
 
 const executeConfirmedAction = async () => {
   if (!confirmDialog.value.action) return
+
   isConfirming.value = true
   try {
     await confirmDialog.value.action()
     isConfirmDialogVisible.value = false
   }
-  catch (err) {
-    showError(err, 'Không thể thực hiện thao tác này.')
+  catch (error) {
+    showError(error, 'Khong the thuc hien thao tac nay.')
   }
   finally {
     isConfirming.value = false
   }
 }
 
-const deleteOrganization = async id => {
+const refreshList = () => {
+  fetchOrganizations()
+  fetchStats()
+}
+
+const deleteOrganization = id => {
   if (!ability.can('delete', 'Organization')) return
+
   openConfirmDialog({
-    title: 'Xóa tổ chức',
-    message: 'Bạn có chắc chắn muốn xóa tổ chức này không?',
-    confirmText: 'Xóa',
+    title: 'Xoa to chuc',
+    message: 'Ban co chac chan muon xoa to chuc nay khong?',
+    confirmText: 'Xoa',
     confirmColor: 'error',
     action: async () => {
-      await $api(`/organizations/${id}`, { method: 'DELETE' })
+      await deleteOrganizationRequest(id)
 
-      const idx = selectedRows.value.indexOf(id)
-      if (idx !== -1) selectedRows.value.splice(idx, 1)
-      showSuccess('Xóa tổ chức thành công.')
-      fetchOrganizations()
-      fetchStats()
+      const index = selectedRows.value.indexOf(id)
+      if (index !== -1)
+        selectedRows.value.splice(index, 1)
+
+      selectionSeeds.value = selectionSeeds.value.filter(seedId => Number(seedId) !== Number(id))
+
+      showSuccess('Xoa to chuc thanh cong.')
+      refreshList()
     },
   })
 }
@@ -194,38 +422,46 @@ const onSaved = payload => {
   if (payload?.message)
     showSuccess(payload.message)
 
-  fetchOrganizations()
-  fetchStats()
+  refreshList()
 }
 
-const bulkDeleteOrgs = async () => {
+const bulkDeleteOrgs = () => {
   if (!ability.can('delete', 'Organization')) return
   if (!selectedRows.value.length) return
+
   openConfirmDialog({
-    title: 'Xóa hàng loạt tổ chức',
-    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} tổ chức đã chọn không?`,
-    confirmText: 'Xóa',
+    title: 'Xoa hang loat to chuc',
+    message: `Ban co chac chan muon xoa ${selectedRows.value.length} to chuc da chon khong?`,
+    confirmText: 'Xoa',
     confirmColor: 'error',
     action: async () => {
-      await $api('/organizations/bulk-delete', { method: 'POST', body: { ids: selectedRows.value } })
+      await bulkDeleteOrganizations(selectedRows.value)
+      selectionSeeds.value = []
       selectedRows.value = []
-      showSuccess('Xóa hàng loạt tổ chức thành công.')
-      fetchOrganizations()
-      fetchStats()
+      showSuccess('Xoa hang loat to chuc thanh cong.')
+      refreshList()
     },
   })
 }
 
-const bulkChangeStatus = async newStatus => {
+const bulkChangeStatus = newStatus => {
   if (!ability.can('update', 'Organization')) return
   if (!selectedRows.value.length) return
 
   let targetIds = [...selectedRows.value]
   const skippedCurrentOrganization = newStatus === 'inactive' && targetIds.some(isCurrentOrganization)
 
-  if (skippedCurrentOrganization) {
+  const skippedInactiveParentIds = targetIds.filter(id => {
+    const organization = selectedOrganizations.value.find(item => item.id === id)
+
+    return hasInactiveParent(organization)
+  })
+
+  if (skippedCurrentOrganization)
     targetIds = targetIds.filter(id => !isCurrentOrganization(id))
-  }
+
+  if (skippedInactiveParentIds.length)
+    targetIds = targetIds.filter(id => !skippedInactiveParentIds.includes(id))
 
   targetIds = targetIds.filter(id => {
     const organization = selectedOrganizations.value.find(item => item.id === id)
@@ -234,152 +470,137 @@ const bulkChangeStatus = async newStatus => {
   })
 
   if (!targetIds.length) {
-    showSnackbar('Không có tổ chức hợp lệ để cập nhật trạng thái.', 'warning')
+    showSnackbar('Khong co to chuc hop le de cap nhat trang thai. To chuc con dang phu thuoc cha ngung hoat dong se khong doi rieng le.', 'warning')
 
     return
   }
 
-  const nextLabel = statusOptions.find(s => s.value === newStatus)?.title || newStatus
-
-  const confirmMessage = skippedCurrentOrganization
-    ? `Bạn có chắc chắn muốn chuyển ${targetIds.length} tổ chức đã chọn sang "${nextLabel}" không? Tổ chức đang làm việc hiện tại sẽ được giữ nguyên.`
-    : `Bạn có chắc chắn muốn chuyển ${targetIds.length} tổ chức đã chọn sang "${nextLabel}" không?`
+  const nextLabel = statusOptions.find(status => status.value === newStatus)?.title || newStatus
 
   openConfirmDialog({
-    title: 'Đổi trạng thái hàng loạt',
-    message: confirmMessage,
-    confirmText: 'Đổi trạng thái',
+    title: 'Doi trang thai hang loat',
+    message: skippedCurrentOrganization
+      ? `Ban co chac chan muon chuyen ${targetIds.length} to chuc da chon sang "${nextLabel}" khong? To chuc dang lam viec hien tai se duoc giu nguyen.`
+      : `Ban co chac chan muon chuyen ${targetIds.length} to chuc da chon sang "${nextLabel}" khong?`,
+    confirmText: 'Doi trang thai',
     confirmColor: 'warning',
     action: async () => {
-      await $api('/organizations/bulk-status', { method: 'PATCH', body: { ids: targetIds, status: newStatus } })
+      await bulkUpdateOrganizationStatus(targetIds, newStatus)
+      selectionSeeds.value = []
       selectedRows.value = []
-      showSuccess(skippedCurrentOrganization
-        ? 'Cập nhật trạng thái hàng loạt thành công. Tổ chức đang làm việc hiện tại đã được giữ nguyên.'
-        : 'Cập nhật trạng thái hàng loạt thành công.')
-      fetchOrganizations()
-      fetchStats()
+      showSuccess('Cap nhat trang thai hang loat thanh cong.')
+      refreshList()
     },
   })
 }
 
 const changeOrganizationStatus = (item, newStatus) => {
-  if (newStatus === 'inactive' && isCurrentOrganization(item.id)) {
-    showSnackbar('Không thể chuyển tổ chức đang làm việc hiện tại sang ngừng hoạt động.', 'warning')
+  if (hasInactiveParent(item)) {
+    showSnackbar('To chuc con dang phu thuoc to chuc cha ngung hoat dong, khong the doi trang thai rieng le.', 'warning')
 
     return
   }
 
-  const nextLabel = statusOptions.find(s => s.value === newStatus)?.title || newStatus
+  if (newStatus === 'inactive' && isCurrentOrganization(item.id)) {
+    showSnackbar('Khong the chuyen to chuc dang lam viec hien tai sang ngung hoat dong.', 'warning')
+
+    return
+  }
+
+  const nextLabel = statusOptions.find(status => status.value === newStatus)?.title || newStatus
 
   openConfirmDialog({
-    title: 'Đổi trạng thái tổ chức',
-    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang "${nextLabel}" không?`,
-    confirmText: 'Đổi trạng thái',
+    title: 'Doi trang thai to chuc',
+    message: `Ban co chac chan muon chuyen "${item.name}" sang "${nextLabel}" khong?`,
+    confirmText: 'Doi trang thai',
     confirmColor: 'warning',
     action: async () => {
-      await $api(`/organizations/${item.id}/status`, { method: 'PATCH', body: { status: newStatus } })
-      showSuccess('Cập nhật trạng thái tổ chức thành công.')
-      fetchOrganizations()
-      fetchStats()
+      await changeOrganizationStatusRequest(item.id, newStatus)
+      showSuccess('Cap nhat trang thai to chuc thanh cong.')
+      refreshList()
     },
   })
 }
 
-const isExporting = ref(false)
-
 const handleExport = async () => {
   if (!ability.can('export', 'Organization')) return
+
   isExporting.value = true
   try {
-    const blob = await exportOrganizations({
-      search: searchQuery.value,
-      status: selectedStatus.value,
-      sort_by: sortBy.value,
-      sort_order: orderBy.value,
-      page: page.value,
-      limit: itemsPerPage.value,
+    if (selectedOrganizations.value.length) {
+      exportRowsToExcel({
+        rows: selectedOrganizations.value.map(item => ({
+          name: item.name || '',
+          slug: item.slug || '',
+          parent_name: item.parent?.name || '',
+          status: item.status || '',
+          sort_order: item.sort_order ?? '',
+          updated_at: formatAuthDateTime(item.updated_at || item.created_at, { fallback: '' }),
+        })),
+        headers: ['name', 'slug', 'parent_name', 'status', 'sort_order', 'updated_at'],
+        sheetName: 'Organizations',
+        fileName: `organizations_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 28 },
+          { wch: 24 },
+          { wch: 28 },
+          { wch: 14 },
+          { wch: 14 },
+          { wch: 22 },
+        ],
+      })
+
+      return
+    }
+
+    const blob = await $api(`/organizations/export?${buildAuthQueryString(buildExportParams())}`, {
+      responseType: 'blob',
     })
 
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
+    const safeBlob = blob instanceof Blob
+      ? blob
+      : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 
-    a.href = url
-    a.download = `organizations_${new Date().toISOString().slice(0, 10)}.xlsx`
-    document.body.appendChild(a)
-    a.click()
+    const url = window.URL.createObjectURL(safeBlob)
+    const anchor = document.createElement('a')
+
+    anchor.href = url
+    anchor.download = `organizations_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(anchor)
+    anchor.click()
+
     setTimeout(() => {
-      document.body.removeChild(a)
+      document.body.removeChild(anchor)
       window.URL.revokeObjectURL(url)
     }, 5000)
   }
-  catch (err) {
-    showError(err, 'Không thể xuất dữ liệu tổ chức.')
-    console.error('Export error:', err)
+  catch (error) {
+    showError(error, 'Khong the xuat du lieu to chuc.')
+    console.error('Export organizations error:', error)
   }
   finally {
     isExporting.value = false
   }
 }
 
-const isImportDialogVisible = ref(false)
-const importFile = ref(null)
-const isImporting = ref(false)
-
-const handleImport = async () => {
+const handleImport = async file => {
   if (!ability.can('import', 'Organization')) return
-  if (!importFile.value) return
-  isImporting.value = true
+
   try {
-    await importOrganizations(importFile.value)
-    isImportDialogVisible.value = false
-    importFile.value = null
-    showSuccess('Import dữ liệu tổ chức thành công.')
-    fetchOrganizations()
-    fetchStats()
+    await importOrganizations(file)
+    showSuccess('Import du lieu to chuc thanh cong.')
+    refreshList()
   }
-  catch (err) {
-    showError(err, 'Không thể import dữ liệu tổ chức.')
-    console.error('Import error:', err)
-  }
-  finally {
-    isImporting.value = false
-  }
-}
-
-const isDownloadingTemplate = ref(false)
-
-const handleDownloadTemplate = async () => {
-  if (!ability.can('import', 'Organization')) return
-  isDownloadingTemplate.value = true
-  try {
-    const blob = await downloadOrganizationTemplate()
-    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
-
-    a.href = url
-    a.download = 'organizations_template.xlsx'
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(() => {
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    }, 5000)
-  }
-  catch (err) {
-    showError(err, 'Không thể tải file mẫu.')
-    console.error('Download template error:', err)
-  }
-  finally {
-    isDownloadingTemplate.value = false
+  catch (error) {
+    showError(error, 'Khong the import du lieu to chuc.')
+    console.error('Import organizations error:', error)
   }
 }
 </script>
 
 <template>
-  <div>
-    <div class="d-flex mb-6">
+  <div class="organization-page">
+    <div class="organization-stats mb-6">
       <VRow>
         <VCol
           v-for="(data, idx) in widgetData"
@@ -388,14 +609,14 @@ const handleDownloadTemplate = async () => {
           md="4"
           sm="6"
         >
-          <VCard>
-            <VCardText>
-              <div class="d-flex justify-space-between">
-                <div class="d-flex flex-column gap-y-1">
-                  <div class="text-body-1 text-high-emphasis">
+          <VCard class="organization-stat-card">
+            <VCardText class="organization-stat-card__body">
+              <div class="d-flex justify-space-between align-start">
+                <div class="d-flex flex-column gap-y-2">
+                  <div class="text-body-1 text-high-emphasis organization-stat-card__label">
                     {{ data.title }}
                   </div>
-                  <h4 class="text-h4">
+                  <h4 class="text-h3 organization-stat-card__value">
                     {{ data.value }}
                   </h4>
                 </div>
@@ -404,11 +625,9 @@ const handleDownloadTemplate = async () => {
                   variant="tonal"
                   rounded
                   size="42"
+                  class="organization-stat-card__icon"
                 >
-                  <VIcon
-                    :icon="data.icon"
-                    size="26"
-                  />
+                  <VIcon :icon="data.icon" size="26" />
                 </VAvatar>
               </div>
             </VCardText>
@@ -417,16 +636,11 @@ const handleDownloadTemplate = async () => {
       </VRow>
     </div>
 
-    <VCard>
-      <VCardItem class="pb-4">
+    <VCard class="organization-main-card">
+      <VCardItem class="pb-4 organization-main-card__header">
         <template #prepend>
-          <div class="d-flex align-center">
-            <VIcon
-              icon="tabler-filter"
-              color="primary"
-              size="24"
-              class="me-2"
-            />
+          <div class="d-flex align-center organization-toolbar-title">
+            <VIcon icon="tabler-filter" color="primary" size="24" class="me-2" />
             <h5 class="text-h5 text-primary mb-0 font-weight-medium">
               {{ t('organizations.organizations.list.filter') }}
             </h5>
@@ -434,53 +648,64 @@ const handleDownloadTemplate = async () => {
         </template>
 
         <template #append>
-          <div class="d-flex gap-4 align-center flex-wrap">
-            <VBtn
-              v-if="$can('create', 'Organization')"
-              variant="outlined"
-              color="info"
-              prepend-icon="tabler-cloud-upload"
-              @click="isImportDialogVisible = true"
-            >
-              {{ t('organizations.organizations.list.import_data') }}
-            </VBtn>
-            <VBtn
-              v-if="$can('read', 'Organization')"
-              variant="outlined"
-              color="info"
-              prepend-icon="tabler-file-export"
-              :loading="isExporting"
-              @click="handleExport"
-            >
-              {{ t('organizations.organizations.list.export_data') }}
-            </VBtn>
-            <VBtn
-              v-if="$can('create', 'Organization')"
-              color="primary"
-              prepend-icon="tabler-plus"
-              @click="openAddDialog"
-            >
-              {{ t('organizations.organizations.list.add_new') }}
-            </VBtn>
-          </div>
+          <AuthDataActions
+            :show-import="$can('import', 'Organization')"
+            :show-template="$can('import', 'Organization')"
+            :show-export="$can('export', 'Organization')"
+            :show-create="$can('create', 'Organization')"
+            :create-label="t('organizations.organizations.list.add_new')"
+            :import-label="t('organizations.organizations.list.import_data')"
+            import-subtitle="Nap file Excel vao he thong"
+            template-label="Tai file mau import"
+            template-subtitle="Lay mau Excel dung cot ma backend dang nhan"
+            :export-label="t('organizations.organizations.list.export_data')"
+            export-subtitle="Xuat danh sach hien tai ra file"
+            :import-dialog-title="t('organizations.organizations.list.import_dialog_title')"
+            import-hint="Import ho tro file `.xlsx`, `.xls`, `.csv` theo contract backend hien tai."
+            :select-file-label="t('organizations.organizations.list.select_excel')"
+            :cancel-text="t('organizations.organizations.list.cancel')"
+            :import-text="t('organizations.organizations.list.import')"
+            :export-loading="isExporting"
+            :import-handler="handleImport"
+            :template-handler="downloadOrganizationImportTemplate"
+            :export-handler="handleExport"
+            :create-handler="openAddDialog"
+          />
         </template>
       </VCardItem>
 
-      <VCardText class="pb-6">
-        <AppTextField
-          v-model="searchQuery"
-          :label="t('organizations.organizations.list.search_label')"
-          :placeholder="t('organizations.organizations.list.search_placeholder')"
-          density="compact"
-          class="w-100"
-        />
+      <VCardText class="pb-6 organization-filter-panel">
+        <VRow class="organization-filter-row">
+          <VCol cols="12" md="8" class="organization-filter-col">
+            <AppTextField
+              v-model="searchQuery"
+              class="organization-filter-input"
+              :label="t('organizations.organizations.list.search_label')"
+              :placeholder="t('organizations.organizations.list.search_placeholder')"
+              density="compact"
+            />
+          </VCol>
+          <VCol cols="12" md="4" class="organization-filter-col">
+            <AppSelect
+              v-model="selectedStatus"
+              class="organization-filter-input"
+              label="Trang thai"
+              clearable
+              :items="statusOptions"
+              item-title="title"
+              item-value="value"
+            />
+          </VCol>
+        </VRow>
       </VCardText>
 
       <VDivider />
 
       <template v-if="selectedRows.length > 0">
-        <VCardText class="d-flex align-center gap-3">
-          <span class="text-body-1 font-weight-medium">{{ t('organizations.organizations.list.selected_count', { count: selectedRows.length }) }}</span>
+        <VCardText class="d-flex align-center gap-3 flex-wrap">
+          <span class="text-body-1 font-weight-medium">
+            {{ t('organizations.organizations.list.selected_count', { count: selectedRows.length }) }}
+          </span>
           <VSpacer />
           <VBtn
             v-if="$can('bulkDestroy', 'Organization')"
@@ -508,18 +733,18 @@ const handleDownloadTemplate = async () => {
             </template>
             <VList>
               <VListItem
-                v-for="s in bulkStatusOptions"
-                :key="s.value"
-                @click="bulkChangeStatus(s.value)"
+                v-for="status in bulkStatusOptions"
+                :key="status.value"
+                @click="bulkChangeStatus(status.value)"
               >
-                <VListItemTitle>{{ s.title }}</VListItemTitle>
+                <VListItemTitle>{{ status.title }}</VListItemTitle>
               </VListItem>
             </VList>
           </VMenu>
           <VBtn
             variant="text"
             size="small"
-            @click="selectedRows = []"
+            @click="clearSelectedOrganizations"
           >
             {{ t('organizations.organizations.list.clear_selection') }}
           </VBtn>
@@ -529,17 +754,18 @@ const handleDownloadTemplate = async () => {
       <VDivider />
 
       <VDataTableServer
+        class="organization-table text-no-wrap"
         v-model:items-per-page="itemsPerPage"
-        v-model:model-value="selectedRows"
         v-model:page="page"
+        :model-value="selectedRows"
         :items="organizations"
         :items-length="totalOrganizations"
         :headers="headers"
         :loading="loading"
         item-value="id"
-        class="text-no-wrap"
         show-select
         hover
+        @update:model-value="handleSelectionChange"
         @update:options="updateOptions"
       >
         <template #item.index="{ index }">
@@ -547,21 +773,30 @@ const handleDownloadTemplate = async () => {
         </template>
 
         <template #item.name="{ item }">
-          <div class="d-flex align-center">
-            <template v-if="item.parent_id">
-              <VIcon
-                icon="tabler-arrow-back-up"
-                size="16"
-                class="me-2 text-disabled"
-                style="transform: scaleX(-1);"
-              />
-            </template>
+          <div class="d-flex align-center" :style="getTreeIndentStyle(item)">
+            <VIcon
+              v-if="item.parent_id"
+              icon="tabler-arrow-back-up"
+              size="16"
+              class="me-2 text-disabled"
+              style="transform: scaleX(-1);"
+            />
+            <VIcon
+              v-else
+              icon="tabler-building-bank"
+              size="16"
+              class="me-2 text-disabled"
+            />
             <div class="d-flex flex-column gap-y-1">
               <span class="text-body-1 text-high-emphasis font-weight-medium">{{ item.name }}</span>
               <span
                 v-if="!item.parent_id"
                 class="text-caption text-disabled"
               >{{ t('organizations.organizations.list.root_tree') }}</span>
+              <span
+                v-else
+                class="text-caption text-medium-emphasis"
+              >Nam trong: {{ item.parent?.name || 'To chuc cha' }}</span>
             </div>
           </div>
         </template>
@@ -577,68 +812,54 @@ const handleDownloadTemplate = async () => {
             label
             size="small"
             variant="tonal"
-            :color="resolveStatusVariant(item.status).color"
+            :color="resolveEffectiveStatusVariant(item).color"
           >
-            {{ resolveStatusVariant(item.status).text }}
+            {{ resolveEffectiveStatusVariant(item).text }}
           </VChip>
         </template>
 
         <template #item.updated_at="{ item }">
           <div class="d-flex flex-column gap-y-1">
             <span class="text-body-2 font-weight-medium text-primary">
-              <VAvatar
-                color="primary"
-                size="24"
-                class="me-1"
-              >
-                <VIcon
-                  v-if="item.editor?.role === t('organizations.organizations.list.system_admin')"
-                  size="14"
-                  icon="tabler-shield-check"
-                />
-                <VIcon
-                  v-else
-                  size="14"
-                  icon="tabler-user"
-                />
-              </VAvatar>
-              {{ item.editor?.name || t('organizations.organizations.list.system_admin') }}
+              {{ item.updated_by || t('organizations.organizations.list.system_admin') }}
             </span>
-            <span class="text-caption text-disabled">{{ item.updated_at || t('organizations.organizations.list.empty') }}</span>
+            <span class="text-caption text-disabled">{{ formatAuthDateTime(item.updated_at || item.created_at, { fallback: t('organizations.organizations.list.empty') }) }}</span>
           </div>
         </template>
 
         <template #item.actions="{ item }">
           <div class="d-flex justify-center gap-2">
             <IconBtn
+              v-if="$can('read', 'Organization')"
+              color="secondary"
+              @click="openDetailDialog(item)"
+            >
+              <VIcon icon="tabler-eye" size="20" />
+            </IconBtn>
+            <IconBtn
               v-if="$can('update', 'Organization')"
               color="info"
               @click="openEditDialog(item)"
             >
-              <VIcon
-                icon="tabler-pencil"
-                size="20"
-              />
+              <VIcon icon="tabler-pencil" size="20" />
             </IconBtn>
             <VMenu v-if="$can('update', 'Organization')">
               <template #activator="{ props }">
                 <IconBtn
                   color="warning"
                   v-bind="props"
+                  :disabled="hasInactiveParent(item)"
                 >
-                  <VIcon
-                    icon="tabler-toggle-right"
-                    size="20"
-                  />
+                  <VIcon icon="tabler-toggle-right" size="20" />
                 </IconBtn>
               </template>
               <VList>
                 <VListItem
-                  v-for="s in statusOptions.filter(s => s.value !== item.status && !(s.value === 'inactive' && isCurrentOrganization(item.id)))"
-                  :key="s.value"
-                  @click="changeOrganizationStatus(item, s.value)"
+                  v-for="status in statusOptions.filter(option => option.value !== item.status && !(option.value === 'inactive' && isCurrentOrganization(item.id)))"
+                  :key="status.value"
+                  @click="changeOrganizationStatus(item, status.value)"
                 >
-                  <VListItemTitle>{{ s.title }}</VListItemTitle>
+                  <VListItemTitle>{{ status.title }}</VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
@@ -647,10 +868,7 @@ const handleDownloadTemplate = async () => {
               color="error"
               @click="deleteOrganization(item.id)"
             >
-              <VIcon
-                icon="tabler-trash"
-                size="20"
-              />
+              <VIcon icon="tabler-trash" size="20" />
             </IconBtn>
           </div>
         </template>
@@ -671,6 +889,11 @@ const handleDownloadTemplate = async () => {
       @saved="onSaved"
     />
 
+    <OrganizationDetailDialog
+      v-model="isDetailDialogVisible"
+      :organization-id="selectedOrganizationId"
+    />
+
     <ActionConfirmDialog
       v-model="isConfirmDialogVisible"
       :title="confirmDialog.title"
@@ -686,54 +909,183 @@ const handleDownloadTemplate = async () => {
       :message="snackbar.message"
       :color="snackbar.color"
     />
-
-    <VDialog
-      v-model="isImportDialogVisible"
-      max-width="500"
-    >
-      <VCard :title="t('organizations.organizations.list.import_dialog_title')">
-        <VCardText>
-          <div class="mb-5">
-            <VBtn
-              variant="tonal"
-              color="success"
-              size="small"
-              prepend-icon="tabler-download"
-              :loading="isDownloadingTemplate"
-              @click="handleDownloadTemplate"
-            >
-              {{ t('organizations.organizations.list.download_template') }}
-            </VBtn>
-            <div class="text-caption mt-1 text-disabled">
-              {{ t('organizations.organizations.list.import_hint') }}
-            </div>
-          </div>
-
-          <VFileInput
-            v-model="importFile"
-            :label="t('organizations.organizations.list.select_excel')"
-            accept=".xlsx,.xls,.csv"
-            prepend-icon="tabler-file-spreadsheet"
-          />
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn
-            variant="tonal"
-            @click="isImportDialogVisible = false"
-          >
-            {{ t('organizations.organizations.list.cancel') }}
-          </VBtn>
-          <VBtn
-            color="primary"
-            :loading="isImporting"
-            :disabled="!importFile"
-            @click="handleImport"
-          >
-            {{ t('organizations.organizations.list.import') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
   </div>
 </template>
+
+<style scoped>
+.organization-page {
+  --organization-accent: rgb(var(--v-theme-primary));
+  --organization-accent-soft: rgba(var(--v-theme-primary), 0.08);
+  --organization-border: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.organization-stat-card,
+.organization-main-card {
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.organization-stat-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.organization-stat-card::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.95), rgba(var(--v-theme-info), 0.65));
+  content: '';
+}
+
+.organization-stat-card__body {
+  padding: 22px 24px;
+}
+
+.organization-stat-card__label {
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  letter-spacing: 0.01em;
+}
+
+.organization-stat-card__value {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.organization-stat-card__icon {
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.08);
+}
+
+.organization-main-card {
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+.organization-main-card__header {
+  padding-block: 20px 16px;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04), rgba(var(--v-theme-surface), 0)),
+    linear-gradient(90deg, rgba(var(--v-theme-info), 0.04), transparent 30%);
+}
+
+.organization-toolbar-title {
+  min-height: 42px;
+}
+
+.organization-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.organization-toolbar-actions__button {
+  min-inline-size: 164px;
+}
+
+.organization-filter-panel {
+  padding-block-start: 8px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 1), rgba(var(--v-theme-primary), 0.015));
+}
+
+.organization-filter-row {
+  align-items: center;
+}
+
+.organization-filter-col {
+  display: flex;
+  align-items: center;
+}
+
+.organization-filter-input {
+  flex: 1 1 auto;
+}
+
+.organization-filter-input :deep(.v-input) {
+  inline-size: 100%;
+}
+
+.organization-filter-input :deep(.v-field) {
+  min-block-size: 46px;
+}
+
+.organization-filter-input :deep(.v-field__input) {
+  align-items: center;
+  min-block-size: 46px;
+  padding-block: 0;
+}
+
+.organization-filter-input :deep(.v-label) {
+  margin-block-end: 6px;
+}
+
+.organization-table :deep(.v-data-table-header__content) {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.organization-table :deep(tbody tr) {
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.organization-table :deep(tbody tr:hover) {
+  background: rgba(var(--v-theme-primary), 0.03);
+}
+
+.organization-table :deep(td),
+.organization-table :deep(th) {
+  border-color: rgba(var(--v-border-color), 0.6);
+}
+
+.organization-table :deep(.v-chip) {
+  font-weight: 600;
+}
+
+@media (max-width: 959px) {
+  .organization-main-card__header {
+    padding-block-end: 8px;
+  }
+
+  .organization-toolbar-actions {
+    justify-content: stretch;
+    inline-size: 100%;
+    margin-block-start: 12px;
+  }
+
+  .organization-filter-row {
+    row-gap: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .organization-toolbar-title {
+    min-height: auto;
+    align-items: center;
+  }
+
+  .organization-toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    inline-size: 100%;
+  }
+
+  .organization-toolbar-actions__button {
+    min-inline-size: 0;
+  }
+
+  .organization-toolbar-actions :deep(.v-btn) {
+    inline-size: 100%;
+    justify-content: center;
+  }
+
+  .organization-filter-col {
+    inline-size: 100%;
+  }
+}
+</style>

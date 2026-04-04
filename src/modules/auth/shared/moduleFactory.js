@@ -28,3 +28,13 @@ export function createNavItem({ titleKey, icon, to, action, subject, children })
 
   return item
 }
+
+export function createNavGroup({ titleKey, icon, children, action, subject }) {
+  return createNavItem({
+    titleKey,
+    icon,
+    children,
+    action,
+    subject,
+  })
+}

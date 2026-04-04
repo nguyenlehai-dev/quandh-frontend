@@ -4,6 +4,13 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 const defaultCopyright = `© ${new Date().getFullYear()} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng`
 const copyrightText = ref(localStorage.getItem('app_copyright') || defaultCopyright)
 
+const footerLinks = [
+  { title: 'Hệ thống', href: '#' },
+  { title: 'Chính sách', href: '#' },
+  { title: 'Tài liệu', href: '#' },
+  { title: 'Hỗ trợ', href: '#' },
+]
+
 const syncCopyright = event => {
   const nextValue = event?.detail?.copyright
 
@@ -23,44 +30,47 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="system-footer">
-    <div class="footer-text">
-      {{ copyrightText }}
+  <VContainer class="system-footer py-4 px-0">
+    <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
+      <div class="d-flex align-center min-w-0">
+        <span class="footer-text text-body-2">
+          {{ copyrightText }}
+        </span>
+      </div>
+
+      <div class="d-flex flex-wrap align-center gap-x-6 gap-y-2 justify-start justify-md-end">
+        <a
+          v-for="link in footerLinks"
+          :key="link.title"
+          :href="link.href"
+          class="footer-link text-body-2"
+        >
+          {{ link.title }}
+        </a>
+      </div>
     </div>
-    <div class="d-md-flex gap-x-6 d-none footer-links">
-      <a href="#">Bản quyền</a>
-      <a href="#">Chính sách</a>
-      <a href="#">Tài liệu</a>
-      <a href="#">Hỗ trợ</a>
-    </div>
-  </div>
+  </VContainer>
 </template>
 
 <style scoped>
 .system-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #fff;
-  padding-block: 16px;
-  padding-inline: 24px;
+  inline-size: 100%;
 }
 
 .footer-text {
-  color: #94a3b8;
-  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.68);
   font-weight: 500;
 }
 
-.footer-links a {
-  color: #0ea5e9;
-  font-size: 0.85rem;
+.footer-link {
+  color: rgb(var(--v-theme-primary));
   font-weight: 500;
   text-decoration: none;
-  transition: opacity 0.2s ease;
+  transition: color 0.2s ease, opacity 0.2s ease;
 }
 
-.footer-links a:hover {
-  opacity: 0.8;
+.footer-link:hover {
+  color: rgb(var(--v-theme-primary));
+  opacity: 0.72;
 }
 </style>

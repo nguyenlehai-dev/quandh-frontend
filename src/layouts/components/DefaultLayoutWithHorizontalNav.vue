@@ -23,7 +23,7 @@ const navItems = computed(() => getHorizontalNavItems())
     <template #navbar>
       <RouterLink
         to="/"
-        class="app-logo d-flex align-center gap-x-3"
+        class="app-logo d-flex align-center gap-x-3 me-4"
       >
         <VNodeRenderer :nodes="themeConfig.app.logo" />
 
@@ -33,17 +33,23 @@ const navItems = computed(() => getHorizontalNavItems())
       </RouterLink>
       <VSpacer />
 
-      <OrgSwitcher class="me-2" />
+      <OrgSwitcher class="me-2 d-none d-md-flex" />
 
       <NavSearchBar trigger-btn-class="ms-lg-n3" />
 
-      <NavBarI18n
-        v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
-        :languages="themeConfig.app.i18n.langConfig"
-      />
+      <div class="d-none d-sm-flex">
+        <NavBarI18n
+          v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
+          :languages="themeConfig.app.i18n.langConfig"
+        />
+      </div>
 
-      <NavbarThemeSwitcher />
-      <NavbarShortcuts />
+      <div class="d-none d-sm-flex">
+        <NavbarThemeSwitcher />
+      </div>
+      <div class="d-none d-md-flex">
+        <NavbarShortcuts />
+      </div>
       <NavBarNotifications class="me-2" />
       <UserProfile />
     </template>
@@ -60,3 +66,12 @@ const navItems = computed(() => getHorizontalNavItems())
     <TheCustomizer />
   </HorizontalNavLayout>
 </template>
+
+<style scoped>
+.app-title {
+  overflow: hidden;
+  max-inline-size: 14rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

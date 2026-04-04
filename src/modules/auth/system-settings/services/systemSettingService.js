@@ -1,9 +1,16 @@
-/**
- * System Settings Service
- */
-import { API_GENERAL, API_NOTIFICATION } from '../configs'
+import { API_BASE } from '../configs'
 
-export const fetchGeneralSettings = () => $api(API_GENERAL)
-export const updateGeneralSettings = data => $api(API_GENERAL, { method: 'PUT', body: data })
-export const fetchNotificationSettings = () => $api(API_NOTIFICATION)
-export const updateNotificationSettings = data => $api(API_NOTIFICATION, { method: 'PUT', body: data })
+export const fetchSystemSettings = () => $api(API_BASE)
+
+export const fetchPublicSystemSettings = () => $api(`${API_BASE}/public`)
+
+export const fetchSystemSetting = key => $api(`${API_BASE}/${key}`)
+
+export const updateSystemSettings = payload => $api(API_BASE, {
+  method: 'PUT',
+  body: payload,
+})
+
+export const normalizeSettingGroups = response => response?.data ?? response ?? {}
+
+export const pickSettingGroup = (groups, groupName, fallback = {}) => groups?.[groupName] ?? fallback

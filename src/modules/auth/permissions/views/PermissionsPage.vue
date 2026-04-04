@@ -1,288 +1,729 @@
 <script setup>
+/* eslint-disable camelcase */
+
+import AddEditPermissionDialog from '@/components/dialogs/AddEditPermissionDialog.vue'
 import { useActionFeedback } from '@/composables/useActionFeedback'
+import { formatAuthDateTime } from '../../shared/dateTime'
+import { exportRowsToExcel } from '../../shared/excelExport'
+import { buildAuthQueryString } from '../../shared/queryParams'
+import AuthDataActions from '../../shared/AuthDataActions.vue'
+import {
+  bulkDeletePermissions as bulkDeletePermissionsRequest,
+  deletePermission as deletePermissionRequest,
+  downloadPermissionTemplate,
+  fetchPermission,
+  fetchPermissionStats,
+  fetchPermissionTree,
+  fetchPermissions as fetchPermissionsRequest,
+  importPermissions,
+} from '../services/permissionService'
 
 const { t } = useI18n()
+const { snackbar, showSuccess, showError } = useActionFeedback()
 
-const search = ref('')
+const searchQuery = ref('')
+const fromDate = ref('')
+const toDate = ref('')
 const page = ref(1)
 const itemsPerPage = ref(10)
+const sortBy = ref('sort_order')
+const orderBy = ref('asc')
 const permissions = ref([])
 const totalItems = ref(0)
-const stats = ref({ groups: 0, total: 0 })
+const loading = ref(false)
+const isExporting = ref(false)
+const selectedRows = ref([])
+const stats = ref({ total: 0 })
+const permissionTree = ref([])
+const permissionItem = ref(null)
+const isDialogVisible = ref(false)
+const detailPermissionItem = ref(null)
+const isDetailDialogVisible = ref(false)
+const isConfirmDialogVisible = ref(false)
+const isConfirming = ref(false)
+const confirmDialog = ref({ title: '', message: '', confirmText: 'Xac nhan', confirmColor: 'primary', action: null })
 
-const { snackbar, showError } = useActionFeedback()
+const headers = [
+  { title: t('permissions.permissions.headers.index'), key: 'index', sortable: false, width: '70px' },
+  { title: t('permissions.permissions.headers.name'), key: 'name' },
+  { title: t('permissions.permissions.headers.group'), key: 'group', sortable: false },
+  { title: t('permissions.permissions.headers.guard_name'), key: 'guard_name', sortable: false, width: '120px' },
+  { title: t('permissions.permissions.headers.description'), key: 'description', sortable: false },
+  { title: t('permissions.permissions.headers.sort_order'), key: 'sort_order', sortable: false, width: '110px' },
+  { title: t('permissions.permissions.headers.created_at'), key: 'created_at', sortable: false, width: '170px' },
+  { title: t('permissions.permissions.headers.actions'), key: 'actions', sortable: false, width: '130px' },
+]
+
+const permissionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  posts: 'Tin tuc',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  agendas: 'Chuong trinh hop',
+  'meeting-agendas': 'Chuong trinh hop',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
+}
+
+const permissionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const getPermissionGroupLabel = groupName => permissionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+
+const getPermissionDisplayLabel = permissionName => {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionGroupLabel(groupName)
+  const actionLabel = permissionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
+
+const buildListParams = () => ({
+  search: searchQuery.value || undefined,
+  from_date: fromDate.value || undefined,
+  to_date: toDate.value || undefined,
+  limit: itemsPerPage.value,
+  page: page.value,
+  sort_by: sortBy.value,
+  sort_order: orderBy.value,
+})
+
+const buildExportParams = () => ({
+  ...buildListParams(),
+})
+
+const permissionOptionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+}
+
+const permissionOptionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+function getPermissionOptionGroupLabel(groupName) {
+  return permissionOptionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+}
+
+function getPermissionOptionTitle(permissionName) {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionOptionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionOptionGroupLabel(groupName)
+  const actionLabel = permissionOptionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
+
+const countTreeNodes = nodes => {
+  return (nodes || []).reduce((count, node) => {
+    return count + 1 + countTreeNodes(node.children || [])
+  }, 0)
+}
+
+const rootGroupCount = computed(() => (permissionTree.value || []).length)
+
+const parentOptions = computed(() => {
+  const options = []
+
+  const appendNodes = (nodes, level = 0) => {
+    nodes.forEach(node => {
+      options.push({
+        title: `${'-- '.repeat(level)}${getPermissionOptionTitle(node.name)}`,
+        value: node.id,
+      })
+      appendNodes(node.children || [], level + 1)
+    })
+  }
+
+  appendNodes(permissionTree.value)
+
+  return options
+})
+
+const widgetData = computed(() => [
+  {
+    title: t('permissions.permissions.page.permissions_count'),
+    value: stats.value.total ?? 0,
+    subtitle: t('permissions.permissions.page.permissions_total'),
+    icon: 'tabler-key',
+    iconColor: 'warning',
+  },
+  {
+    title: t('permissions.permissions.page.groups_count'),
+    value: rootGroupCount.value,
+    subtitle: t('permissions.permissions.page.groups_total'),
+    icon: 'tabler-category',
+    iconColor: 'info',
+  },
+])
+
+const updateOptions = options => {
+  sortBy.value = options.sortBy[0]?.key || 'sort_order'
+  orderBy.value = options.sortBy[0]?.order || 'asc'
+}
 
 const fetchStats = async () => {
   try {
-    const res = await $api('/permissions/stats')
+    const response = await fetchPermissionStats({
+      search: searchQuery.value,
+      from_date: fromDate.value,
+      to_date: toDate.value,
+    })
 
-    stats.value = {
-      groups: res.data?.groups ?? 0,
-      total: res.data?.total ?? 0,
-    }
+    stats.value = response.data ?? { total: 0 }
   }
   catch (err) {
     console.error('Fetch permission stats error:', err)
-    showError(err, 'Không thể tải thống kê quyền hạn.')
+    showError(err, 'Khong the tai thong ke quyen han.')
   }
 }
 
 const fetchPermissions = async () => {
+  loading.value = true
   try {
-    const res = await $api('/permissions', {
-      params: {
-        search: search.value || undefined,
-        limit: itemsPerPage.value,
-        page: page.value,
-        // eslint-disable-next-line camelcase
-        sort_by: 'sort_order',
-        // eslint-disable-next-line camelcase
-        sort_order: 'asc',
-      },
-    })
+    const response = await fetchPermissionsRequest(buildListParams())
 
-    permissions.value = res.data ?? []
-    totalItems.value = res.meta?.total ?? res.total ?? permissions.value.length
+    permissions.value = response.data ?? []
+    totalItems.value = response.meta?.total ?? response.total ?? 0
   }
   catch (err) {
     console.error('Fetch permissions error:', err)
     permissions.value = []
-    showError(err, 'Không thể tải danh sách quyền hạn.')
+    totalItems.value = 0
+    showError(err, 'Khong the tai danh sach quyen han.')
+  }
+  finally {
+    loading.value = false
   }
 }
+
+const fetchTree = async () => {
+  try {
+    const response = await fetchPermissionTree()
+
+    permissionTree.value = response.data ?? []
+  }
+  catch (err) {
+    console.error('Fetch permission tree error:', err)
+    permissionTree.value = []
+  }
+}
+
+const refreshList = async () => {
+  await Promise.all([
+    fetchPermissions(),
+    fetchStats(),
+    fetchTree(),
+  ])
+}
+
+let filterTimeout
+watch([searchQuery, fromDate, toDate], () => {
+  clearTimeout(filterTimeout)
+  filterTimeout = setTimeout(() => {
+    page.value = 1
+    refreshList()
+  }, 300)
+})
+
+watch([page, itemsPerPage, sortBy, orderBy], () => {
+  fetchPermissions()
+})
 
 onMounted(() => {
-  fetchStats()
-  fetchPermissions()
+  refreshList()
 })
 
-watch([search, page, itemsPerPage], () => {
-  fetchPermissions()
-})
-
-const isGroupRow = perm => perm.name?.startsWith('group:')
-
-const actionToNameMap = {
-  index: t('permissions.permissions.actions.index'),
-  show: t('permissions.permissions.actions.show'),
-  store: t('permissions.permissions.actions.store'),
-  update: t('permissions.permissions.actions.update'),
-  destroy: t('permissions.permissions.actions.destroy'),
-  bulkDestroy: t('permissions.permissions.actions.bulkDestroy'),
-  bulkUpdateStatus: t('permissions.permissions.actions.bulkUpdateStatus'),
-  stats: t('permissions.permissions.actions.stats'),
-  import: t('permissions.permissions.actions.import'),
-  export: t('permissions.permissions.actions.export'),
-  review: t('permissions.permissions.actions.review'),
-  approve: t('permissions.permissions.actions.approve'),
-  download: t('permissions.permissions.actions.download'),
-  tree: t('permissions.permissions.actions.tree'),
-  changeStatus: t('permissions.permissions.actions.changeStatus'),
-  destroyAll: t('permissions.permissions.actions.destroyAll'),
-  destroyByDate: t('permissions.permissions.actions.destroyByDate'),
-  reorder: t('permissions.permissions.actions.reorder'),
-  setActive: t('permissions.permissions.actions.setActive'),
-  checkin: t('permissions.permissions.actions.checkin'),
-  open: t('permissions.permissions.actions.open'),
-  close: t('permissions.permissions.actions.close'),
-  vote: t('permissions.permissions.actions.vote'),
-  results: t('permissions.permissions.actions.results'),
-  incrementView: t('permissions.permissions.actions.incrementView'),
+const clearFilters = () => {
+  searchQuery.value = ''
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
 }
 
-const entityToNameMap = {
-  dashboard: t('permissions.permissions.entities.dashboard'),
-  'business-overview': t('permissions.permissions.entities.business-overview'),
-  users: t('permissions.permissions.entities.users'),
-  roles: t('permissions.permissions.entities.roles'),
-  organizations: t('permissions.permissions.entities.organizations'),
-  settings: t('permissions.permissions.entities.settings'),
-  posts: t('permissions.permissions.entities.posts'),
-  'post-categories': t('permissions.permissions.entities.post-categories'),
-  'log-activities': t('permissions.permissions.entities.log-activities'),
-  'report-periods': t('permissions.permissions.entities.report-periods'),
-  'report-templates': t('permissions.permissions.entities.report-templates'),
-  reports: t('permissions.permissions.entities.reports'),
-  meetings: t('permissions.permissions.entities.meetings'),
-  'meeting-types': t('permissions.permissions.entities.meeting-types'),
-  'attendee-groups': t('permissions.permissions.entities.attendee-groups'),
-  'meeting-participants': t('permissions.permissions.entities.meeting-participants'),
-  'meeting-agendas': t('permissions.permissions.entities.meeting-agendas'),
-  'meeting-documents': t('permissions.permissions.entities.meeting-documents'),
-  'meeting-conclusions': t('permissions.permissions.entities.meeting-conclusions'),
-  'meeting-votings': t('permissions.permissions.entities.meeting-votings'),
-  'meeting-speech-requests': t('permissions.permissions.entities.meeting-speech-requests'),
-  documents: t('permissions.permissions.entities.documents'),
-  'document-types': t('permissions.permissions.entities.document-types'),
-  'issuing-agencies': t('permissions.permissions.entities.issuing-agencies'),
-  'issuing-levels': t('permissions.permissions.entities.issuing-levels'),
-  'document-signers': t('permissions.permissions.entities.document-signers'),
-  'document-fields': t('permissions.permissions.entities.document-fields'),
+const isGroupRow = item => item.name?.startsWith('group:')
+
+const getGroupName = item => {
+  if (isGroupRow(item))
+    return t('permissions.permissions.page.dash')
+
+  if (item.parent?.name)
+    return getPermissionGroupLabel(item.parent.name.replace('group:', ''))
+
+  return getPermissionGroupLabel(item.name.split('.')[0])
 }
 
-const getDisplayName = perm => {
-  if (isGroupRow(perm)) {
-    const groupName = perm.name.replace('group:', '')
+const getDisplayName = item => {
+  return getPermissionDisplayLabel(item.name)
+}
 
-    return entityToNameMap[groupName] || groupName
+const openCreateDialog = () => {
+  permissionItem.value = null
+  isDialogVisible.value = true
+}
+
+const openEditDialog = item => {
+  permissionItem.value = { ...item }
+  isDialogVisible.value = true
+}
+
+const openDetailDialog = async item => {
+  try {
+    const response = await fetchPermission(item.id)
+
+    detailPermissionItem.value = response.data ?? response ?? { ...item }
   }
-
-  const parts = perm.name.split('.')
-  if (parts.length === 2) {
-    const entity = entityToNameMap[parts[0]] || parts[0]
-    const action = actionToNameMap[parts[1]] || parts[1]
-
-    return `${entity} - ${action}`
+  catch (err) {
+    console.error('Fetch permission detail error:', err)
+    detailPermissionItem.value = { ...item }
+    showError(err, 'Khong the tai chi tiet quyen han.')
   }
-
-  return perm.name
-}
-
-const getGroupName = perm => {
-  if (isGroupRow(perm)) return t('permissions.permissions.page.dash')
-  if (perm.parent?.name) return perm.parent.name.replace('group:', '')
-
-  return perm.name.split('.')[0]
-}
-
-const roleBadgeColor = name => {
-  const map = {
-    admin: 'error',
-    'super-admin': 'primary',
-    editor: 'warning',
-    user: 'info',
+  finally {
+    isDetailDialogVisible.value = true
   }
-
-  return map[name?.toLowerCase()] || 'info'
 }
 
-const isExporting = ref(false)
+const onSaved = async () => {
+  await refreshList()
+}
+
+const openConfirmDialog = options => {
+  confirmDialog.value = { ...confirmDialog.value, ...options }
+  isConfirmDialogVisible.value = true
+}
+
+const executeConfirmedAction = async () => {
+  if (!confirmDialog.value.action)
+    return
+
+  isConfirming.value = true
+  try {
+    await confirmDialog.value.action()
+    isConfirmDialogVisible.value = false
+  }
+  catch (err) {
+    showError(err, 'Khong the thuc hien thao tac nay.')
+  }
+  finally {
+    isConfirming.value = false
+  }
+}
+
+const deletePermission = item => {
+  openConfirmDialog({
+    title: 'Xoa quyen han',
+    message: `Ban co chac chan muon xoa quyen "${item.name}" khong?`,
+    confirmText: 'Xoa',
+    confirmColor: 'error',
+    action: async () => {
+      await deletePermissionRequest(item.id)
+      selectedRows.value = selectedRows.value.filter(id => id !== item.id)
+      showSuccess('Xoa quyen han thanh cong.')
+      await refreshList()
+    },
+  })
+}
+
+const bulkDeletePermissions = () => {
+  if (!selectedRows.value.length)
+    return
+
+  openConfirmDialog({
+    title: 'Xoa hang loat quyen han',
+    message: `Ban co chac chan muon xoa ${selectedRows.value.length} quyen da chon khong?`,
+    confirmText: 'Xoa',
+    confirmColor: 'error',
+    action: async () => {
+      await bulkDeletePermissionsRequest(selectedRows.value)
+      selectedRows.value = []
+      showSuccess('Xoa hang loat quyen han thanh cong.')
+      await refreshList()
+    },
+  })
+}
 
 const handleExport = async () => {
   isExporting.value = true
   try {
-    const res = await $api('/permissions/export', { responseType: 'blob' })
-    const safeBlob = res instanceof Blob ? res : new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(safeBlob)
-    const a = document.createElement('a')
+    if (selectedRows.value.length) {
+      const selectedPermissions = permissions.value.filter(item => selectedRows.value.includes(item.id))
 
-    a.href = url
-    a.download = `permissions_${new Date().toISOString().slice(0, 10)}.xlsx`
-    document.body.appendChild(a)
-    a.click()
+      exportRowsToExcel({
+        rows: selectedPermissions.map(item => ({
+          name: getPermissionDisplayLabel(item.name || ''),
+          code: item.name || '',
+          guard_name: item.guard_name || 'web',
+          description: item.description || '',
+          sort_order: item.sort_order ?? 0,
+          parent_id: item.parent_id ?? '',
+          created_at: formatAuthDateTime(item.created_at, { fallback: '' }),
+        })),
+        headers: ['name', 'code', 'guard_name', 'description', 'sort_order', 'parent_id', 'created_at'],
+        sheetName: 'Permissions',
+        fileName: `permissions_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 28 },
+          { wch: 32 },
+          { wch: 16 },
+          { wch: 36 },
+          { wch: 14 },
+          { wch: 14 },
+          { wch: 22 },
+        ],
+      })
+
+      return
+    }
+
+    const response = await $api(`/permissions/export?${buildAuthQueryString(buildExportParams())}`, {
+      responseType: 'blob',
+    })
+
+    const safeBlob = response instanceof Blob ? response : new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const anchor = document.createElement('a')
+
+    anchor.href = url
+    anchor.download = `permissions_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(anchor)
+    anchor.click()
     setTimeout(() => {
-      document.body.removeChild(a)
+      document.body.removeChild(anchor)
       window.URL.revokeObjectURL(url)
     }, 5000)
   }
   catch (err) {
     console.error('Export permissions error:', err)
-    showError(err, 'Không thể xuất dữ liệu quyền hạn.')
+    showError(err, 'Khong the xuat du lieu quyen han.')
   }
   finally {
     isExporting.value = false
   }
 }
 
-const headers = [
-  { title: t('permissions.permissions.headers.index'), key: 'index', sortable: false, width: '70px' },
-  { title: t('permissions.permissions.headers.name'), key: 'name', sortable: false },
-  { title: t('permissions.permissions.headers.group'), key: 'group', sortable: false },
-  { title: t('permissions.permissions.headers.roles'), key: 'roles', sortable: false },
-  { title: t('permissions.permissions.headers.created_at'), key: 'created_at', sortable: false, width: '160px' },
-]
+const handleImport = async file => {
+  try {
+    await importPermissions(file)
+    showSuccess('Import du lieu quyen han thanh cong.')
+    await refreshList()
+  }
+  catch (err) {
+    console.error('Import permissions error:', err)
+    showError(err, 'Khong the import du lieu quyen han.')
+    throw err
+  }
+}
 </script>
 
 <template>
   <div id="permissions-module-root">
     <VRow class="mb-4">
-      <VCol cols="12" class="mb-2">
-        <div class="d-flex align-center gap-4">
-          <VAvatar color="info" variant="outlined" rounded="xl" size="54" class="border-opacity-100 border-info">
-            <VIcon icon="tabler-lock" size="28" />
-          </VAvatar>
-          <div class="d-flex flex-column">
-            <h3 class="text-h3 font-weight-bold mb-1">{{ t('permissions.permissions.page.title') }}</h3>
-            <span class="text-body-2 text-disabled">{{ t('permissions.permissions.page.description') }}</span>
+      <VCol
+        cols="12"
+        class="mb-2"
+      >
+        <div class="d-flex align-center justify-space-between flex-wrap gap-4">
+          <div class="d-flex align-center gap-4">
+            <VAvatar
+              color="info"
+              variant="outlined"
+              rounded="xl"
+              size="54"
+              class="border-opacity-100 border-info"
+            >
+              <VIcon
+                icon="tabler-lock"
+                size="28"
+              />
+            </VAvatar>
+            <div class="d-flex flex-column">
+              <h3 class="text-h3 font-weight-bold mb-1">
+                {{ t('permissions.permissions.page.title') }}
+              </h3>
+              <span class="text-body-2 text-disabled">{{ t('permissions.permissions.page.description') }}</span>
+            </div>
           </div>
+
+          <AuthDataActions
+            :show-import="$can('import', 'Permission')"
+            :show-template="$can('import', 'Permission')"
+            :show-export="$can('export', 'Permission')"
+            :show-create="$can('create', 'Permission')"
+            create-label="Them Moi"
+            :import-label="t('permissions.permissions.page.import_excel')"
+            :export-label="t('permissions.permissions.page.export_excel')"
+            :import-dialog-title="t('permissions.permissions.page.import_dialog_title')"
+            :import-hint="t('permissions.permissions.page.import_hint')"
+            :select-file-label="t('permissions.permissions.page.select_excel')"
+            :cancel-text="t('permissions.permissions.page.cancel')"
+            :import-text="t('permissions.permissions.page.import')"
+            :export-loading="isExporting"
+            :import-handler="handleImport"
+            :template-handler="downloadPermissionTemplate"
+            :export-handler="handleExport"
+            :create-handler="openCreateDialog"
+          />
         </div>
       </VCol>
 
-      <VCol cols="12" md="6">
+      <VCol
+        v-for="(data, idx) in widgetData"
+        :key="idx"
+        cols="12"
+        md="6"
+      >
         <VCard class="border">
           <VCardText class="d-flex align-center justify-space-between">
             <div>
-              <p class="text-body-2 text-disabled mb-1">{{ t('permissions.permissions.page.groups_count') }}</p>
-              <h3 class="text-h3 font-weight-bold">{{ stats.groups }}</h3>
-              <span class="text-caption text-disabled">{{ t('permissions.permissions.page.groups_total') }}</span>
+              <p class="text-body-2 text-disabled mb-1">
+                {{ data.title }}
+              </p>
+              <h3 class="text-h3 font-weight-bold">
+                {{ data.value }}
+              </h3>
+              <span class="text-caption text-disabled">{{ data.subtitle }}</span>
             </div>
-            <VAvatar color="info" variant="tonal" size="48" rounded>
-              <VIcon icon="tabler-category" size="26" />
-            </VAvatar>
-          </VCardText>
-        </VCard>
-      </VCol>
-
-      <VCol cols="12" md="6">
-        <VCard class="border">
-          <VCardText class="d-flex align-center justify-space-between">
-            <div>
-              <p class="text-body-2 text-disabled mb-1">{{ t('permissions.permissions.page.permissions_count') }}</p>
-              <h3 class="text-h3 font-weight-bold">{{ stats.total }}</h3>
-              <span class="text-caption text-disabled">{{ t('permissions.permissions.page.permissions_total') }}</span>
-            </div>
-            <VAvatar color="warning" variant="tonal" size="48" rounded>
-              <VIcon icon="tabler-key" size="26" />
+            <VAvatar
+              :color="data.iconColor"
+              variant="tonal"
+              size="48"
+              rounded
+            >
+              <VIcon
+                :icon="data.icon"
+                size="26"
+              />
             </VAvatar>
           </VCardText>
         </VCard>
       </VCol>
 
       <VCol cols="12">
-        <VCard>
-          <VCardText class="d-flex align-center justify-space-between flex-wrap gap-4 pb-2">
-            <div class="d-flex align-center gap-2">
-              <VIcon icon="tabler-filter" size="20" class="text-disabled" />
-              <span class="text-h6 font-weight-bold">{{ t('permissions.permissions.page.filter') }}</span>
+        <VCard class="permissions-main-card">
+          <VCardText class="permissions-main-card__header">
+            <div class="d-flex align-center gap-2 mb-4">
+              <VIcon
+                icon="tabler-filter"
+                size="20"
+                color="info"
+              />
+              <span class="text-subtitle-1 font-weight-bold">{{ t('permissions.permissions.page.filter') }}</span>
             </div>
-            <div class="d-flex align-center gap-2">
-              <VBtn v-if="$can('export', 'Permission')" variant="tonal" color="secondary" prepend-icon="tabler-upload" :loading="isExporting" @click="handleExport">
-                {{ t('permissions.permissions.page.export_excel') }}
+
+            <VRow class="permissions-filter-row">
+              <VCol
+                cols="12"
+                md="5"
+              >
+                <AppTextField
+                  v-model="searchQuery"
+                  :placeholder="t('permissions.permissions.page.search_placeholder')"
+                  :label="t('permissions.permissions.page.search_label')"
+                  prepend-inner-icon="tabler-search"
+                  clearable
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="3"
+              >
+                <AppDateTimePicker
+                  v-model="fromDate"
+                  :label="t('permissions.permissions.page.from_date')"
+                  :placeholder="t('permissions.permissions.page.from_date_placeholder')"
+                  :config="{ dateFormat: 'Y-m-d' }"
+                  clearable
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="3"
+              >
+                <AppDateTimePicker
+                  v-model="toDate"
+                  :label="t('permissions.permissions.page.to_date')"
+                  :placeholder="t('permissions.permissions.page.to_date_placeholder')"
+                  :config="{ dateFormat: 'Y-m-d' }"
+                  clearable
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="1"
+                class="d-flex justify-end align-center"
+              >
+                <VBtn
+                  variant="tonal"
+                  color="secondary"
+                  prepend-icon="tabler-rotate-clockwise"
+                  @click="clearFilters"
+                >
+                  {{ t('permissions.permissions.page.reset') }}
+                </VBtn>
+              </VCol>
+            </VRow>
+
+            <VAlert
+              type="info"
+              variant="tonal"
+              class="mt-4"
+              title="Quyen han he thong"
+            >
+              Danh sach quyen han duoc sinh theo cau hinh va ma nguon he thong. Man nay dung de quan ly, tim kiem va xuat du lieu.
+            </VAlert>
+
+            <div
+              v-if="selectedRows.length"
+              class="d-flex align-center justify-space-between flex-wrap gap-3 mt-4"
+            >
+              <div class="text-body-2 text-medium-emphasis">
+                {{ t('permissions.permissions.page.selected_summary', { count: selectedRows.length }) }}
+              </div>
+
+              <VBtn
+                v-if="$can('delete', 'Permission')"
+                color="error"
+                variant="tonal"
+                prepend-icon="tabler-trash"
+                @click="bulkDeletePermissions"
+              >
+                {{ t('permissions.permissions.page.bulk_delete') }}
               </VBtn>
             </div>
           </VCardText>
 
-          <VCardText class="pt-0 pb-4">
-            <VRow>
-              <VCol cols="12" md="6">
-                <AppTextField v-model="search" :placeholder="t('permissions.permissions.page.search_placeholder')" :label="t('permissions.permissions.page.search_label')" prepend-inner-icon="tabler-search" clearable />
-              </VCol>
-              <VCol cols="12">
-                <VAlert
-                  type="info"
-                  variant="tonal"
-                  title="Quyền hạn hệ thống"
-                >
-                  Danh sách quyền hạn được sinh theo cấu hình và mã nguồn hệ thống. Màn này chỉ dùng để tra cứu, tìm kiếm và xuất dữ liệu.
-                </VAlert>
-              </VCol>
-            </VRow>
-          </VCardText>
-
           <VDivider />
 
-          <VDataTableServer v-model:items-per-page="itemsPerPage" v-model:page="page" :items-length="totalItems" :headers="headers" :items="permissions" class="text-no-wrap permission-table">
+          <VDataTableServer
+            v-model:items-per-page="itemsPerPage"
+            v-model:model-value="selectedRows"
+            v-model:page="page"
+            :items-length="totalItems"
+            :headers="headers"
+            :items="permissions"
+            :loading="loading"
+            item-value="id"
+            class="text-no-wrap permission-table"
+            show-select
+            @update:options="updateOptions"
+          >
             <template #item.index="{ index }">
               <span class="text-body-2 text-disabled">{{ (page - 1) * itemsPerPage + index + 1 }}</span>
             </template>
 
             <template #item.name="{ item }">
-              <div v-if="isGroupRow(item)" class="d-flex align-center">
-                <h6 class="text-h6 font-weight-bold">{{ getDisplayName(item) }}</h6>
+              <div
+                v-if="isGroupRow(item)"
+                class="d-flex align-center"
+              >
+                <h6 class="text-h6 font-weight-bold">
+                  {{ getDisplayName(item) }}
+                </h6>
               </div>
-              <div v-else class="d-flex align-center gap-2 ps-4">
-                <VIcon icon="tabler-corner-down-right" size="16" class="text-disabled" />
-                <span class="text-body-1">{{ getDisplayName(item) }}</span>
+              <div
+                v-else
+                class="d-flex align-center gap-2 ps-4"
+              >
+                <VIcon
+                  icon="tabler-corner-down-right"
+                  size="16"
+                  class="text-disabled"
+                />
+                <span class="text-body-1 font-weight-medium">{{ getDisplayName(item) }}</span>
               </div>
             </template>
 
@@ -290,28 +731,105 @@ const headers = [
               <span class="text-body-2 text-disabled">{{ getGroupName(item) }}</span>
             </template>
 
-            <template #item.roles="{ item }">
-              <div v-if="item.roles && item.roles.length" class="d-flex gap-1 flex-wrap">
-                <VChip v-for="r in item.roles" :key="r.id || r" :color="roleBadgeColor(r.name || r)" size="small" label class="font-weight-medium">
-                  {{ r.name || r }}
-                </VChip>
-              </div>
-              <VChip v-else-if="!isGroupRow(item)" color="secondary" size="small" label class="font-weight-medium">
-                {{ t('permissions.permissions.page.unassigned_role') }}
+            <template #item.guard_name="{ item }">
+              <VChip
+                size="small"
+                color="info"
+                variant="tonal"
+                label
+              >
+                {{ item.guard_name || 'web' }}
               </VChip>
-              <span v-else class="text-disabled">{{ t('permissions.permissions.page.dash') }}</span>
+            </template>
+
+            <template #item.description="{ item }">
+              <span class="text-body-2 text-disabled">{{ item.description || t('permissions.permissions.page.dash') }}</span>
+            </template>
+
+            <template #item.sort_order="{ item }">
+              <span class="text-body-2">{{ item.sort_order ?? 0 }}</span>
             </template>
 
             <template #item.created_at="{ item }">
-              <span class="text-body-2 text-disabled">{{ item.created_at || t('permissions.permissions.page.dash') }}</span>
+              <span class="text-body-2 text-disabled">{{ formatAuthDateTime(item.created_at, { fallback: t('permissions.permissions.page.dash') }) }}</span>
             </template>
+
+            <template #item.actions="{ item }">
+              <div class="d-flex align-center">
+                <IconBtn
+                  v-if="$can('show', 'Permission')"
+                  variant="text"
+                  color="info"
+                  size="small"
+                  @click="openDetailDialog(item)"
+                >
+                  <VIcon
+                    icon="tabler-eye"
+                    size="20"
+                  />
+                </IconBtn>
+                <IconBtn
+                  v-if="$can('update', 'Permission')"
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  @click="openEditDialog(item)"
+                >
+                  <VIcon
+                    icon="tabler-pencil"
+                    size="20"
+                  />
+                </IconBtn>
+                <IconBtn
+                  v-if="$can('delete', 'Permission')"
+                  variant="text"
+                  color="error"
+                  size="small"
+                  @click="deletePermission(item)"
+                >
+                  <VIcon
+                    icon="tabler-trash"
+                    size="20"
+                  />
+                </IconBtn>
+              </div>
+            </template>
+
             <template #bottom>
-              <TablePagination v-model:page="page" :items-per-page="itemsPerPage" :total-items="totalItems" />
+              <TablePagination
+                v-model:page="page"
+                :items-per-page="itemsPerPage"
+                :total-items="totalItems"
+              />
             </template>
           </VDataTableServer>
         </VCard>
       </VCol>
     </VRow>
+
+    <AddEditPermissionDialog
+      v-model:is-dialog-visible="isDialogVisible"
+      :permission-item="permissionItem"
+      :parent-options="parentOptions"
+      @saved="onSaved"
+    />
+
+    <AddEditPermissionDialog
+      v-model:is-dialog-visible="isDetailDialogVisible"
+      :permission-item="detailPermissionItem"
+      :parent-options="parentOptions"
+      readonly
+    />
+
+    <ActionConfirmDialog
+      v-model="isConfirmDialogVisible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :confirm-color="confirmDialog.confirmColor"
+      :loading="isConfirming"
+      @confirm="executeConfirmedAction"
+    />
 
     <ActionSnackbar
       v-model="snackbar.show"
@@ -322,6 +840,20 @@ const headers = [
 </template>
 
 <style lang="scss">
+.permissions-main-card {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.permissions-main-card__header {
+  padding: 20px 24px 16px;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04), rgba(var(--v-theme-surface), 0)),
+    linear-gradient(90deg, rgba(var(--v-theme-info), 0.04), transparent 30%);
+}
+
 .permission-table {
   .v-data-table__tr {
     &:hover {

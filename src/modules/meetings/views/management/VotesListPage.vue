@@ -1,4 +1,6 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import '@/modules/meetings/assets/meeting-styles.css'
 import { fetchMeetingTypes, exportVotes } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
@@ -7,6 +9,10 @@ const { t } = useI18n()
 
 const searchQuery = ref('')
 const meetingTypeId = ref(null)
+const statusFilter = ref(null)
+const typeFilter = ref(null)
+const fromDate = ref('')
+const toDate = ref('')
 const meetingTypes = ref([])
 const itemsPerPage = ref(10)
 const page = ref(1)
@@ -33,15 +39,31 @@ const headers = computed(() => [
   { title: 'STT', key: 'index', sortable: false, width: 60 },
   { title: t('meetings.meetings.list_pages.votes.name'), key: 'title' },
   { title: t('meetings.meetings.list_pages.votes.meeting'), key: 'meeting_title' },
+  { title: 'Loai', key: 'type' },
   { title: t('meetings.meetings.list_pages.votes.status'), key: 'status' },
   { title: t('meetings.meetings.list_pages.votes.result'), key: 'result' },
   { title: t('meetings.meetings.list_pages.common.actions'), key: 'actions', sortable: false },
 ])
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-votings', {
+const statusOptions = [
+  { title: 'Cho mo', value: 'pending' },
+  { title: 'Dang mo', value: 'open' },
+  { title: 'Da dong', value: 'closed' },
+]
+
+const typeOptions = [
+  { title: 'Cong khai', value: 'public' },
+  { title: 'An danh', value: 'anonymous' },
+]
+
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/admin/meetings/all-votings', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     meeting_type_id: computed(() => meetingTypeId.value || undefined),
+    status: computed(() => statusFilter.value || undefined),
+    type: computed(() => typeFilter.value || undefined),
+    from_date: computed(() => fromDate.value || undefined),
+    to_date: computed(() => toDate.value || undefined),
     sort_by: computed(() => sortBy.value || undefined),
     sort_order: computed(() => orderBy.value || undefined),
     limit: itemsPerPage,
@@ -60,11 +82,17 @@ const exportData = async () => {
     const res = await exportVotes({
       search: searchQuery.value || undefined,
       meeting_type_id: meetingTypeId.value || undefined,
+      status: statusFilter.value || undefined,
+      type: typeFilter.value || undefined,
+      from_date: fromDate.value || undefined,
+      to_date: toDate.value || undefined,
+      sort_by: sortBy.value || undefined,
+      sort_order: orderBy.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
-    downloadBlob(res, 'danh-sach-bieu-quyet.xlsx')
+    downloadBlob(res, 'danh-sach-bieu-quyet-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -116,6 +144,62 @@ const exportData = async () => {
               clearable
             />
           </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trang thai
+            </div>
+            <AppSelect
+              v-model="statusFilter"
+              :items="statusOptions"
+              placeholder="Tat ca trang thai"
+              density="compact"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loai bieu quyet
+            </div>
+            <AppSelect
+              v-model="typeFilter"
+              :items="typeOptions"
+              placeholder="Tat ca loai"
+              density="compact"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Tu ngay
+            </div>
+            <AppTextField
+              v-model="fromDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Den ngay
+            </div>
+            <AppTextField
+              v-model="toDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
         </VRow>
       </div>
     </div>
@@ -136,6 +220,7 @@ const exportData = async () => {
       </div>
       <div class="d-flex gap-3">
         <VBtn
+          v-if="$can('export', 'MeetingVoting')"
           variant="outlined"
           prepend-icon="tabler-download"
           :loading="isExporting"
@@ -162,19 +247,53 @@ const exportData = async () => {
           {{ (page - 1) * itemsPerPage + index + 1 }}
         </template>
 
+        <template #item.title="{ item }">
+          <span class="font-weight-medium">
+            {{ item.title || t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
+        </template>
+
+        <template #item.meeting_title="{ item }">
+          <span
+            v-if="item.meeting_title"
+            class="font-weight-medium text-primary"
+          >
+            {{ item.meeting_title }}
+          </span>
+          <span
+            v-else
+            class="text-disabled"
+          >
+            {{ t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
+        </template>
+
+        <template #item.type="{ item }">
+          <VChip
+            size="small"
+            variant="tonal"
+            :color="item.type === 'anonymous' ? 'secondary' : 'info'"
+          >
+            {{ item.type === 'anonymous' ? 'An danh' : 'Cong khai' }}
+          </VChip>
+        </template>
+
         <template #item.status="{ item }">
           <VChip
             size="small"
-            :color="item.status === 'completed' ? 'success' : 'warning'"
+            :color="item.status === 'closed' ? 'success' : item.status === 'open' ? 'warning' : 'secondary'"
             variant="tonal"
           >
-            {{ item.status === 'completed' ? t('meetings.meetings.list_pages.votes.completed') : t('meetings.meetings.list_pages.votes.in_progress') }}
+            {{ item.status === 'closed' ? 'Da dong' : item.status === 'open' ? 'Dang mo' : 'Cho mo' }}
           </VChip>
         </template>
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn :to="{ name: 'meetings-edit', params: { id: item.meeting_id || 0 }, query: { tab: 'voting' } }">
+            <IconBtn
+              v-if="item.meeting_id && $can('update', 'Meeting')"
+              :to="{ name: 'meetings-edit', params: { id: item.meeting_id }, query: { tab: 'voting' } }"
+            >
               <VIcon icon="tabler-eye" />
               <VTooltip
                 activator="parent"

@@ -3,6 +3,7 @@
  */
 import { API_BASE } from '../configs'
 import { createCrudService } from '../../shared/crudServiceFactory'
+import * as XLSX from 'xlsx'
 
 const roleCrud = createCrudService(API_BASE)
 
@@ -14,5 +15,31 @@ export const deleteRole = roleCrud.deleteOne
 export const bulkDeleteRoles = roleCrud.bulkDelete
 export const fetchRoleStats = roleCrud.fetchStats
 export const exportRoles = roleCrud.exportList
-export const downloadRoleTemplate = roleCrud.downloadTemplate
 export const importRoles = roleCrud.importFile
+
+export const downloadRoleTemplate = () => {
+  const rows = [
+    {
+      name: 'admin',
+      'guard_name': 'api',
+    },
+    {
+      name: 'editor',
+      'guard_name': 'api',
+    },
+  ]
+
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: ['name', 'guard_name'],
+  })
+
+  const workbook = XLSX.utils.book_new()
+
+  worksheet['!cols'] = [
+    { wch: 24 },
+    { wch: 16 },
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Roles')
+  XLSX.writeFile(workbook, 'roles-import-template.xlsx')
+}

@@ -18,10 +18,13 @@ const {
   getChairperson,
   getPresenterName,
   getSecretary,
+  handleQrCheckin,
   handleSelfCheckin,
   isAbsentDialogOpen,
   isCheckinSubmitting,
   isDelegateDialogOpen,
+  isQrCheckinDialogOpen,
+  isSpeechRequestDialogOpen,
   isRequestingSpeak,
   isSavingNote,
   isSpeakRequested,
@@ -32,10 +35,18 @@ const {
   loading,
   meeting,
   personalNotes,
+  qrCheckinError,
+  qrCheckinToken,
+  qrTokenPreview,
   requestSpeak,
   resolveStatusBadgeClass,
   resolveStatusLabel,
   selectedVoteAnswer,
+  speechAgendaOptions,
+  speechHistoryList,
+  speechRequestError,
+  speechRequestForm,
+  speechRequestList,
   submitVote,
 } = useParticipantMeetingDetails()
 </script>
@@ -271,6 +282,15 @@ const {
                       @click="handleSelfCheckin('present')"
                     >
                       Báo Có Mặt
+                    </VBtn>
+                    <VBtn
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                      prepend-icon="tabler-qrcode"
+                      @click="isQrCheckinDialogOpen = true"
+                    >
+                      QR Check-in
                     </VBtn>
                     <VBtn
                       size="small"
@@ -721,7 +741,6 @@ const {
             cols="12"
             lg="6"
           >
-            <!-- Speech Register -->
             <div class="meeting-section-card">
               <div class="meeting-section-header">
                 <div class="meeting-section-title">
@@ -729,8 +748,8 @@ const {
                     icon="tabler-hand-stop"
                     class="section-icon"
                   />
-                  Danh sách đăng ký phát biểu
-                  <span class="section-badge">{{ meeting.participants?.filter(p => p.attendance_status === 'present').length || 0 }} đại biểu</span>
+                  Dang ky phat bieu
+                  <span class="section-badge">{{ speechRequestList.length }} luot</span>
                 </div>
                 <VBtn
                   v-if="['active', 'in_progress'].includes(meeting.status) && !isSpeakRequested"
@@ -738,9 +757,9 @@ const {
                   color="primary"
                   prepend-icon="tabler-hand-stop"
                   :loading="isRequestingSpeak"
-                  @click="requestSpeak"
+                  @click="isSpeechRequestDialogOpen = true"
                 >
-                  Đăng Ký Phát Biểu
+                  Dang ky phat bieu
                 </VBtn>
                 <VBtn
                   v-else-if="isSpeakRequested"
@@ -749,7 +768,7 @@ const {
                   variant="tonal"
                   @click="cancelSpeakRequest"
                 >
-                  Hủy yêu cầu
+                  Huy yeu cau
                 </VBtn>
               </div>
 
@@ -759,15 +778,15 @@ const {
                     <th style="width: 50px">
                       STT
                     </th>
-                    <th>Đại biểu</th>
-                    <th>Chức vụ</th>
-                    <th>Thời điểm</th>
+                    <th>Dai bieu</th>
+                    <th>Nghi su</th>
+                    <th>Thoi diem</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr
-                    v-for="(participant, i) in (meeting.participants || []).filter(p => p.attendance_status === 'present').slice(0, 10)"
-                    :key="participant.id"
+                    v-for="(request, i) in speechRequestList.slice(0, 10)"
+                    :key="request.id"
                   >
                     <td>{{ i + 1 }}</td>
                     <td>
@@ -775,21 +794,21 @@ const {
                         <span
                           class="avatar-circle"
                           :class="['purple', 'green', 'blue', 'orange'][i % 4]"
-                        >{{ (participant.user?.name || 'U').charAt(0) }}</span>
-                        {{ participant.user?.name || 'Đại biểu' }}
+                        >{{ (request.participant?.user?.name || 'U').charAt(0) }}</span>
+                        {{ request.participant?.user?.name || 'Dai bieu' }}
                       </div>
                     </td>
-                    <td>{{ participant.position || (['chairperson', 'chair'].includes(participant.meeting_role) ? 'Chủ tọa' : (participant.meeting_role === 'secretary' ? 'Thư ký' : 'Đại biểu')) }}</td>
-                    <td>{{ participant.created_at?.split(' ')[0]?.slice(0, 5) || '--:--' }}</td>
+                    <td>{{ request.agenda?.title || 'Chua chon nghi su' }}</td>
+                    <td>{{ request.created_at?.split(' ')[0]?.slice(0, 5) || '--:--' }}</td>
                   </tr>
                 </tbody>
               </table>
 
               <div
-                v-if="!meeting.participants?.length"
+                v-if="!speechRequestList.length"
                 class="pa-5 text-center text-disabled"
               >
-                Chưa có đại biểu nào
+                Chua co luot dang ky phat bieu nao
               </div>
             </div>
           </VCol>
@@ -798,7 +817,6 @@ const {
             cols="12"
             lg="6"
           >
-            <!-- Speech History -->
             <div class="meeting-section-card">
               <div class="meeting-section-header">
                 <div class="meeting-section-title">
@@ -806,25 +824,52 @@ const {
                     icon="tabler-history"
                     class="section-icon"
                   />
-                  Lịch sử phát biểu
-                  <span class="section-badge">0 lượt phát biểu</span>
+                  Lich su phat bieu
+                  <span class="section-badge">{{ speechHistoryList.length }} luot</span>
                 </div>
                 <VBtn
                   size="small"
                   variant="outlined"
                   prepend-icon="tabler-download"
                 >
-                  Xuất Danh Sách
+                  Xuat danh sach
                 </VBtn>
               </div>
 
-              <div class="pa-6 text-center text-medium-emphasis">
+              <div
+                v-if="speechHistoryList.length"
+                class="pa-0"
+              >
+                <div
+                  v-for="item in speechHistoryList"
+                  :key="item.id"
+                  class="vote-item"
+                >
+                  <div class="vote-title-text">
+                    {{ item.participant?.user?.name || 'Dai bieu' }}
+                  </div>
+                  <div class="text-body-2 text-medium-emphasis">
+                    {{ item.agenda?.title || 'Chua chon nghi su' }}
+                  </div>
+                  <div
+                    v-if="item.content"
+                    class="text-body-2 mt-1"
+                  >
+                    {{ item.content }}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-else
+                class="pa-6 text-center text-medium-emphasis"
+              >
                 <VIcon
                   icon="tabler-microphone-off"
                   size="40"
                   class="mb-2 opacity-50"
                 />
-                <p>Chưa có lịch sử phát biểu</p>
+                <p>Chua co lich su phat bieu</p>
               </div>
             </div>
           </VCol>
@@ -1221,6 +1266,116 @@ const {
           @click="submitVote"
         >
           Gửi biểu quyết
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <VDialog
+    v-model="isSpeechRequestDialogOpen"
+    max-width="560"
+  >
+    <VCard title="Dang ky phat bieu">
+      <VCardText>
+        <div class="text-body-2 mb-4">
+          Chon nghi su va nhap noi dung du kien de gui yeu cau phat bieu.
+        </div>
+
+        <AppSelect
+          v-model="speechRequestForm.meeting_agenda_id"
+          :items="speechAgendaOptions"
+          label="Nghi su *"
+          placeholder="Chon nghi su"
+          class="mb-4"
+        />
+
+        <AppTextarea
+          v-model="speechRequestForm.content"
+          label="Noi dung phat bieu *"
+          placeholder="Nhap noi dung du kien phat bieu"
+          rows="4"
+        />
+
+        <VAlert
+          v-if="speechRequestError"
+          type="error"
+          variant="tonal"
+          class="mt-4"
+        >
+          {{ speechRequestError }}
+        </VAlert>
+      </VCardText>
+      <VCardActions class="px-6 pb-6">
+        <VSpacer />
+        <VBtn
+          variant="tonal"
+          color="secondary"
+          @click="isSpeechRequestDialogOpen = false"
+        >
+          Huy
+        </VBtn>
+        <VBtn
+          color="primary"
+          :loading="isRequestingSpeak"
+          :disabled="!speechRequestForm.meeting_agenda_id || !speechRequestForm.content.trim()"
+          @click="requestSpeak"
+        >
+          Nop yeu cau
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <VDialog
+    v-model="isQrCheckinDialogOpen"
+    max-width="480"
+  >
+    <VCard title="QR Check-in">
+      <VCardText>
+        <div class="text-body-2 mb-3">
+          Nhap QR token do quan tri vien cung cap de diem danh tham du.
+        </div>
+
+        <AppTextField
+          v-model="qrCheckinToken"
+          label="QR Token"
+          placeholder="Vi du: A1B2C3D4E5F6"
+        />
+
+        <VAlert
+          v-if="qrCheckinError"
+          type="error"
+          variant="tonal"
+          class="mt-4"
+        >
+          {{ qrCheckinError }}
+        </VAlert>
+
+        <VAlert
+          v-else-if="qrTokenPreview"
+          type="info"
+          variant="tonal"
+          class="mt-4"
+        >
+          QR token hien tai: <strong>{{ qrTokenPreview }}</strong>
+        </VAlert>
+      </VCardText>
+      <VCardActions class="px-6 pb-6">
+        <VSpacer />
+        <VBtn
+          variant="tonal"
+          color="secondary"
+          @click="isQrCheckinDialogOpen = false"
+        >
+          Huy
+        </VBtn>
+        <VBtn
+          color="primary"
+          :loading="isCheckinSubmitting"
+          :disabled="!qrCheckinToken.trim()"
+          @click="handleQrCheckin"
+        >
+          Xac nhan
         </VBtn>
       </VCardActions>
     </VCard>

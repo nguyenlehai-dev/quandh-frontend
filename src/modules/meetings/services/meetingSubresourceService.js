@@ -1,7 +1,8 @@
-import { API_BASE } from '../configs'
+import { API_ADMIN_MEETINGS, API_BASE, API_PARTICIPANT } from '../configs'
 
 export const fetchMeetingDocuments = meetingId => $api(`${API_BASE}/${meetingId}/documents`)
 export const createMeetingDocument = (meetingId, data) => $api(`${API_BASE}/${meetingId}/documents`, { method: 'POST', body: data })
+export const updateMeetingDocument = (meetingId, docId, data) => $api(`${API_BASE}/${meetingId}/documents/${docId}`, { method: 'PUT', body: data })
 export const deleteMeetingDocument = (meetingId, docId) => $api(`${API_BASE}/${meetingId}/documents/${docId}`, { method: 'DELETE' })
 
 export const fetchMeetingConclusions = meetingId => $api(`${API_BASE}/${meetingId}/conclusions`)
@@ -22,16 +23,24 @@ export const fetchMeetingParticipants = meetingId => $api(`${API_BASE}/${meeting
 export const createMeetingParticipant = (meetingId, data) => $api(`${API_BASE}/${meetingId}/participants`, { method: 'POST', body: data })
 export const updateMeetingParticipant = (meetingId, participantId, data) => $api(`${API_BASE}/${meetingId}/participants/${participantId}`, { method: 'PUT', body: data })
 export const deleteMeetingParticipant = (meetingId, participantId) => $api(`${API_BASE}/${meetingId}/participants/${participantId}`, { method: 'DELETE' })
-export const selfCheckinMeetingParticipant = (meetingId, data) => $api(`${API_BASE}/${meetingId}/self-checkin`, { method: 'POST', body: data })
-export const fetchAvailableDelegates = meetingId => $api(`${API_BASE}/${meetingId}/available-delegates`)
+export const checkinMeetingParticipant = (meetingId, participantId, data) => $api(`${API_BASE}/${meetingId}/participants/${participantId}/checkin`, { method: 'PATCH', body: data })
+export const selfCheckinMeetingParticipant = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/self-checkin`, { method: 'POST' })
+export const fetchAvailableDelegates = meetingId => $api(`${API_ADMIN_MEETINGS}/${meetingId}/participant-candidates`)
 
-export const fetchPersonalNotes = meetingId => $api(`${API_BASE}/${meetingId}/personal-notes`)
-export const createPersonalNote = (meetingId, data) => $api(`${API_BASE}/${meetingId}/personal-notes`, { method: 'POST', body: data })
-export const updatePersonalNote = (meetingId, noteId, data) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'PUT', body: data })
-export const deletePersonalNote = (meetingId, noteId) => $api(`${API_BASE}/${meetingId}/personal-notes/${noteId}`, { method: 'DELETE' })
+export const fetchPersonalNotes = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/personal-notes`)
+export const createPersonalNote = (meetingId, data) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/personal-notes`, { method: 'POST', body: data })
+export const updatePersonalNote = (meetingId, noteId, data) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/personal-notes/${noteId}`, { method: 'PUT', body: data })
+export const deletePersonalNote = (meetingId, noteId) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/personal-notes/${noteId}`, { method: 'DELETE' })
 
 export const fetchSpeechRequests = meetingId => $api(`${API_BASE}/${meetingId}/speech-requests`)
-export const createSpeechRequest = meetingId => $api(`${API_BASE}/${meetingId}/speech-requests`, { method: 'POST' })
+export const fetchMySpeechRequests = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/speech-requests/mine`)
+export const createSpeechRequest = (meetingId, data = {}) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/speech-requests`, { method: 'POST', body: data })
 export const deleteSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}`, { method: 'DELETE' })
 export const approveSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}/approve`, { method: 'PATCH' })
 export const rejectSpeechRequest = (meetingId, requestId) => $api(`${API_BASE}/${meetingId}/speech-requests/${requestId}/reject`, { method: 'PATCH' })
+
+export const fetchParticipantMeetingDocuments = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/documents`)
+export const fetchParticipantMeetingConclusions = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/conclusions`)
+export const fetchCurrentVoting = meetingId => $api(`${API_PARTICIPANT}/meetings/${meetingId}/votings/current`)
+export const castParticipantVote = (meetingId, voteId, choice) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/votings/${voteId}/vote`, { method: 'POST', body: { choice } })
+export const fetchParticipantVotingResult = (meetingId, voteId) => $api(`${API_PARTICIPANT}/meetings/${meetingId}/votings/${voteId}/result`)

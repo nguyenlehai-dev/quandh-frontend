@@ -1,4 +1,6 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import '@/modules/meetings/assets/meeting-styles.css'
 import { fetchMeetingTypes, exportConclusions } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
@@ -7,6 +9,8 @@ const { t } = useI18n()
 
 const searchQuery = ref('')
 const meetingTypeId = ref(null)
+const fromDate = ref('')
+const toDate = ref('')
 const meetingTypes = ref([])
 const itemsPerPage = ref(10)
 const page = ref(1)
@@ -38,10 +42,12 @@ const headers = computed(() => [
   { title: t('meetings.meetings.list_pages.common.actions'), key: 'actions', sortable: false },
 ])
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-conclusions', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/admin/meetings/all-conclusions', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     meeting_type_id: computed(() => meetingTypeId.value || undefined),
+    from_date: computed(() => fromDate.value || undefined),
+    to_date: computed(() => toDate.value || undefined),
     sort_by: computed(() => sortBy.value || undefined),
     sort_order: computed(() => orderBy.value || undefined),
     limit: itemsPerPage,
@@ -60,11 +66,15 @@ const exportData = async () => {
     const res = await exportConclusions({
       search: searchQuery.value || undefined,
       meeting_type_id: meetingTypeId.value || undefined,
+      from_date: fromDate.value || undefined,
+      to_date: toDate.value || undefined,
+      sort_by: sortBy.value || undefined,
+      sort_order: orderBy.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
-    downloadBlob(res, 'ket-luan-cuoc-hop.xlsx')
+    downloadBlob(res, 'danh-sach-ket-luan-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -116,6 +126,32 @@ const exportData = async () => {
               clearable
             />
           </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Tu ngay
+            </div>
+            <AppTextField
+              v-model="fromDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Den ngay
+            </div>
+            <AppTextField
+              v-model="toDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
         </VRow>
       </div>
     </div>
@@ -136,6 +172,7 @@ const exportData = async () => {
       </div>
       <div class="d-flex gap-3">
         <VBtn
+          v-if="$can('export', 'MeetingConclusion')"
           variant="outlined"
           prepend-icon="tabler-download"
           :loading="isExporting"
@@ -186,10 +223,14 @@ const exportData = async () => {
           </span>
         </template>
 
+        <template #item.created_by="{ item }">
+          {{ item.created_by || t('meetings.meetings.list_pages.common.empty_value') }}
+        </template>
+
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
             <IconBtn
-              v-if="item.meeting_id"
+              v-if="item.meeting_id && $can('update', 'Meeting')"
               :to="{ name: 'meetings-edit', params: { id: item.meeting_id }, query: { tab: 'conclusions' } }"
             >
               <VIcon icon="tabler-eye" />

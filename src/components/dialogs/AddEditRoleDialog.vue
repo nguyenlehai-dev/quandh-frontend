@@ -10,7 +10,12 @@ const props = defineProps({
       id: null,
       name: '',
       permissions: [],
+      'guard_name': 'web',
     }),
+  },
+  readonly: {
+    type: Boolean,
+    default: false,
   },
   isDialogVisible: {
     type: Boolean,
@@ -24,190 +29,160 @@ const emit = defineEmits([
   'saved',
 ])
 
-// Permission list from API
+const { snackbar, showError, showSnackbar } = useActionFeedback()
+
 const allPermissions = ref([])
 const loadingPermissions = ref(false)
 const saving = ref(false)
 const submitError = ref('')
-const { snackbar, showError, showSnackbar } = useActionFeedback()
+
+const role = ref('')
+const roleId = ref(null)
+const roleGuardName = ref('web')
+const permissionSearch = ref('')
+const isSelectAll = ref(false)
+const refPermissionForm = ref()
 
 const fetchPermissions = async () => {
   loadingPermissions.value = true
   try {
-    const res = await $api('/permissions', { params: { limit: 999 } })
+    const response = await $api('/permissions', {
+      params: {
+        limit: 100,
+        'sort_by': 'sort_order',
+        'sort_order': 'asc',
+      },
+    })
 
-    allPermissions.value = (res.data ?? [])
-      .filter(p => !p.name.startsWith('group:'))
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        guardName: p.guard_name ?? 'api',
-        description: p.description || p.name,
-        parentId: p.parent_id,
+    allPermissions.value = (response.data ?? [])
+      .filter(permission => !permission.name?.startsWith('group:'))
+      .map(permission => ({
+        id: permission.id,
+        name: permission.name,
+        guardName: permission.guard_name ?? 'web',
         checked: false,
       }))
   }
   catch (err) {
     console.error('Fetch permissions error:', err)
     allPermissions.value = []
-    showError(err, 'Không thể tải danh sách quyền cho vai trò.')
+    showError(err, 'Khong the tai danh sach quyen cho vai tro.')
   }
   finally {
     loadingPermissions.value = false
   }
 }
 
-const isSelectAll = ref(false)
-const role = ref('')
-const roleId = ref(null)
-const roleScope = ref('admin')
-const roleGuardName = ref('api')
-const permissionSearch = ref('')
-const refPermissionForm = ref()
-
-const scopeOptions = [
-  { title: 'Trong quản trị', value: 'admin' },
-  { title: 'Ngoài quản trị', value: 'user' },
-]
-
-const availablePermissions = computed(() => allPermissions.value.filter(p => p.guardName === roleGuardName.value))
-const checkedCount = computed(() => availablePermissions.value.filter(p => p.checked).length)
+const normalizedRoleGuardName = computed(() => String(roleGuardName.value || 'web').trim() || 'web')
+const availablePermissions = computed(() => allPermissions.value.filter(permission => permission.guardName === normalizedRoleGuardName.value))
+const checkedCount = computed(() => availablePermissions.value.filter(permission => permission.checked).length)
 const isIndeterminate = computed(() => checkedCount.value > 0 && checkedCount.value < availablePermissions.value.length)
+const isReadonlyMode = computed(() => props.readonly)
 
-// Select all toggle
-watch(isSelectAll, val => {
-  availablePermissions.value.forEach(p => {
-    p.checked = val
+watch(isSelectAll, value => {
+  if (isReadonlyMode.value)
+    return
+
+  availablePermissions.value.forEach(permission => {
+    permission.checked = value
   })
-})
-
-watch(isIndeterminate, () => {
-  if (!isIndeterminate.value && checkedCount.value === 0)
-    isSelectAll.value = false
 })
 
 watch(() => checkedCount.value, count => {
-  if (count === availablePermissions.value.length && count > 0)
+  if (!count) {
+    isSelectAll.value = false
+
+    return
+  }
+
+  if (count === availablePermissions.value.length)
     isSelectAll.value = true
 })
 
-// ─── Preset permissions per scope ────────────────
-// "Trong quản trị" → tất cả quyền quản trị hệ thống
-// "Ngoài quản trị" → chỉ quyền xem nội dung cơ bản
-const scopePresets = {
-  admin: {
-    // Các nhóm được tick TẤT CẢ quyền
-    fullGroups: ['users', 'roles', 'organizations', 'permissions', 'settings', 'log-activities'],
-
-    // Các nhóm chỉ tick quyền đọc (index, show, stats)
-    readGroups: ['meetings', 'posts', 'documents', 'document-types', 'post-categories'],
-  },
-  user: {
-    fullGroups: [],
-    readGroups: ['meetings', 'posts', 'documents', 'post-categories'],
-  },
-}
-
-const readActions = ['index', 'show', 'stats']
-
-const applyScopePreset = scope => {
-  const preset = scopePresets[scope]
-  if (!preset) return
-
-  availablePermissions.value.forEach(p => {
-    const dotIndex = p.name.indexOf('.')
-    const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
-    const action = dotIndex > -1 ? p.name.substring(dotIndex + 1) : ''
-
-    if (preset.fullGroups.includes(prefix)) {
-      p.checked = true
-    }
-    else if (preset.readGroups.includes(prefix)) {
-      p.checked = readActions.includes(action)
-    }
-    else {
-      p.checked = false
-    }
-  })
-}
-
-// Watch scope change — only apply preset for NEW roles (not editing)
-watch(roleScope, newScope => {
-  if (!roleId.value && allPermissions.value.length > 0) {
-    applyScopePreset(newScope)
-  }
-})
-
-// ─── Vietnamese label map for permission groups ─────
 const groupLabelMap = {
-  users: 'Quản lý người dùng',
-  roles: 'Quản lý vai trò',
-  organizations: 'Quản lý tổ chức',
-  permissions: 'Quản lý quyền hạn',
-  posts: 'Quản lý tin tức',
-  settings: 'Quản lý cấu hình',
-  'log-activities': 'Quản lý nhật ký',
-  'report-periods': 'Quản lý đợt báo cáo',
-  'report-templates': 'Quản lý mẫu báo cáo',
-  reports: 'Quản lý danh sách báo cáo',
-  meetings: 'Quản lý cuộc họp',
-  documents: 'Quản lý tài liệu',
-  'document-types': 'Quản lý loại tài liệu',
-  'post-categories': 'Quản lý danh mục tin tức',
-  'issuing-agencies': 'Quản lý cơ quan ban hành',
-  'issuing-levels': 'Quản lý cấp ban hành',
-  'document-signers': 'Quản lý người ký',
-  'document-fields': 'Quản lý lĩnh vực',
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  posts: 'Tin tuc',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
+  'post-categories': 'Danh muc tin tuc',
 }
 
-// ─── Vietnamese label map for permission actions ─────
 const actionLabelMap = {
-  index: 'Truy cập danh sách',
-  show: 'Xem chi tiết',
-  store: 'Tạo mới',
-  update: 'Cập nhật',
-  destroy: 'Xóa',
-  stats: 'Thống kê',
-  import: 'Nhập dữ liệu',
-  export: 'Xuất dữ liệu',
-  bulkDestroy: 'Xóa hàng loạt',
-  bulkUpdateStatus: 'Cập nhật trạng thái hàng loạt',
-  review: 'Xem xét',
-  approve: 'Phê duyệt',
-  reject: 'Từ chối',
-  assignPermissions: 'Phân quyền',
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
 }
 
 const sortByLabel = (left, right) => left.localeCompare(right, 'vi', { sensitivity: 'base' })
 
-// Tree/Group logic
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 const permissionGroups = computed(() => {
   const groups = {}
+  const keyword = String(permissionSearch.value || '').trim().toLowerCase()
 
-  availablePermissions.value.forEach(p => {
-    // Split "users.index" → prefix="users", action="index"
-    const dotIndex = p.name.indexOf('.')
-    const prefix = dotIndex > -1 ? p.name.substring(0, dotIndex) : p.name
-    const action = dotIndex > -1 ? p.name.substring(dotIndex + 1) : ''
+  availablePermissions.value.forEach(permission => {
+    const [groupName = permission.name, actionName = ''] = permission.name.split('.')
 
-    if (!groups[prefix]) {
-      groups[prefix] = {
-        name: prefix,
-        label: groupLabelMap[prefix] || (p.description.includes(' - ') ? p.description.split(' - ')[0] : prefix),
+    if (!groups[groupName]) {
+      groups[groupName] = {
+        name: groupName,
+        label: groupLabelMap[groupName] || humanizePermissionPart(groupName),
         permissions: [],
       }
     }
 
-    // Build a nice Vietnamese description for each permission
-    const groupLabel = groups[prefix].label
-    const actionLabel = actionLabelMap[action] || (p.description.includes(' - ') ? p.description.split(' - ').slice(1).join(' - ') : p.description)
+    const actionLabel = actionLabelMap[actionName] || humanizePermissionPart(actionName) || permission.name
 
-    // Build the full description like "Truy cập danh sách người dùng"
-    const groupNoun = groupLabel.replace(/^Quản lý\s*/i, '')
-
-    groups[prefix].permissions.push({
-      permission: p,
-      displayLabel: `${actionLabel} ${groupNoun}`.trim(),
+    groups[groupName].permissions.push({
+      permission,
+      displayLabel: actionName
+        ? `${actionLabel} ${groupLabelMap[groupName] || humanizePermissionPart(groupName)}`.trim()
+        : (groupLabelMap[groupName] || humanizePermissionPart(groupName) || permission.name),
     })
   })
 
@@ -215,124 +190,121 @@ const permissionGroups = computed(() => {
     .map(group => ({
       ...group,
       permissions: group.permissions
-        .filter(permission => {
-          if (!permissionSearch.value) return true
+        .filter(item => {
+          if (!keyword)
+            return true
 
-          const keyword = permissionSearch.value.toLowerCase()
-
-          return permission.displayLabel.toLowerCase().includes(keyword)
-            || permission.permission.name.toLowerCase().includes(keyword)
+          return item.displayLabel.toLowerCase().includes(keyword)
+            || item.permission.name.toLowerCase().includes(keyword)
+            || group.label.toLowerCase().includes(keyword)
         })
         .sort((left, right) => sortByLabel(left.displayLabel, right.displayLabel)),
     }))
-    .filter(group => {
-      if (!permissionSearch.value) return true
-
-      const keyword = permissionSearch.value.toLowerCase()
-
-      return group.label.toLowerCase().includes(keyword) || group.permissions.length > 0
-    })
+    .filter(group => group.permissions.length > 0)
     .sort((left, right) => sortByLabel(left.label, right.label))
 })
 
-const isGroupChecked = group => {
-  return group.permissions.length > 0 && group.permissions.every(p => p.permission.checked)
-}
+const isGroupChecked = group => group.permissions.length > 0 && group.permissions.every(item => item.permission.checked)
 
 const isGroupIndeterminate = group => {
-  const checked = group.permissions.filter(p => p.permission.checked).length
+  const checked = group.permissions.filter(item => item.permission.checked).length
 
   return checked > 0 && checked < group.permissions.length
 }
 
-const toggleGroup = (group, val) => {
-  group.permissions.forEach(p => p.permission.checked = val)
+const toggleGroup = (group, value) => {
+  if (isReadonlyMode.value)
+    return
+
+  group.permissions.forEach(item => {
+    item.permission.checked = value
+  })
 }
 
-// When dialog opens, fetch permissions and populate form
-watch(() => props.isDialogVisible, async visible => {
-  if (visible) {
-    submitError.value = ''
-    await fetchPermissions()
+const syncDialogState = () => {
+  submitError.value = ''
+  permissionSearch.value = ''
+  isSelectAll.value = false
 
-    if (props.rolePermissions?.name) {
-      // Edit mode
-      role.value = props.rolePermissions.name
-      roleId.value = props.rolePermissions.id
-      roleScope.value = props.rolePermissions.scope || 'admin'
-      roleGuardName.value = props.rolePermissions.guard_name || 'api'
-      permissionSearch.value = ''
+  if (props.rolePermissions?.name) {
+    role.value = props.rolePermissions.name
+    roleId.value = props.rolePermissions.id
+    roleGuardName.value = props.rolePermissions.guard_name || 'web'
 
-      const existingNames = (props.rolePermissions.permissions || []).map(p => p.name || p)
+    const selectedNames = (props.rolePermissions.permissions || []).map(permission => permission.name || permission)
 
-      allPermissions.value.forEach(p => {
-        p.checked = existingNames.includes(p.name)
-      })
-    }
-    else {
-      // Add mode — apply default preset
-      role.value = ''
-      roleId.value = null
-      roleScope.value = 'admin'
-      roleGuardName.value = 'api'
-      permissionSearch.value = ''
-      allPermissions.value.forEach(p => {
-        p.checked = false
-      })
-      applyScopePreset('admin')
-    }
+    allPermissions.value.forEach(permission => {
+      permission.checked = selectedNames.includes(permission.name)
+    })
+
+    return
   }
+
+  role.value = ''
+  roleId.value = null
+  roleGuardName.value = 'web'
+  allPermissions.value.forEach(permission => {
+    permission.checked = false
+  })
+}
+
+watch(() => props.isDialogVisible, async visible => {
+  if (!visible)
+    return
+
+  await fetchPermissions()
+  syncDialogState()
 })
 
 const onSubmit = async () => {
+  if (isReadonlyMode.value) {
+    onReset()
+
+    return
+  }
+
   const roleName = role.value?.trim()
   if (!roleName) {
-    showSnackbar('Vui lòng nhập tên vai trò.', 'warning')
+    showSnackbar('Vui long nhap ten vai tro.', 'warning')
 
     return
   }
 
   saving.value = true
   submitError.value = ''
+
   try {
-    const selectedIds = availablePermissions.value.filter(p => p.checked).map(p => p.id)
+    const selectedIds = availablePermissions.value
+      .filter(permission => permission.checked)
+      .map(permission => permission.id)
+
+    const body = {
+      name: roleName,
+      'guard_name': normalizedRoleGuardName.value,
+      'permission_ids': selectedIds,
+    }
 
     if (roleId.value) {
       await $api(`/roles/${roleId.value}`, {
         method: 'PUT',
-        body: {
-          name: roleName,
-          scope: roleScope.value,
-          // eslint-disable-next-line camelcase
-          guard_name: roleGuardName.value,
-          // eslint-disable-next-line camelcase
-          permission_ids: selectedIds,
-        },
+        body,
       })
-      emit('saved', { message: 'Cập nhật vai trò thành công.' })
+      emit('saved', { message: 'Cap nhat vai tro thanh cong.' })
     }
     else {
       await $api('/roles', {
         method: 'POST',
-        body: {
-          name: roleName,
-          scope: roleScope.value,
-          // eslint-disable-next-line camelcase
-          guard_name: roleGuardName.value,
-          // eslint-disable-next-line camelcase
-          permission_ids: selectedIds,
-        },
+        body,
       })
-      emit('saved', { message: 'Tạo vai trò thành công.' })
+      emit('saved', { message: 'Tao vai tro thanh cong.' })
     }
 
     emit('update:isDialogVisible', false)
-    isSelectAll.value = false
     refPermissionForm.value?.reset()
   }
   catch (err) {
     console.error('Save role error:', err)
-    submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || 'Không thể cập nhật vai trò.'
+    submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || 'Khong the luu vai tro.'
     showError(err, submitError.value)
   }
   finally {
@@ -342,8 +314,9 @@ const onSubmit = async () => {
 
 const onReset = () => {
   emit('update:isDialogVisible', false)
-  isSelectAll.value = false
   submitError.value = ''
+  permissionSearch.value = ''
+  isSelectAll.value = false
   refPermissionForm.value?.reset()
 }
 </script>
@@ -358,7 +331,6 @@ const onReset = () => {
     <DialogCloseBtn @click="onReset" />
 
     <VCard>
-      <!-- ─── Header ─────────────────────────────── -->
       <VCardTitle class="d-flex align-center justify-center flex-column pt-8 pb-4">
         <VAvatar
           color="info"
@@ -372,14 +344,13 @@ const onReset = () => {
           />
         </VAvatar>
         <h4 class="text-h4 text-uppercase font-weight-bold">
-          {{ roleId ? 'CHỈNH SỬA VAI TRÒ' : 'TẠO MỚI VAI TRÒ' }}
+          {{ isReadonlyMode ? 'CHI TIET VAI TRO' : (roleId ? 'CHINH SUA VAI TRO' : 'TAO MOI VAI TRO') }}
         </h4>
-        <span class="text-body-2 text-disabled mt-1">Phân quyền</span>
+        <span class="text-body-2 text-disabled mt-1">{{ isReadonlyMode ? 'Thong tin va danh sach quyen' : 'Phan quyen' }}</span>
       </VCardTitle>
 
       <VDivider />
 
-      <!-- ─── Scrollable body ────────────────────── -->
       <VCardText
         class="pt-6"
         style="max-block-size: 65vh; overflow-y: auto;"
@@ -394,7 +365,6 @@ const onReset = () => {
             {{ submitError }}
           </VAlert>
 
-          <!-- ─── Role name + Scope ─────────────── -->
           <VRow class="mb-6">
             <VCol
               cols="12"
@@ -402,35 +372,36 @@ const onReset = () => {
             >
               <AppTextField
                 v-model="role"
-                label="Tên vai trò"
-                placeholder="Nhập tên vai trò"
+                label="Ten vai tro"
+                placeholder="Nhap ten vai tro"
+                :readonly="isReadonlyMode"
               />
             </VCol>
+
             <VCol
               cols="12"
               md="6"
             >
-              <AppSelect
-                v-model="roleScope"
-                :items="scopeOptions"
-                label="Vai trò dành cho"
-                placeholder="Chọn phạm vi"
+              <AppTextField
+                v-model="roleGuardName"
+                label="Guard"
+                placeholder="web"
+                :readonly="isReadonlyMode"
               />
             </VCol>
           </VRow>
 
           <VAlert
-            v-if="roleGuardName !== 'api'"
+            v-if="normalizedRoleGuardName !== 'web'"
             type="warning"
             variant="tonal"
             class="mb-4"
           >
-            Vai trò này đang dùng guard <strong>{{ roleGuardName }}</strong>. Dialog chỉ hiển thị permission cùng guard để tránh lỗi cập nhật.
+            Dialog chi hien thi permission cung guard <strong>{{ normalizedRoleGuardName }}</strong> de tranh loi cap nhat.
           </VAlert>
 
-          <!-- ─── Permission section ────────────── -->
           <h5 class="text-h5 font-weight-bold mb-4">
-            Phân quyền
+            Phan quyen
           </h5>
 
           <VProgressLinear
@@ -446,15 +417,16 @@ const onReset = () => {
               variant="tonal"
               class="mb-4"
             >
-              Không có permission nào thuộc guard <strong>{{ roleGuardName }}</strong>.
+              Khong co permission nao thuoc guard <strong>{{ normalizedRoleGuardName }}</strong>.
             </VAlert>
 
             <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
-              <span class="text-h6 font-weight-bold">Quyền Quản trị viên</span>
+              <span class="text-h6 font-weight-bold">Danh sach quyen</span>
               <VCheckbox
                 v-model="isSelectAll"
+                :disabled="isReadonlyMode"
                 :indeterminate="isIndeterminate"
-                label="Chọn tất cả"
+                label="Chon tat ca"
                 hide-details
                 density="compact"
               />
@@ -468,32 +440,30 @@ const onReset = () => {
               class="mb-4"
             />
 
-            <!-- Permission groups -->
             <div
               v-for="group in permissionGroups"
               :key="group.name"
               class="role-perm-group mb-6"
             >
-              <!-- Group header -->
-              <div class="d-flex align-center justify-space-between mb-3 bg-var-theme-background">
+              <div class="d-flex align-center justify-space-between mb-3">
                 <h6 class="text-h6 font-weight-bold">
                   {{ group.label }}
                 </h6>
                 <VCheckbox
                   :model-value="isGroupChecked(group)"
+                  :disabled="isReadonlyMode"
                   :indeterminate="isGroupIndeterminate(group)"
-                  label="Chọn tất cả"
+                  label="Chon tat ca"
                   hide-details
                   density="compact"
                   @update:model-value="toggleGroup(group, $event)"
                 />
               </div>
 
-              <!-- Permissions grid (2 columns) -->
               <VRow dense>
                 <VCol
                   v-for="permission in group.permissions"
-                  :key="permission.id"
+                  :key="permission.permission.id"
                   cols="12"
                   sm="6"
                   class="py-1"
@@ -501,6 +471,7 @@ const onReset = () => {
                   <VCheckbox
                     v-model="permission.permission.checked"
                     :label="permission.displayLabel"
+                    :disabled="isReadonlyMode"
                     hide-details
                     density="compact"
                     class="ms-2"
@@ -514,10 +485,11 @@ const onReset = () => {
         </VForm>
       </VCardText>
 
-      <!-- ─── Actions ────────────────────────────── -->
       <VDivider />
+
       <VCardActions class="pa-4 d-flex justify-center gap-4">
         <VBtn
+          v-if="!isReadonlyMode"
           color="primary"
           :loading="saving"
           min-width="120"
@@ -527,7 +499,7 @@ const onReset = () => {
             icon="tabler-check"
             class="me-1"
           />
-          {{ roleId ? 'Cập nhật' : 'Tạo mới' }}
+          {{ roleId ? 'Cap nhat' : 'Tao moi' }}
         </VBtn>
 
         <VBtn
@@ -536,7 +508,7 @@ const onReset = () => {
           min-width="120"
           @click="onReset"
         >
-          Hủy
+          {{ isReadonlyMode ? 'Dong' : 'Huy' }}
         </VBtn>
       </VCardActions>
     </VCard>

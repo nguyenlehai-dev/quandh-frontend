@@ -1,13 +1,21 @@
 <script setup>
+/* eslint-disable camelcase */
+
 import '@/modules/meetings/assets/meeting-styles.css'
-import { fetchMeetingTypes, exportDocuments } from '@/modules/meetings/services/meetingService'
+import { exportDocuments, fetchDocumentFields, fetchDocumentTypes, fetchMeetingTypes } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 
 const { t } = useI18n()
 
 const searchQuery = ref('')
 const meetingTypeId = ref(null)
+const documentTypeId = ref(null)
+const documentFieldId = ref(null)
+const fromDate = ref('')
+const toDate = ref('')
 const meetingTypes = ref([])
+const documentTypes = ref([])
+const documentFields = ref([])
 const itemsPerPage = ref(10)
 const page = ref(1)
 const sortBy = ref()
@@ -20,12 +28,21 @@ const updateOptions = options => {
 
 onMounted(async () => {
   try {
-    const res = await fetchMeetingTypes({ limit: 100 })
-    const data = res.data?.data || res.data || []
+    const [meetingTypesRes, documentTypesRes, documentFieldsRes] = await Promise.all([
+      fetchMeetingTypes({ limit: 100 }),
+      fetchDocumentTypes({ limit: 100 }),
+      fetchDocumentFields({ limit: 100 }),
+    ])
 
-    meetingTypes.value = data.map(i => ({ value: i.id, title: i.name }))
+    const meetingTypeData = meetingTypesRes.data?.data || meetingTypesRes.data || []
+    const documentTypeData = documentTypesRes.data?.data || documentTypesRes.data || []
+    const documentFieldData = documentFieldsRes.data?.data || documentFieldsRes.data || []
+
+    meetingTypes.value = meetingTypeData.map(i => ({ value: i.id, title: i.name }))
+    documentTypes.value = documentTypeData.map(i => ({ value: i.id, title: i.name }))
+    documentFields.value = documentFieldData.map(i => ({ value: i.id, title: i.name }))
   } catch (err) {
-    console.error('Failed to load meeting types', err)
+    console.error('Failed to load meeting document filters', err)
   }
 })
 
@@ -33,16 +50,21 @@ const headers = computed(() => [
   { title: 'STT', key: 'index', sortable: false, width: 60 },
   { title: t('meetings.meetings.list_pages.documents.name'), key: 'title' },
   { title: t('meetings.meetings.list_pages.documents.document_type'), key: 'document_type_name' },
+  { title: 'Linh vuc', key: 'document_field_name' },
   { title: t('meetings.meetings.list_pages.documents.meeting'), key: 'meeting_title' },
   { title: t('meetings.meetings.list_pages.documents.created_by'), key: 'created_by' },
   { title: t('meetings.meetings.list_pages.documents.created_at'), key: 'created_at' },
   { title: t('meetings.meetings.list_pages.common.actions'), key: 'actions', sortable: false },
 ])
 
-const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/meetings/all-documents', {
+const { data: requestData, isFetching: isLoading } = await useApi(createUrl('/admin/meetings/all-documents', {
   query: {
     search: computed(() => searchQuery.value || undefined),
     meeting_type_id: computed(() => meetingTypeId.value || undefined),
+    meeting_document_type_id: computed(() => documentTypeId.value || undefined),
+    meeting_document_field_id: computed(() => documentFieldId.value || undefined),
+    from_date: computed(() => fromDate.value || undefined),
+    to_date: computed(() => toDate.value || undefined),
     sort_by: computed(() => sortBy.value || undefined),
     sort_order: computed(() => orderBy.value || undefined),
     limit: itemsPerPage,
@@ -61,11 +83,17 @@ const exportData = async () => {
     const res = await exportDocuments({
       search: searchQuery.value || undefined,
       meeting_type_id: meetingTypeId.value || undefined,
+      meeting_document_type_id: documentTypeId.value || undefined,
+      meeting_document_field_id: documentFieldId.value || undefined,
+      from_date: fromDate.value || undefined,
+      to_date: toDate.value || undefined,
+      sort_by: sortBy.value || undefined,
+      sort_order: orderBy.value || undefined,
       limit: itemsPerPage.value,
       page: page.value,
     })
 
-    downloadBlob(res, 'danh-sach-tai-lieu.xlsx')
+    downloadBlob(res, 'danh-sach-tai-lieu-cuoc-hop.xlsx')
   } catch (error) {
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
@@ -117,6 +145,62 @@ const exportData = async () => {
               clearable
             />
           </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loai tai lieu
+            </div>
+            <AppSelect
+              v-model="documentTypeId"
+              :items="documentTypes"
+              placeholder="Tat ca loai tai lieu"
+              density="compact"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Linh vuc
+            </div>
+            <AppSelect
+              v-model="documentFieldId"
+              :items="documentFields"
+              placeholder="Tat ca linh vuc"
+              density="compact"
+              clearable
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Tu ngay
+            </div>
+            <AppTextField
+              v-model="fromDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Den ngay
+            </div>
+            <AppTextField
+              v-model="toDate"
+              type="date"
+              density="compact"
+            />
+          </VCol>
         </VRow>
       </div>
     </div>
@@ -137,6 +221,7 @@ const exportData = async () => {
       </div>
       <div class="d-flex gap-3">
         <VBtn
+          v-if="$can('export', 'MeetingDocument')"
           variant="outlined"
           prepend-icon="tabler-download"
           :loading="isExporting"
@@ -163,8 +248,18 @@ const exportData = async () => {
           {{ (page - 1) * itemsPerPage + index + 1 }}
         </template>
 
+        <template #item.title="{ item }">
+          <span class="font-weight-medium">
+            {{ item.title || t('meetings.meetings.list_pages.common.empty_value') }}
+          </span>
+        </template>
+
         <template #item.document_type_name="{ item }">
           {{ item.document_type?.name || t('meetings.meetings.list_pages.common.empty_value') }}
+        </template>
+
+        <template #item.document_field_name="{ item }">
+          {{ item.document_field?.name || t('meetings.meetings.list_pages.common.empty_value') }}
         </template>
 
         <template #item.created_by="{ item }">
@@ -189,7 +284,7 @@ const exportData = async () => {
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
             <IconBtn
-              v-if="item.meeting_id"
+              v-if="item.meeting_id && $can('update', 'Meeting')"
               :to="{ name: 'meetings-edit', params: { id: item.meeting_id }, query: { tab: 'documents' } }"
             >
               <VIcon icon="tabler-eye" />
