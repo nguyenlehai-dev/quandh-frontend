@@ -2,37 +2,16 @@
 /* eslint-disable camelcase */
 
 import { h, ref, onMounted } from 'vue'
-import { useActionFeedback } from '@/composables/useActionFeedback'
 import { cookieRef } from '@layouts/stores/config'
 import { getI18n } from '@/plugins/i18n'
 import { themeConfig, layoutConfig as initialLayoutConfig } from '@themeConfig'
 import { layoutConfig as activeLayoutConfig } from '@layouts'
+import { systemSettingsPageMeta } from '../configs/metadata'
+import { useSystemSettingsPage } from '../composables/useSystemSettingsPage'
+import SystemSettingsPageCard from '../components/SystemSettingsPageCard.vue'
 import SettingsLayout from './SettingsLayout.vue'
 
-const { t } = useI18n()
-const { snackbar, showSuccess, showError } = useActionFeedback()
-const loading = ref(false)
-const saving = ref(false)
-
-const settings = ref({
-  copyright: '',
-  designed_by: '',
-  language: 'vi',
-  time_format: 'H:i:s d/m/Y',
-  icon: '',
-  logo: '',
-})
-
-const languageOptions = [
-  { title: t('system-settings.system_settings.general.language_options.vi'), value: 'vi' },
-  { title: t('system-settings.system_settings.general.language_options.en'), value: 'en' },
-]
-
-const timeFormatOptions = [
-  { title: t('system-settings.system_settings.general.time_format_options.full_24h'), value: 'H:i:s d/m/Y' },
-  { title: t('system-settings.system_settings.general.time_format_options.short_24h'), value: 'Y-m-d H:i' },
-  { title: t('system-settings.system_settings.general.time_format_options.full_12h'), value: 'h:i A d/m/Y' },
-]
+const pageConfig = systemSettingsPageMeta.general
 
 const refFaviconInput = ref()
 const refLogoInput = ref()
@@ -72,54 +51,31 @@ const syncCopyright = copyright => {
   }))
 }
 
-const fetchSettings = async () => {
-  loading.value = true
-  try {
-    const res = await $api('/settings')
-    if (res.data?.general || res?.general)
-      settings.value = { ...settings.value, ...(res.data?.general ?? res?.general) }
-  }
-  catch (err) {
-    console.error('Fetch general settings error:', err)
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-const saveSettings = async () => {
-  saving.value = true
-  try {
-    await $api('/settings', {
-      method: 'PUT',
-      body: settings.value,
-    })
-
-    if (settings.value.logo) localStorage.setItem('app_logo', settings.value.logo)
+const {
+  snackbar,
+  settings,
+  loading,
+  saving,
+  saveSettings,
+} = useSystemSettingsPage(pageConfig, {
+  afterSave: async ({ settings: currentSettings }) => {
+    if (currentSettings.logo) localStorage.setItem('app_logo', currentSettings.logo)
     else localStorage.removeItem('app_logo')
 
-    if (settings.value.icon) localStorage.setItem('app_icon', settings.value.icon)
+    if (currentSettings.icon) localStorage.setItem('app_icon', currentSettings.icon)
     else localStorage.removeItem('app_icon')
 
-    if (settings.value.copyright) localStorage.setItem('app_copyright', settings.value.copyright)
+    if (currentSettings.copyright) localStorage.setItem('app_copyright', currentSettings.copyright)
     else localStorage.removeItem('app_copyright')
 
-    cookieRef('language', 'vi').value = settings.value.language
-    getI18n().global.locale.value = settings.value.language
+    cookieRef('language', 'vi').value = currentSettings.language
+    getI18n().global.locale.value = currentSettings.language
 
-    syncFavicon(settings.value.icon)
-    syncLogo(settings.value.logo)
-    syncCopyright(settings.value.copyright)
-    showSuccess('Lưu cấu hình chung thành công.')
-  }
-  catch (err) {
-    console.error('Save general settings error:', err)
-    showError(err, 'Không thể lưu cấu hình chung.')
-  }
-  finally {
-    saving.value = false
-  }
-}
+    syncFavicon(currentSettings.icon)
+    syncLogo(currentSettings.logo)
+    syncCopyright(currentSettings.copyright)
+  },
+})
 
 const changeFavicon = file => {
   const fileReader = new FileReader()
@@ -153,150 +109,164 @@ const resetLogo = () => {
   settings.value.logo = ''
 }
 
-onMounted(() => fetchSettings())
+onMounted(() => {
+  syncFavicon(settings.value.icon)
+  syncLogo(settings.value.logo)
+})
 </script>
 
 <template>
   <SettingsLayout>
-    <VCard :loading="loading">
-      <VCardItem class="pb-2">
-        <template #prepend>
-          <VIcon icon="tabler-settings" size="32" color="primary" class="me-1" />
-        </template>
-        <VCardTitle class="text-h5 text-primary">
-          {{ t('system-settings.system_settings.general.title') }}
-        </VCardTitle>
-        <VCardSubtitle>{{ t('system-settings.system_settings.general.subtitle') }}</VCardSubtitle>
-        <template #append>
-          <VBtn
-            variant="outlined"
+    <SystemSettingsPageCard
+      :config="pageConfig"
+      :settings="settings"
+      :loading="loading"
+      :saving="saving"
+      @save="saveSettings"
+      @update-field="({ key, value }) => (settings[key] = value)"
+    >
+      <VDivider class="my-6" />
+
+      <div class="mb-6">
+        <div class="d-flex align-center mb-4">
+          <VIcon
+            icon="tabler-photo"
             color="info"
-            prepend-icon="tabler-device-floppy"
-            :loading="saving"
-            @click="saveSettings"
+            size="20"
+            class="me-2"
+          />
+          <span class="text-subtitle-1 text-info font-weight-medium">Favicon</span>
+        </div>
+
+        <div class="d-flex align-center">
+          <VAvatar
+            rounded="circle"
+            size="70"
+            class="me-6"
+            color="primary"
+            variant="tonal"
           >
-            {{ t('system-settings.system_settings.general.save') }}
-          </VBtn>
-        </template>
-      </VCardItem>
-
-      <VCardText class="pt-2">
-        <VRow>
-          <VCol cols="12" md="6">
-            <AppTextField
-              v-model="settings.copyright"
-              :label="t('system-settings.system_settings.general.fields.copyright')"
-              :placeholder="t('system-settings.system_settings.general.fields.copyright_placeholder')"
+            <VImg
+              v-if="settings.icon"
+              :src="settings.icon"
             />
-          </VCol>
-          <VCol cols="12" md="6">
-            <AppTextField
-              v-model="settings.designed_by"
-              :label="t('system-settings.system_settings.general.fields.designed_by')"
-              :placeholder="t('system-settings.system_settings.general.fields.designed_by_placeholder')"
+            <VIcon
+              v-else
+              icon="tabler-photo"
+              size="30"
             />
-          </VCol>
+          </VAvatar>
 
-          <VCol cols="12" md="6">
-            <AppSelect
-              v-model="settings.language"
-              :label="t('system-settings.system_settings.general.fields.language')"
-              :items="languageOptions"
-            />
-          </VCol>
-          <VCol cols="12" md="6">
-            <AppSelect
-              v-model="settings.time_format"
-              :label="t('system-settings.system_settings.general.fields.time_format')"
-              :items="timeFormatOptions"
-            />
-          </VCol>
-        </VRow>
+          <div class="d-flex flex-column justify-center gap-2">
+            <div class="d-flex flex-wrap gap-2">
+              <VBtn
+                color="info"
+                variant="outlined"
+                size="small"
+                prepend-icon="tabler-cloud-upload"
+                @click="refFaviconInput?.click()"
+              >
+                Tải lên
+              </VBtn>
 
-        <VDivider class="my-6" />
+              <input
+                ref="refFaviconInput"
+                type="file"
+                name="file"
+                accept=".jpeg,.png,.jpg,GIF"
+                hidden
+                @change="changeFavicon"
+              >
 
-        <div class="mb-6">
-          <div class="d-flex align-center mb-4">
-            <VIcon icon="tabler-photo" color="info" size="20" class="me-2" />
-            <span class="text-subtitle-1 text-info font-weight-medium">{{ t('system-settings.system_settings.general.favicon.title') }}</span>
-          </div>
-
-          <div class="d-flex align-center">
-            <VAvatar rounded="circle" size="70" class="me-6" color="primary" variant="tonal">
-              <VImg v-if="settings.icon" :src="settings.icon" />
-              <VIcon v-else icon="tabler-photo" size="30" />
-            </VAvatar>
-
-            <div class="d-flex flex-column justify-center gap-2">
-              <div class="d-flex flex-wrap gap-2">
-                <VBtn color="info" variant="outlined" size="small" prepend-icon="tabler-cloud-upload" @click="refFaviconInput?.click()">
-                  {{ t('system-settings.system_settings.general.favicon.upload') }}
-                </VBtn>
-
-                <input
-                  ref="refFaviconInput"
-                  type="file"
-                  name="file"
-                  accept=".jpeg,.png,.jpg,GIF"
-                  hidden
-                  @change="changeFavicon"
-                >
-
-                <VBtn type="reset" color="secondary" variant="tonal" size="small" prepend-icon="tabler-refresh" @click="resetFavicon">
-                  {{ t('system-settings.system_settings.general.favicon.reset') }}
-                </VBtn>
-              </div>
-
-              <p class="text-caption text-disabled mb-0">
-                {{ t('system-settings.system_settings.general.favicon.hint') }}
-              </p>
+              <VBtn
+                type="reset"
+                color="secondary"
+                variant="tonal"
+                size="small"
+                prepend-icon="tabler-refresh"
+                @click="resetFavicon"
+              >
+                Đặt lại
+              </VBtn>
             </div>
+
+            <p class="text-caption text-disabled mb-0">
+              Chấp nhận định dạng JPG, PNG hoặc GIF cho biểu tượng favicon.
+            </p>
           </div>
         </div>
+      </div>
 
-        <div>
-          <div class="d-flex align-center mb-4">
-            <VIcon icon="tabler-photo" color="info" size="20" class="me-2" />
-            <span class="text-subtitle-1 text-info font-weight-medium">{{ t('system-settings.system_settings.general.logo.title') }}</span>
+      <div>
+        <div class="d-flex align-center mb-4">
+          <VIcon
+            icon="tabler-photo"
+            color="info"
+            size="20"
+            class="me-2"
+          />
+          <span class="text-subtitle-1 text-info font-weight-medium">Logo</span>
+        </div>
+
+        <div class="d-flex align-center">
+          <div
+            class="d-flex justify-center align-center me-6 rounded"
+            style="background-color: rgba(var(--v-theme-primary), 0.08); border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity)); block-size: 70px; inline-size: 150px;"
+          >
+            <VImg
+              v-if="settings.logo"
+              :src="settings.logo"
+              contain
+              class="w-100 h-100"
+            />
+            <VIcon
+              v-else
+              icon="tabler-photo"
+              size="30"
+              color="primary"
+            />
           </div>
 
-          <div class="d-flex align-center">
-            <div
-              class="d-flex justify-center align-center me-6 rounded"
-              style="background-color: rgba(var(--v-theme-primary), 0.08); border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity)); block-size: 70px; inline-size: 150px;"
-            >
-              <VImg v-if="settings.logo" :src="settings.logo" contain class="w-100 h-100" />
-              <VIcon v-else icon="tabler-photo" size="30" color="primary" />
+          <div class="d-flex flex-column justify-center gap-2">
+            <div class="d-flex flex-wrap gap-2">
+              <VBtn
+                color="info"
+                variant="outlined"
+                size="small"
+                prepend-icon="tabler-cloud-upload"
+                @click="refLogoInput?.click()"
+              >
+                Tải lên
+              </VBtn>
+
+              <input
+                ref="refLogoInput"
+                type="file"
+                name="file"
+                accept=".jpeg,.png,.jpg,GIF"
+                hidden
+                @change="changeLogo"
+              >
+
+              <VBtn
+                type="reset"
+                color="secondary"
+                variant="tonal"
+                size="small"
+                prepend-icon="tabler-refresh"
+                @click="resetLogo"
+              >
+                Đặt lại
+              </VBtn>
             </div>
 
-            <div class="d-flex flex-column justify-center gap-2">
-              <div class="d-flex flex-wrap gap-2">
-                <VBtn color="info" variant="outlined" size="small" prepend-icon="tabler-cloud-upload" @click="refLogoInput?.click()">
-                  {{ t('system-settings.system_settings.general.logo.upload') }}
-                </VBtn>
-
-                <input
-                  ref="refLogoInput"
-                  type="file"
-                  name="file"
-                  accept=".jpeg,.png,.jpg,GIF"
-                  hidden
-                  @change="changeLogo"
-                >
-
-                <VBtn type="reset" color="secondary" variant="tonal" size="small" prepend-icon="tabler-refresh" @click="resetLogo">
-                  {{ t('system-settings.system_settings.general.logo.reset') }}
-                </VBtn>
-              </div>
-
-              <p class="text-caption text-disabled mb-0">
-                {{ t('system-settings.system_settings.general.logo.hint') }}
-              </p>
-            </div>
+            <p class="text-caption text-disabled mb-0">
+              Chấp nhận định dạng JPG, PNG hoặc GIF cho logo hệ thống.
+            </p>
           </div>
         </div>
-      </VCardText>
-    </VCard>
+      </div>
+    </SystemSettingsPageCard>
 
     <ActionSnackbar
       v-model="snackbar.show"

@@ -171,20 +171,19 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 <template>
   <div
-    class="app-nav-search d-flex align-center cursor-pointer px-3 rounded"
+    class="app-nav-search d-flex align-center cursor-pointer"
     v-bind="$attrs"
-    style="user-select: none; border: 1px solid rgba(var(--v-border-color), 0.5); height: 40px; background-color: rgb(var(--v-theme-surface))"
     @click="isAppSearchBarVisible = !isAppSearchBarVisible; Shepherd.activeTour?.cancel()"
   >
-    <VIcon
-      icon="tabler-search"
-      size="20"
-      class="text-disabled"
-    />
+    <div class="app-nav-search__icon">
+      <VIcon
+        icon="tabler-search"
+        size="18"
+      />
+    </div>
 
     <span
-      class="ms-3 text-disabled font-weight-regular"
-      style="font-size: 14px"
+      class="app-nav-search__label"
     >
       Tìm kiếm
     </span>
@@ -192,12 +191,10 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
     <VSpacer />
 
     <span
-      class="meta-key text-disabled font-weight-medium d-none d-md-flex align-center justify-center ms-2"
-      style="font-size: 12px; height: 22px; padding: 0 6px"
+      class="meta-key app-nav-search__shortcut d-none d-md-flex align-center justify-center ms-2"
     >
       <span
         class="me-1"
-        style="font-size: 10px;"
       >⌘</span>K
     </span>
   </div>
@@ -305,12 +302,12 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 .meta-key {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
+  border-radius: 999px;
   block-size: 1.5625rem;
   font-size: 0.8125rem;
   line-height: 1.3125rem;
   padding-block: 0.125rem;
-  padding-inline: 0.25rem;
+  padding-inline: 0.5rem;
 }
 
 .app-bar-search-dialog {
@@ -324,8 +321,55 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 }
 
 .app-nav-search {
-  inline-size: min(100%, 400px);
+  align-items: center;
+  inline-size: min(100%, 26rem);
   min-inline-size: 0;
+  border: 1px solid rgba(var(--v-border-color), 0.5);
+  border-radius: 999px;
+  background: rgba(var(--v-theme-surface), 1);
+  block-size: 2.75rem;
+  padding-inline: 0.625rem 0.75rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  user-select: none;
+}
+
+.app-nav-search:hover {
+  border-color: rgba(var(--v-theme-primary), 0.35);
+  background: rgba(var(--v-theme-surface), 1);
+}
+
+.app-nav-search:focus-within,
+.app-nav-search:active {
+  border-color: rgba(var(--v-theme-primary), 0.55);
+  box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.08);
+}
+
+.app-nav-search__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-primary), 0.08);
+  color: rgb(var(--v-theme-primary));
+  block-size: 2rem;
+  inline-size: 2rem;
+  flex: 0 0 2rem;
+}
+
+.app-nav-search__label {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-inline-start: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-nav-search__shortcut {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 @media (max-width: 959px) {
@@ -336,7 +380,19 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 @media (max-width: 600px) {
   .app-nav-search {
-    padding-inline: 0.75rem !important;
+    block-size: 2.5rem;
+    padding-inline: 0.5rem 0.625rem !important;
+  }
+
+  .app-nav-search__icon {
+    block-size: 1.875rem;
+    inline-size: 1.875rem;
+    flex-basis: 1.875rem;
+  }
+
+  .app-nav-search__label {
+    font-size: 0.9rem;
+    margin-inline-start: 0.625rem;
   }
 
   .app-nav-search .meta-key {

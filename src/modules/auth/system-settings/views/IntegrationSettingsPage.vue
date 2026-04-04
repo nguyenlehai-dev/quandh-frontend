@@ -4,7 +4,7 @@ import { useSystemSettingsPage } from '../composables/useSystemSettingsPage'
 import SystemSettingsPageCard from '../components/SystemSettingsPageCard.vue'
 import SettingsLayout from './SettingsLayout.vue'
 
-const pageConfig = systemSettingsPageMeta.notifications
+const pageConfig = systemSettingsPageMeta.integrations
 const { snackbar, settings, loading, saving, saveSettings } = useSystemSettingsPage(pageConfig)
 </script>
 

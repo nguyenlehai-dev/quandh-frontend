@@ -8,7 +8,11 @@ const postLoginRouteCandidates = [
   { name: 'apps-user-list', action: 'read', subject: 'User' },
   { name: 'apps-roles', action: 'read', subject: 'Role' },
   { name: 'apps-permissions', action: 'read', subject: 'Permission' },
-  { name: 'system-settings-general', action: 'read', subject: 'SystemSetting' },
+  { name: 'system-settings-general', action: 'read', subject: 'Setting' },
+  { name: 'system-settings-admin-experience', action: 'read', subject: 'Setting' },
+  { name: 'system-settings-public-channels', action: 'read', subject: 'Setting' },
+  { name: 'system-settings-integrations', action: 'read', subject: 'Setting' },
+  { name: 'system-settings-notifications', action: 'read', subject: 'Setting' },
   { name: 'user-profile', action: 'read', subject: 'Auth' },
 ]
 
@@ -55,4 +59,3 @@ export const redirects = [
 // ℹ️ Module-specific routes are now handled by src/modules/*/routes.js
 // Only shared/non-module routes should be added here
 export const routes = []
-

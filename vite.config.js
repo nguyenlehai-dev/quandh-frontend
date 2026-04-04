@@ -14,6 +14,20 @@ import svgLoader from 'vite-svg-loader'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    host: '0.0.0.0',
+    port: 3001,
+    strictPort: true,
+    hmr: {
+      host: 'hongqh.io',
+      port: 3001,
+    },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 3001,
+    strictPort: true,
+  },
   plugins: [
     // Docs: https://github.com/posva/unplugin-vue-router
     // ℹ️ This plugin should be placed before vue plugin
@@ -120,4 +134,3 @@ export default defineConfig({
     ],
   },
 })
-
