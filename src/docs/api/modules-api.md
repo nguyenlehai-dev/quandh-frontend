@@ -92,9 +92,13 @@ Services:
 | Method | Endpoint | Service function | Mo ta |
 |---|---|---|---|
 | GET | `/log-activities` | `fetchActivityLogs` | Danh sach nhat ky |
+| GET | `/log-activities/{id}` | `fetchActivityLog` | Chi tiet nhat ky |
 | GET | `/log-activities/stats` | `fetchActivityLogStats` | Thong ke nhat ky |
 | GET | `/log-activities/export` | `exportActivityLogs` | Xuat danh sach nhat ky |
+| DELETE | `/log-activities/{id}` | `deleteActivityLog` | Xoa nhat ky |
 | POST | `/log-activities/bulk-delete` | `bulkDeleteActivityLogs` | Xoa hang loat nhat ky |
+| POST | `/log-activities/delete-by-date` | `deleteActivityLogsByDate` | Xoa theo khoang ngay |
+| POST | `/log-activities/clear` | `clearAllActivityLogs` | Xoa toan bo nhat ky |
 
 ## Roles
 

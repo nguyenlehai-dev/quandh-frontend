@@ -12,10 +12,10 @@ const props = defineProps({
     default: () => ({
       id: null,
       name: '',
-      guard_name: 'api',
+      'guard_name': 'api',
       description: '',
-      sort_order: 0,
-      parent_id: null,
+      'sort_order': 0,
+      'parent_id': null,
     }),
   },
   parentOptions: {
@@ -33,11 +33,12 @@ const emit = defineEmits([
 const currentPermission = ref({
   id: null,
   name: '',
-  guard_name: 'api',
+  'guard_name': 'api',
   description: '',
-  sort_order: 0,
-  parent_id: null,
+  'sort_order': 0,
+  'parent_id': null,
 })
+
 const saving = ref(false)
 const isEditMode = computed(() => !!currentPermission.value.id)
 const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()

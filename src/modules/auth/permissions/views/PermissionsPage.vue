@@ -314,6 +314,7 @@ const handleExport = async () => {
     const response = await $api(`/permissions/export?${buildAuthQueryString(buildExportParams())}`, {
       responseType: 'blob',
     })
+
     const safeBlob = response instanceof Blob ? response : new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(safeBlob)
     const anchor = document.createElement('a')
@@ -551,7 +552,9 @@ const handleImport = async file => {
                 v-if="isGroupRow(item)"
                 class="d-flex align-center"
               >
-                <h6 class="text-h6 font-weight-bold">{{ getDisplayName(item) }}</h6>
+                <h6 class="text-h6 font-weight-bold">
+                  {{ getDisplayName(item) }}
+                </h6>
               </div>
               <div
                 v-else

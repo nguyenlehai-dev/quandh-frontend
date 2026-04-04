@@ -5,5 +5,5 @@ export const navigation = createNavItem({
   icon: 'tabler-history',
   to: 'system-activity-logs',
   action: 'read',
-  subject: 'ActivityLog',
+  subject: 'LogActivity',
 })

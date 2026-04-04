@@ -8,15 +8,22 @@ export default {
   purpose: 'Giam sat nhat ky thao tac cua he thong va xuat bao cao audit.',
   features: [
     'Danh sach nhat ky',
-    'Loc theo actor, route, action, thoi gian',
+    'Loc theo route, method, status, thoi gian',
     'Thong ke tong quan',
+    'Xem chi tiet request',
     'Xuat file',
     'Bulk delete',
+    'Xoa theo khoang ngay',
+    'Xoa toan bo',
   ],
   api: [
     { method: 'GET', endpoint: '/log-activities', service: 'fetchActivityLogs', description: 'Danh sach nhat ky' },
+    { method: 'GET', endpoint: '/log-activities/{id}', service: 'fetchActivityLog', description: 'Chi tiet nhat ky' },
     { method: 'GET', endpoint: '/log-activities/stats', service: 'fetchActivityLogStats', description: 'Thong ke nhat ky' },
     { method: 'GET', endpoint: '/log-activities/export', service: 'exportActivityLogs', description: 'Xuat danh sach nhat ky' },
+    { method: 'DELETE', endpoint: '/log-activities/{id}', service: 'deleteActivityLog', description: 'Xoa nhat ky' },
     { method: 'POST', endpoint: '/log-activities/bulk-delete', service: 'bulkDeleteActivityLogs', description: 'Xoa hang loat nhat ky' },
+    { method: 'POST', endpoint: '/log-activities/delete-by-date', service: 'deleteActivityLogsByDate', description: 'Xoa theo khoang ngay' },
+    { method: 'POST', endpoint: '/log-activities/clear', service: 'clearAllActivityLogs', description: 'Xoa toan bo nhat ky' },
   ],
 }

@@ -20,8 +20,8 @@ const setForbiddenFlag = key => sessionStorage.setItem(`${DASHBOARD_FORBIDDEN_PR
 const canViewUserStats = computed(() => ability.can('stats', 'User') && !hasForbiddenFlag('users-stats'))
 const canViewOrganizationStats = computed(() => ability.can('stats', 'Organization') && !hasForbiddenFlag('organizations-stats'))
 const canViewRoleStats = computed(() => ability.can('stats', 'Role') && !hasForbiddenFlag('roles-stats'))
-const canViewLogStats = computed(() => ability.can('stats', 'ActivityLog') && !hasForbiddenFlag('log-activities-stats'))
-const canViewLogList = computed(() => ability.can('read', 'ActivityLog') && !hasForbiddenFlag('log-activities-list'))
+const canViewLogStats = computed(() => ability.can('stats', 'LogActivity') && !hasForbiddenFlag('log-activities-stats'))
+const canViewLogList = computed(() => ability.can('read', 'LogActivity') && !hasForbiddenFlag('log-activities-list'))
 const canOpenActivityLogs = computed(() => canViewLogStats.value || canViewLogList.value)
 
 const safeFetchDashboardResource = async (key, request) => {

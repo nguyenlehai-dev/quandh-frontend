@@ -1,4 +1,6 @@
 const MYSQL_DATE_TIME_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(\.\d+)?$/
+const DISPLAY_DATE_TIME_PATTERN = /^(\d{2}):(\d{2})(?::(\d{2}))?\s+(\d{2})\/(\d{2})\/(\d{4})$/
+const DISPLAY_DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/
 
 const pad = value => `${value}`.padStart(2, '0')
 
@@ -18,6 +20,22 @@ export const parseAuthDateTime = value => {
   const trimmedValue = value.trim()
   if (!trimmedValue)
     return null
+
+  const displayDateTimeMatch = trimmedValue.match(DISPLAY_DATE_TIME_PATTERN)
+  if (displayDateTimeMatch) {
+    const [, hours, minutes, seconds = '00', day, month, year] = displayDateTimeMatch
+    const parsedDate = new Date(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), Number(seconds))
+
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+  }
+
+  const displayDateMatch = trimmedValue.match(DISPLAY_DATE_PATTERN)
+  if (displayDateMatch) {
+    const [, day, month, year] = displayDateMatch
+    const parsedDate = new Date(Number(year), Number(month) - 1, Number(day))
+
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+  }
 
   const normalizedValue = trimmedValue.replace(MYSQL_DATE_TIME_PATTERN, (_, datePart, timePart, fractionalPart = '') => {
     const milliseconds = fractionalPart ? fractionalPart.slice(0, 4) : ''
