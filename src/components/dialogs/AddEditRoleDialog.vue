@@ -10,8 +10,12 @@ const props = defineProps({
       id: null,
       name: '',
       permissions: [],
-      'guard_name': 'api',
+      'guard_name': 'web',
     }),
+  },
+  readonly: {
+    type: Boolean,
+    default: false,
   },
   isDialogVisible: {
     type: Boolean,
@@ -34,7 +38,7 @@ const submitError = ref('')
 
 const role = ref('')
 const roleId = ref(null)
-const roleGuardName = ref('api')
+const roleGuardName = ref('web')
 const permissionSearch = ref('')
 const isSelectAll = ref(false)
 const refPermissionForm = ref()
@@ -44,7 +48,7 @@ const fetchPermissions = async () => {
   try {
     const response = await $api('/permissions', {
       params: {
-        limit: 999,
+        limit: 100,
         'sort_by': 'sort_order',
         'sort_order': 'asc',
       },
@@ -55,7 +59,7 @@ const fetchPermissions = async () => {
       .map(permission => ({
         id: permission.id,
         name: permission.name,
-        guardName: permission.guard_name ?? 'api',
+        guardName: permission.guard_name ?? 'web',
         checked: false,
       }))
   }
@@ -69,11 +73,16 @@ const fetchPermissions = async () => {
   }
 }
 
-const availablePermissions = computed(() => allPermissions.value.filter(permission => permission.guardName === roleGuardName.value))
+const normalizedRoleGuardName = computed(() => String(roleGuardName.value || 'web').trim() || 'web')
+const availablePermissions = computed(() => allPermissions.value.filter(permission => permission.guardName === normalizedRoleGuardName.value))
 const checkedCount = computed(() => availablePermissions.value.filter(permission => permission.checked).length)
 const isIndeterminate = computed(() => checkedCount.value > 0 && checkedCount.value < availablePermissions.value.length)
+const isReadonlyMode = computed(() => props.readonly)
 
 watch(isSelectAll, value => {
+  if (isReadonlyMode.value)
+    return
+
   availablePermissions.value.forEach(permission => {
     permission.checked = value
   })
@@ -95,12 +104,22 @@ const groupLabelMap = {
   roles: 'Vai tro',
   organizations: 'To chuc',
   permissions: 'Quyen han',
-  settings: 'Cau hinh',
+  settings: 'Cau hinh he thong',
   'log-activities': 'Nhat ky hoat dong',
   posts: 'Tin tuc',
   meetings: 'Cuoc hop',
-  documents: 'Tai lieu',
-  'document-types': 'Loai tai lieu',
+  'my-meetings': 'Lich hop cua toi',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
   'post-categories': 'Danh muc tin tuc',
 }
 
@@ -113,16 +132,38 @@ const actionLabelMap = {
   stats: 'Thong ke',
   import: 'Nhap du lieu',
   export: 'Xuat du lieu',
-  bulkDestroy: 'Xoa hang loat',
-  bulkUpdateStatus: 'Cap nhat trang thai hang loat',
-  tree: 'Xem cay',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
 }
 
 const sortByLabel = (left, right) => left.localeCompare(right, 'vi', { sensitivity: 'base' })
 
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 const permissionGroups = computed(() => {
   const groups = {}
-  const keyword = permissionSearch.value.trim().toLowerCase()
+  const keyword = String(permissionSearch.value || '').trim().toLowerCase()
 
   availablePermissions.value.forEach(permission => {
     const [groupName = permission.name, actionName = ''] = permission.name.split('.')
@@ -130,18 +171,18 @@ const permissionGroups = computed(() => {
     if (!groups[groupName]) {
       groups[groupName] = {
         name: groupName,
-        label: groupLabelMap[groupName] || groupName,
+        label: groupLabelMap[groupName] || humanizePermissionPart(groupName),
         permissions: [],
       }
     }
 
-    const actionLabel = actionLabelMap[actionName] || actionName || permission.name
+    const actionLabel = actionLabelMap[actionName] || humanizePermissionPart(actionName) || permission.name
 
     groups[groupName].permissions.push({
       permission,
       displayLabel: actionName
-        ? `${actionLabel} ${groupLabelMap[groupName] || groupName}`.trim()
-        : permission.name,
+        ? `${actionLabel} ${groupLabelMap[groupName] || humanizePermissionPart(groupName)}`.trim()
+        : (groupLabelMap[groupName] || humanizePermissionPart(groupName) || permission.name),
     })
   })
 
@@ -172,6 +213,9 @@ const isGroupIndeterminate = group => {
 }
 
 const toggleGroup = (group, value) => {
+  if (isReadonlyMode.value)
+    return
+
   group.permissions.forEach(item => {
     item.permission.checked = value
   })
@@ -185,7 +229,7 @@ const syncDialogState = () => {
   if (props.rolePermissions?.name) {
     role.value = props.rolePermissions.name
     roleId.value = props.rolePermissions.id
-    roleGuardName.value = props.rolePermissions.guard_name || 'api'
+    roleGuardName.value = props.rolePermissions.guard_name || 'web'
 
     const selectedNames = (props.rolePermissions.permissions || []).map(permission => permission.name || permission)
 
@@ -198,7 +242,7 @@ const syncDialogState = () => {
 
   role.value = ''
   roleId.value = null
-  roleGuardName.value = 'api'
+  roleGuardName.value = 'web'
   allPermissions.value.forEach(permission => {
     permission.checked = false
   })
@@ -213,6 +257,12 @@ watch(() => props.isDialogVisible, async visible => {
 })
 
 const onSubmit = async () => {
+  if (isReadonlyMode.value) {
+    onReset()
+
+    return
+  }
+
   const roleName = role.value?.trim()
   if (!roleName) {
     showSnackbar('Vui long nhap ten vai tro.', 'warning')
@@ -230,7 +280,7 @@ const onSubmit = async () => {
 
     const body = {
       name: roleName,
-      'guard_name': roleGuardName.value?.trim() || 'api',
+      'guard_name': normalizedRoleGuardName.value,
       'permission_ids': selectedIds,
     }
 
@@ -294,9 +344,9 @@ const onReset = () => {
           />
         </VAvatar>
         <h4 class="text-h4 text-uppercase font-weight-bold">
-          {{ roleId ? 'CHINH SUA VAI TRO' : 'TAO MOI VAI TRO' }}
+          {{ isReadonlyMode ? 'CHI TIET VAI TRO' : (roleId ? 'CHINH SUA VAI TRO' : 'TAO MOI VAI TRO') }}
         </h4>
-        <span class="text-body-2 text-disabled mt-1">Phan quyen</span>
+        <span class="text-body-2 text-disabled mt-1">{{ isReadonlyMode ? 'Thong tin va danh sach quyen' : 'Phan quyen' }}</span>
       </VCardTitle>
 
       <VDivider />
@@ -324,6 +374,7 @@ const onReset = () => {
                 v-model="role"
                 label="Ten vai tro"
                 placeholder="Nhap ten vai tro"
+                :readonly="isReadonlyMode"
               />
             </VCol>
 
@@ -334,18 +385,19 @@ const onReset = () => {
               <AppTextField
                 v-model="roleGuardName"
                 label="Guard"
-                placeholder="api"
+                placeholder="web"
+                :readonly="isReadonlyMode"
               />
             </VCol>
           </VRow>
 
           <VAlert
-            v-if="roleGuardName !== 'api'"
+            v-if="normalizedRoleGuardName !== 'web'"
             type="warning"
             variant="tonal"
             class="mb-4"
           >
-            Dialog chi hien thi permission cung guard <strong>{{ roleGuardName }}</strong> de tranh loi cap nhat.
+            Dialog chi hien thi permission cung guard <strong>{{ normalizedRoleGuardName }}</strong> de tranh loi cap nhat.
           </VAlert>
 
           <h5 class="text-h5 font-weight-bold mb-4">
@@ -365,13 +417,14 @@ const onReset = () => {
               variant="tonal"
               class="mb-4"
             >
-              Khong co permission nao thuoc guard <strong>{{ roleGuardName }}</strong>.
+              Khong co permission nao thuoc guard <strong>{{ normalizedRoleGuardName }}</strong>.
             </VAlert>
 
             <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
               <span class="text-h6 font-weight-bold">Danh sach quyen</span>
               <VCheckbox
                 v-model="isSelectAll"
+                :disabled="isReadonlyMode"
                 :indeterminate="isIndeterminate"
                 label="Chon tat ca"
                 hide-details
@@ -398,6 +451,7 @@ const onReset = () => {
                 </h6>
                 <VCheckbox
                   :model-value="isGroupChecked(group)"
+                  :disabled="isReadonlyMode"
                   :indeterminate="isGroupIndeterminate(group)"
                   label="Chon tat ca"
                   hide-details
@@ -417,6 +471,7 @@ const onReset = () => {
                   <VCheckbox
                     v-model="permission.permission.checked"
                     :label="permission.displayLabel"
+                    :disabled="isReadonlyMode"
                     hide-details
                     density="compact"
                     class="ms-2"
@@ -434,6 +489,7 @@ const onReset = () => {
 
       <VCardActions class="pa-4 d-flex justify-center gap-4">
         <VBtn
+          v-if="!isReadonlyMode"
           color="primary"
           :loading="saving"
           min-width="120"
@@ -452,7 +508,7 @@ const onReset = () => {
           min-width="120"
           @click="onReset"
         >
-          Huy
+          {{ isReadonlyMode ? 'Dong' : 'Huy' }}
         </VBtn>
       </VCardActions>
     </VCard>

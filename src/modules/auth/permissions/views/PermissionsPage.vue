@@ -11,6 +11,7 @@ import {
   bulkDeletePermissions as bulkDeletePermissionsRequest,
   deletePermission as deletePermissionRequest,
   downloadPermissionTemplate,
+  fetchPermission,
   fetchPermissionStats,
   fetchPermissionTree,
   fetchPermissions as fetchPermissionsRequest,
@@ -36,6 +37,8 @@ const stats = ref({ total: 0 })
 const permissionTree = ref([])
 const permissionItem = ref(null)
 const isDialogVisible = ref(false)
+const detailPermissionItem = ref(null)
+const isDetailDialogVisible = ref(false)
 const isConfirmDialogVisible = ref(false)
 const isConfirming = ref(false)
 const confirmDialog = ref({ title: '', message: '', confirmText: 'Xac nhan', confirmColor: 'primary', action: null })
@@ -51,6 +54,83 @@ const headers = [
   { title: t('permissions.permissions.headers.actions'), key: 'actions', sortable: false, width: '130px' },
 ]
 
+const permissionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  posts: 'Tin tuc',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  agendas: 'Chuong trinh hop',
+  'meeting-agendas': 'Chuong trinh hop',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
+}
+
+const permissionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const getPermissionGroupLabel = groupName => permissionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+
+const getPermissionDisplayLabel = permissionName => {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionGroupLabel(groupName)
+  const actionLabel = permissionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
+
 const buildListParams = () => ({
   search: searchQuery.value || undefined,
   from_date: fromDate.value || undefined,
@@ -64,6 +144,69 @@ const buildListParams = () => ({
 const buildExportParams = () => ({
   ...buildListParams(),
 })
+
+const permissionOptionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+}
+
+const permissionOptionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+function getPermissionOptionGroupLabel(groupName) {
+  return permissionOptionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+}
+
+function getPermissionOptionTitle(permissionName) {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionOptionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionOptionGroupLabel(groupName)
+  const actionLabel = permissionOptionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
 
 const countTreeNodes = nodes => {
   return (nodes || []).reduce((count, node) => {
@@ -79,7 +222,7 @@ const parentOptions = computed(() => {
   const appendNodes = (nodes, level = 0) => {
     nodes.forEach(node => {
       options.push({
-        title: `${'-- '.repeat(level)}${node.name}`,
+        title: `${'-- '.repeat(level)}${getPermissionOptionTitle(node.name)}`,
         value: node.id,
       })
       appendNodes(node.children || [], level + 1)
@@ -199,16 +342,13 @@ const getGroupName = item => {
     return t('permissions.permissions.page.dash')
 
   if (item.parent?.name)
-    return item.parent.name.replace('group:', '')
+    return getPermissionGroupLabel(item.parent.name.replace('group:', ''))
 
-  return item.name.split('.')[0]
+  return getPermissionGroupLabel(item.name.split('.')[0])
 }
 
 const getDisplayName = item => {
-  if (isGroupRow(item))
-    return item.name.replace('group:', '')
-
-  return item.name
+  return getPermissionDisplayLabel(item.name)
 }
 
 const openCreateDialog = () => {
@@ -219,6 +359,22 @@ const openCreateDialog = () => {
 const openEditDialog = item => {
   permissionItem.value = { ...item }
   isDialogVisible.value = true
+}
+
+const openDetailDialog = async item => {
+  try {
+    const response = await fetchPermission(item.id)
+
+    detailPermissionItem.value = response.data ?? response ?? { ...item }
+  }
+  catch (err) {
+    console.error('Fetch permission detail error:', err)
+    detailPermissionItem.value = { ...item }
+    showError(err, 'Khong the tai chi tiet quyen han.')
+  }
+  finally {
+    isDetailDialogVisible.value = true
+  }
 }
 
 const onSaved = async () => {
@@ -288,18 +444,20 @@ const handleExport = async () => {
 
       exportRowsToExcel({
         rows: selectedPermissions.map(item => ({
-          name: item.name || '',
-          guard_name: item.guard_name || 'api',
+          name: getPermissionDisplayLabel(item.name || ''),
+          code: item.name || '',
+          guard_name: item.guard_name || 'web',
           description: item.description || '',
           sort_order: item.sort_order ?? 0,
           parent_id: item.parent_id ?? '',
           created_at: formatAuthDateTime(item.created_at, { fallback: '' }),
         })),
-        headers: ['name', 'guard_name', 'description', 'sort_order', 'parent_id', 'created_at'],
+        headers: ['name', 'code', 'guard_name', 'description', 'sort_order', 'parent_id', 'created_at'],
         sheetName: 'Permissions',
         fileName: `permissions_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
         columns: [
           { wch: 28 },
+          { wch: 32 },
           { wch: 16 },
           { wch: 36 },
           { wch: 14 },
@@ -565,7 +723,7 @@ const handleImport = async file => {
                   size="16"
                   class="text-disabled"
                 />
-                <span class="text-body-1">{{ getDisplayName(item) }}</span>
+                <span class="text-body-1 font-weight-medium">{{ getDisplayName(item) }}</span>
               </div>
             </template>
 
@@ -580,7 +738,7 @@ const handleImport = async file => {
                 variant="tonal"
                 label
               >
-                {{ item.guard_name || 'api' }}
+                {{ item.guard_name || 'web' }}
               </VChip>
             </template>
 
@@ -598,6 +756,18 @@ const handleImport = async file => {
 
             <template #item.actions="{ item }">
               <div class="d-flex align-center">
+                <IconBtn
+                  v-if="$can('show', 'Permission')"
+                  variant="text"
+                  color="info"
+                  size="small"
+                  @click="openDetailDialog(item)"
+                >
+                  <VIcon
+                    icon="tabler-eye"
+                    size="20"
+                  />
+                </IconBtn>
                 <IconBtn
                   v-if="$can('update', 'Permission')"
                   variant="text"
@@ -642,6 +812,13 @@ const handleImport = async file => {
       :permission-item="permissionItem"
       :parent-options="parentOptions"
       @saved="onSaved"
+    />
+
+    <AddEditPermissionDialog
+      v-model:is-dialog-visible="isDetailDialogVisible"
+      :permission-item="detailPermissionItem"
+      :parent-options="parentOptions"
+      readonly
     />
 
     <ActionConfirmDialog

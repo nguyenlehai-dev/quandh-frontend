@@ -1,6 +1,11 @@
 <script setup>
+/* eslint-disable camelcase, padding-line-between-statements */
+
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes, changeMeetingTypeStatus, importMeetingTypes } from '@/modules/meetings/services/meetingService'
+import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
+import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
+import { ability } from '@/plugins/casl/ability'
+import { deleteMeetingType, createMeetingType, updateMeetingType, bulkDeleteMeetingTypes, bulkUpdateMeetingTypes, exportMeetingTypes, changeMeetingTypeStatus, importMeetingTypes, downloadMeetingTypeImportTemplate } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -48,6 +53,8 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
 
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
+
+const selectedMeetingTypes = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
 
 const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
@@ -208,12 +215,30 @@ const toggleItemStatus = item => {
 }
 
 const isExporting = ref(false)
-const isImportDialogVisible = ref(false)
-const importFile = ref([])
 
 const exportData = async () => {
+  if (!ability.can('export', 'MeetingType')) return
+
   isExporting.value = true
   try {
+    if (selectedMeetingTypes.value.length) {
+      exportRowsToExcel({
+        rows: selectedMeetingTypes.value.map(item => ({
+          name: item.name || '',
+          description: item.description || '',
+          status: item.status || '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
+        })),
+        headers: ['name', 'description', 'status', 'created_at', 'updated_at'],
+        sheetName: 'MeetingTypes',
+        fileName: `meeting_types_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [{ wch: 28 }, { wch: 36 }, { wch: 16 }, { wch: 22 }, { wch: 22 }],
+      })
+
+      return
+    }
+
     const res = await exportMeetingTypes({
       search: searchQuery.value || undefined,
       status: statusFilter.value || undefined,
@@ -221,7 +246,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'loai-cuoc-hop-meeting.xlsx')
+    downloadBlob(res, 'loai-cuoc-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu loại cuộc họp.')
     console.error('Lỗi khi xuất dữ liệu:', error)
@@ -230,22 +255,14 @@ const exportData = async () => {
   }
 }
 
-const importData = async () => {
-  if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui lòng chọn file import.', 'warning')
-
-    return
-  }
+const handleImport = async file => {
+  if (!ability.can('import', 'MeetingType')) return
 
   isSubmitting.value = true
   try {
     const payload = new FormData()
-    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
-
     payload.append('file', file)
     await importMeetingTypes(payload)
-    isImportDialogVisible.value = false
-    importFile.value = []
     showSuccess('Import loại cuộc họp thành công.')
     fetchItems()
   } catch (error) {
@@ -336,29 +353,29 @@ const importData = async () => {
         </VBtn>
       </div>
       <div class="d-flex gap-3">
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-upload"
-          @click="isImportDialogVisible = true"
-        >
-          Nhập dữ liệu
-        </VBtn>
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-download"
-          :loading="isExporting"
-          @click="exportData"
-        >
-          Xuất dữ liệu
-        </VBtn>
-        <VBtn
-          v-if="$can('store', 'MeetingType')"
-          color="primary"
-          prepend-icon="tabler-plus"
-          @click="openAddDialog"
-        >
-          Thêm mới
-        </VBtn>
+        <AuthDataActions
+          :show-import="$can('import', 'MeetingType')"
+          :show-template="$can('import', 'MeetingType')"
+          :show-export="$can('export', 'MeetingType')"
+          :show-create="$can('store', 'MeetingType')"
+          create-label="Thêm mới"
+          import-label="Nhập dữ liệu"
+          import-subtitle="Nạp file Excel loại cuộc họp"
+          template-label="Tải file mẫu import"
+          template-subtitle="Lấy mẫu Excel đúng cột backend đang nhận"
+          export-label="Xuất dữ liệu"
+          export-subtitle="Xuất danh sách loại cuộc họp"
+          import-dialog-title="Nhập dữ liệu loại cuộc họp"
+          import-hint="Import hỗ trợ file `.xlsx`, `.xls`, `.csv` theo contract backend hiện tại."
+          select-file-label="Chọn file Excel"
+          cancel-text="Hủy"
+          import-text="Nhập dữ liệu"
+          :export-loading="isExporting"
+          :import-handler="handleImport"
+          :template-handler="downloadMeetingTypeImportTemplate"
+          :export-handler="exportData"
+          :create-handler="openAddDialog"
+        />
       </div>
     </div>
 
@@ -472,12 +489,16 @@ const importData = async () => {
       </VDataTableServer>
     </div>
 
-    <!-- Dialog Thêm mới -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isAddDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Thêm Loại cuộc họp">
+      <VCard
+        title="Thêm Loại cuộc họp"
+        flat
+      >
         <VForm
           ref="refFormAdd"
           @submit.prevent="() => submitForm('add')"
@@ -527,14 +548,18 @@ const importData = async () => {
           </VCardText>
         </VForm>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
-    <!-- Dialog Cập nhật -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isEditDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Cập nhật Loại cuộc họp">
+      <VCard
+        title="Cập nhật Loại cuộc họp"
+        flat
+      >
         <VForm
           ref="refFormEdit"
           @submit.prevent="() => submitForm('edit')"
@@ -584,7 +609,7 @@ const importData = async () => {
           </VCardText>
         </VForm>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
     <!-- Dialog Đổi Trạng Thái Hàng Loạt -->
     <VDialog
@@ -635,37 +660,6 @@ const importData = async () => {
       :loading="isConfirming"
       @confirm="executeConfirmedAction"
     />
-
-    <VDialog
-      v-model="isImportDialogVisible"
-      max-width="480"
-    >
-      <VCard title="Nhập loại cuộc họp">
-        <VCardText>
-          <VFileInput
-            v-model="importFile"
-            label="Chọn file Excel / CSV"
-            accept=".xlsx,.xls,.csv"
-            prepend-icon="tabler-upload"
-          />
-        </VCardText>
-        <VCardText class="d-flex justify-end gap-3 flex-wrap">
-          <VBtn
-            color="secondary"
-            variant="tonal"
-            @click="isImportDialogVisible = false"
-          >
-            Hủy
-          </VBtn>
-          <VBtn
-            :loading="isSubmitting"
-            @click="importData"
-          >
-            Import
-          </VBtn>
-        </VCardText>
-      </VCard>
-    </VDialog>
 
     <ActionSnackbar
       v-model="snackbar.show"

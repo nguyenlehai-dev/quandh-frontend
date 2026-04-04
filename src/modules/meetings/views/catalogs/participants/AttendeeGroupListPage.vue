@@ -1,18 +1,22 @@
 <script setup>
-/* eslint-disable camelcase */
+/* eslint-disable camelcase, padding-line-between-statements */
 
 import { useActionFeedback } from '@/composables/useActionFeedback'
+import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
+import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
 import {
   bulkDeleteAttendeeGroups,
   bulkUpdateAttendeeGroups,
   changeAttendeeGroupStatus,
   createAttendeeGroup,
+  downloadAttendeeGroupImportTemplate,
   deleteAttendeeGroup,
   exportAttendeeGroups,
   fetchAttendeeGroup,
   importAttendeeGroups,
   updateAttendeeGroup,
 } from '@/modules/meetings/services/meetingService'
+import { ability } from '@/plugins/casl/ability'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -64,6 +68,8 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
+const selectedAttendeeGroups = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
+
 // Fetch danh sách Loại cuộc họp (cho dropdown)
 const { data: meetingTypesData } = useApi('/meeting-types?limit=100')
 
@@ -74,7 +80,7 @@ const meetingTypeOptions = computed(() => {
 })
 
 // Fetch danh sách User (cho chọn thành viên)
-const { data: usersData } = useApi('/users?limit=200')
+const { data: usersData } = useApi('/users?limit=100')
 
 const userOptions = computed(() => {
   const users = usersData.value?.data ?? []
@@ -266,12 +272,32 @@ const openMembersDialog = async item => {
 }
 
 const isExporting = ref(false)
-const isImportDialogVisible = ref(false)
-const importFile = ref([])
 
 const exportData = async () => {
+  if (!ability.can('export', 'AttendeeGroup')) return
+
   isExporting.value = true
   try {
+    if (selectedAttendeeGroups.value.length) {
+      exportRowsToExcel({
+        rows: selectedAttendeeGroups.value.map(item => ({
+          name: item.name || '',
+          description: item.description || '',
+          meeting_type_name: item.meeting_type_name || '',
+          members_count: item.members_count || 0,
+          status: item.status || '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
+        })),
+        headers: ['name', 'description', 'meeting_type_name', 'members_count', 'status', 'created_at', 'updated_at'],
+        sheetName: 'AttendeeGroups',
+        fileName: `attendee_groups_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [{ wch: 28 }, { wch: 36 }, { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 22 }],
+      })
+
+      return
+    }
+
     const res = await exportAttendeeGroups({
       search: searchQuery.value || undefined,
       status: statusFilter.value || undefined,
@@ -280,35 +306,27 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'nhom-thanh-phan-tham-du.xlsx')
+    downloadBlob(res, 'nhom-thanh-phan-tham-du-hop.xlsx')
   } catch (error) {
-    showError(error, 'Không thể xuất dữ liệu nhóm người dự họp.')
+    showError(error, 'Không thể xuất dữ liệu nhóm thành phần tham dự.')
     console.error('Lỗi khi xuất dữ liệu:', error)
   } finally {
     isExporting.value = false
   }
 }
 
-const importData = async () => {
-  if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui lòng chọn file import.', 'warning')
-
-    return
-  }
+const handleImport = async file => {
+  if (!ability.can('import', 'AttendeeGroup')) return
 
   isSubmitting.value = true
   try {
     const payload = new FormData()
-    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
-
     payload.append('file', file)
     await importAttendeeGroups(payload)
-    isImportDialogVisible.value = false
-    importFile.value = []
-    showSuccess('Import nhóm người dự họp thành công.')
+    showSuccess('Import nhóm thành phần tham dự thành công.')
     fetchItems()
   } catch (error) {
-    showError(error, 'Không thể import nhóm người dự họp.')
+    showError(error, 'Không thể import nhóm thành phần tham dự.')
   } finally {
     isSubmitting.value = false
   }
@@ -325,7 +343,7 @@ const importData = async () => {
             icon="tabler-users-group"
             class="section-icon"
           />
-          Nhóm người dự họp
+          Nhóm thành phần tham dự
         </div>
       </div>
       <div class="pa-5">
@@ -339,7 +357,7 @@ const importData = async () => {
             </div>
             <AppTextField
               v-model="searchQuery"
-              placeholder="Tìm kiếm nhóm..."
+              placeholder="Tìm kiếm nhóm thành phần..."
               density="compact"
             />
           </VCol>
@@ -408,29 +426,29 @@ const importData = async () => {
         </VBtn>
       </div>
       <div class="d-flex gap-3">
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-upload"
-          @click="isImportDialogVisible = true"
-        >
-          Nhập dữ liệu
-        </VBtn>
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-download"
-          :loading="isExporting"
-          @click="exportData"
-        >
-          Xuất dữ liệu
-        </VBtn>
-        <VBtn
-          v-if="$can('create', 'AttendeeGroup')"
-          color="primary"
-          prepend-icon="tabler-plus"
-          @click="openAddDialog"
-        >
-          Thêm mới
-        </VBtn>
+        <AuthDataActions
+          :show-import="$can('import', 'AttendeeGroup')"
+          :show-template="$can('import', 'AttendeeGroup')"
+          :show-export="$can('export', 'AttendeeGroup')"
+          :show-create="$can('store', 'AttendeeGroup')"
+          create-label="Thêm mới"
+          import-label="Nhập dữ liệu"
+          import-subtitle="Nạp file Excel nhóm thành phần tham dự"
+          template-label="Tải file mẫu import"
+          template-subtitle="Lấy mẫu Excel đúng cột backend đang nhận"
+          export-label="Xuất dữ liệu"
+          export-subtitle="Xuất danh sách nhóm thành phần tham dự"
+          import-dialog-title="Nhập dữ liệu nhóm thành phần tham dự"
+          import-hint="Import hỗ trợ file `.xlsx`, `.xls`, `.csv` theo contract backend hiện tại."
+          select-file-label="Chọn file Excel"
+          cancel-text="Hủy"
+          import-text="Nhập dữ liệu"
+          :export-loading="isExporting"
+          :import-handler="handleImport"
+          :template-handler="downloadAttendeeGroupImportTemplate"
+          :export-handler="exportData"
+          :create-handler="openAddDialog"
+        />
       </div>
     </div>
 
@@ -561,12 +579,16 @@ const importData = async () => {
       </VDataTableServer>
     </div>
 
-    <!-- Dialog Thêm/Sửa -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isAddDialogVisible"
-      max-width="600"
+      temporary
+      location="end"
+      width="520"
     >
-      <VCard title="Thêm Nhóm người dự họp">
+      <VCard
+        title="Thêm nhóm thành phần tham dự"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
@@ -588,7 +610,7 @@ const importData = async () => {
               <AppAutocomplete
                 v-model="formData.member_ids"
                 :items="userOptions"
-                label="Thành viên trong nhóm"
+                label="Danh sách thành viên"
                 multiple
                 chips
                 closable-chips
@@ -629,14 +651,18 @@ const importData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
-    <!-- Dialog Cập nhật -->
-    <VDialog
+    <VNavigationDrawer
       v-model="isEditDialogVisible"
-      max-width="600"
+      temporary
+      location="end"
+      width="520"
     >
-      <VCard title="Cập nhật Nhóm người dự họp">
+      <VCard
+        title="Cập nhật nhóm thành phần tham dự"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
@@ -658,7 +684,7 @@ const importData = async () => {
               <AppAutocomplete
                 v-model="formData.member_ids"
                 :items="userOptions"
-                label="Thành viên trong nhóm"
+                label="Danh sách thành viên"
                 multiple
                 chips
                 closable-chips
@@ -699,7 +725,7 @@ const importData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
     <!-- Dialog Xem thành viên -->
     <VDialog
@@ -768,37 +794,6 @@ const importData = async () => {
             @click="isMembersDialogVisible = false"
           >
             Đóng
-          </VBtn>
-        </VCardText>
-      </VCard>
-    </VDialog>
-
-    <VDialog
-      v-model="isImportDialogVisible"
-      max-width="480"
-    >
-      <VCard title="Nhập nhóm người dự họp">
-        <VCardText>
-          <VFileInput
-            v-model="importFile"
-            label="Chọn file Excel / CSV"
-            accept=".xlsx,.xls,.csv"
-            prepend-icon="tabler-upload"
-          />
-        </VCardText>
-        <VCardText class="d-flex justify-end gap-3 flex-wrap">
-          <VBtn
-            color="secondary"
-            variant="tonal"
-            @click="isImportDialogVisible = false"
-          >
-            Hủy
-          </VBtn>
-          <VBtn
-            :loading="isSubmitting"
-            @click="importData"
-          >
-            Import
           </VBtn>
         </VCardText>
       </VCard>

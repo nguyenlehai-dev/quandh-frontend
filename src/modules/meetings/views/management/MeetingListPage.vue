@@ -2,9 +2,15 @@
 /* eslint-disable camelcase, padding-line-between-statements */
 import '@/modules/meetings/assets/meeting-styles.css'
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { changeMeetingStatus, deleteMeeting, exportMeetings, fetchMeetingTypes } from '@/modules/meetings/services/meetingService'
+import { ability } from '@/plugins/casl/ability'
+import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
+import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
+import { changeMeetingStatus, deleteMeeting, downloadMeetingImportTemplate, exportMeetings, fetchMeetingTypes, importMeetings } from '@/modules/meetings/services/meetingService'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -69,6 +75,7 @@ const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 const activeCount = computed(() => statsData.value?.active ?? 0)
 const completedCount = computed(() => statsData.value?.completed ?? 0)
+const selectedMeetings = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
 
 onMounted(async () => {
   try {
@@ -113,6 +120,20 @@ const refreshData = () => {
   fetchItems()
   fetchStats()
 }
+
+const buildExportParams = () => ({
+  search: searchQuery.value || undefined,
+  status: statusFilter.value || undefined,
+  meeting_type_id: meetingTypeFilter.value || undefined,
+  start_from: startFromFilter.value || undefined,
+  start_to: startToFilter.value || undefined,
+  end_from: endFromFilter.value || undefined,
+  end_to: endToFilter.value || undefined,
+  sort_by: sortBy.value || undefined,
+  sort_order: orderBy.value || undefined,
+  limit: itemsPerPage.value,
+  page: page.value,
+})
 
 const executeConfirmedAction = async () => {
   if (!confirmDialog.value.action) return
@@ -169,21 +190,39 @@ const resetFilters = () => {
 }
 
 const exportData = async () => {
+  if (!ability.can('export', 'Meeting')) return
+
   isExporting.value = true
   try {
-    const response = await exportMeetings({
-      search: searchQuery.value || undefined,
-      status: statusFilter.value || undefined,
-      meeting_type_id: meetingTypeFilter.value || undefined,
-      start_from: startFromFilter.value || undefined,
-      start_to: startToFilter.value || undefined,
-      end_from: endFromFilter.value || undefined,
-      end_to: endToFilter.value || undefined,
-      sort_by: sortBy.value || undefined,
-      sort_order: orderBy.value || undefined,
-      limit: itemsPerPage.value,
-      page: page.value,
-    })
+    if (selectedMeetings.value.length) {
+      exportRowsToExcel({
+        rows: selectedMeetings.value.map(item => ({
+          title: item.title || '',
+          code: item.code || '',
+          meeting_type_name: item.meeting_type_name || item.meeting_type?.name || '',
+          start_at: item.start_at || '',
+          end_at: item.end_at || '',
+          location: item.location || '',
+          status: item.status || '',
+        })),
+        headers: ['title', 'code', 'meeting_type_name', 'start_at', 'end_at', 'location', 'status'],
+        sheetName: 'Meetings',
+        fileName: `meetings_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [
+          { wch: 32 },
+          { wch: 18 },
+          { wch: 24 },
+          { wch: 22 },
+          { wch: 22 },
+          { wch: 24 },
+          { wch: 14 },
+        ],
+      })
+
+      return
+    }
+
+    const response = await exportMeetings(buildExportParams())
 
     downloadBlob(response, 'danh-sach-cuoc-hop.xlsx')
   }
@@ -192,6 +231,20 @@ const exportData = async () => {
   }
   finally {
     isExporting.value = false
+  }
+}
+
+const handleImport = async file => {
+  if (!ability.can('import', 'Meeting')) return
+
+  try {
+    await importMeetings(file)
+    showSuccess('Import du lieu cuoc hop thanh cong.')
+    refreshData()
+  }
+  catch (error) {
+    showError(error, 'Khong the import du lieu cuoc hop.')
+    console.error('Import meetings error:', error)
   }
 }
 </script>
@@ -304,24 +357,29 @@ const exportData = async () => {
           style="max-inline-size: 80px;"
         />
       </div>
-      <div class="d-flex gap-3">
-        <VBtn variant="outlined" prepend-icon="tabler-download" :loading="isExporting" @click="exportData">
-          Xuat du lieu
-        </VBtn>
-        <VTooltip location="top">
-          <template #activator="{ props }">
-            <span v-bind="props">
-              <VBtn variant="outlined" prepend-icon="tabler-upload" disabled>
-                Nhap du lieu
-              </VBtn>
-            </span>
-          </template>
-          Tinh nang dang duoc phat trien
-        </VTooltip>
-        <VBtn v-if="$can('store', 'Meeting')" color="primary" prepend-icon="tabler-plus" :to="{ name: 'meetings-create' }">
-          Them cuoc hop
-        </VBtn>
-      </div>
+      <AuthDataActions
+        :show-import="$can('import', 'Meeting')"
+        :show-template="$can('import', 'Meeting')"
+        :show-export="$can('export', 'Meeting')"
+        :show-create="$can('store', 'Meeting')"
+        create-label="Them cuoc hop"
+        import-label="Nhap du lieu"
+        import-subtitle="Nap file Excel cuoc hop vao he thong"
+        template-label="Tai file mau import"
+        template-subtitle="Lay mau Excel dung cot backend dang nhan"
+        export-label="Xuat du lieu"
+        export-subtitle="Xuat danh sach cuoc hop hien tai"
+        import-dialog-title="Nhap du lieu cuoc hop"
+        import-hint="Import ho tro file `.xlsx`, `.xls`, `.csv` theo contract backend meeting hien tai."
+        select-file-label="Chon file Excel"
+        cancel-text="Huy"
+        import-text="Nhap du lieu"
+        :export-loading="isExporting"
+        :import-handler="handleImport"
+        :template-handler="downloadMeetingImportTemplate"
+        :export-handler="exportData"
+        :create-handler="() => router.push({ name: 'meetings-create' })"
+      />
     </div>
 
     <div class="meeting-section-card">

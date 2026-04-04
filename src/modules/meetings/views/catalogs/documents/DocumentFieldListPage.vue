@@ -1,15 +1,21 @@
 <script setup>
+/* eslint-disable camelcase, padding-line-between-statements */
+
 import { useActionFeedback } from '@/composables/useActionFeedback'
+import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
+import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
 import {
   bulkDeleteDocumentFields,
   bulkUpdateDocumentFields,
   changeDocumentFieldStatus,
   createDocumentField,
+  downloadDocumentFieldImportTemplate,
   deleteDocumentField,
   exportDocumentFields,
   importDocumentFields,
   updateDocumentField,
 } from '@/modules/meetings/services/meetingService'
+import { ability } from '@/plugins/casl/ability'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
@@ -50,15 +56,14 @@ const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi
 const items = computed(() => requestData.value?.data ?? [])
 const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
 
+const selectedDocumentFields = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
+
 const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
 const selectedItemId = ref(null)
 const isBulkUpdateDialogVisible = ref(false)
 const bulkUpdateStatusValue = ref('active')
-const isImportDialogVisible = ref(false)
-const importFile = ref([])
-
 const formData = ref({
   name: '',
   description: '',
@@ -195,8 +200,28 @@ const toggleItemStatus = item => {
 const isExporting = ref(false)
 
 const exportData = async () => {
+  if (!ability.can('export', 'MeetingDocumentField')) return
+
   isExporting.value = true
   try {
+    if (selectedDocumentFields.value.length) {
+      exportRowsToExcel({
+        rows: selectedDocumentFields.value.map(item => ({
+          name: item.name || '',
+          description: item.description || '',
+          status: item.status || '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
+        })),
+        headers: ['name', 'description', 'status', 'created_at', 'updated_at'],
+        sheetName: 'MeetingDocumentFields',
+        fileName: `meeting_document_fields_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        columns: [{ wch: 28 }, { wch: 36 }, { wch: 16 }, { wch: 22 }, { wch: 22 }],
+      })
+
+      return
+    }
+
     const res = await exportDocumentFields({
       search: searchQuery.value || undefined,
       status: statusFilter.value || undefined,
@@ -204,7 +229,7 @@ const exportData = async () => {
       page: page.value,
     })
 
-    downloadBlob(res, 'linh-vuc-tai-lieu-cuoc-hop.xlsx')
+    downloadBlob(res, 'linh-vuc-tai-lieu-hop.xlsx')
   } catch (error) {
     showError(error, 'Không thể xuất dữ liệu lĩnh vực.')
     console.error('Lỗi khi xuất dữ liệu:', error)
@@ -213,22 +238,14 @@ const exportData = async () => {
   }
 }
 
-const importData = async () => {
-  if (!importFile.value || (Array.isArray(importFile.value) && importFile.value.length === 0)) {
-    showSnackbar('Vui lòng chọn file import.', 'warning')
-
-    return
-  }
+const handleImport = async file => {
+  if (!ability.can('import', 'MeetingDocumentField')) return
 
   isSubmitting.value = true
   try {
     const payload = new FormData()
-    const file = Array.isArray(importFile.value) ? importFile.value[0] : importFile.value
-
     payload.append('file', file)
     await importDocumentFields(payload)
-    isImportDialogVisible.value = false
-    importFile.value = []
     showSuccess('Import lĩnh vực tài liệu thành công.')
     fetchItems()
   } catch (error) {
@@ -248,7 +265,7 @@ const importData = async () => {
             icon="tabler-category"
             class="section-icon"
           />
-          Lĩnh vực
+          Lĩnh vực tài liệu họp
         </div>
       </div>
       <div class="pa-5">
@@ -262,7 +279,7 @@ const importData = async () => {
             </div>
             <AppTextField
               v-model="searchQuery"
-              placeholder="Tìm kiếm lĩnh vực..."
+              placeholder="Tìm kiếm lĩnh vực tài liệu..."
               density="compact"
             />
           </VCol>
@@ -316,29 +333,29 @@ const importData = async () => {
         </VBtn>
       </div>
       <div class="d-flex gap-3">
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-upload"
-          @click="isImportDialogVisible = true"
-        >
-          Nhập dữ liệu
-        </VBtn>
-        <VBtn
-          variant="outlined"
-          prepend-icon="tabler-download"
-          :loading="isExporting"
-          @click="exportData"
-        >
-          Xuất dữ liệu
-        </VBtn>
-        <VBtn
-          v-if="$can('store', 'MeetingDocumentField')"
-          color="primary"
-          prepend-icon="tabler-plus"
-          @click="openAddDialog"
-        >
-          Thêm mới
-        </VBtn>
+        <AuthDataActions
+          :show-import="$can('import', 'MeetingDocumentField')"
+          :show-template="$can('import', 'MeetingDocumentField')"
+          :show-export="$can('export', 'MeetingDocumentField')"
+          :show-create="$can('store', 'MeetingDocumentField')"
+          create-label="Thêm mới"
+          import-label="Nhập dữ liệu"
+          import-subtitle="Nạp file Excel lĩnh vực tài liệu họp"
+          template-label="Tải file mẫu import"
+          template-subtitle="Lấy mẫu Excel đúng cột backend đang nhận"
+          export-label="Xuất dữ liệu"
+          export-subtitle="Xuất danh sách lĩnh vực tài liệu họp"
+          import-dialog-title="Nhập dữ liệu lĩnh vực tài liệu họp"
+          import-hint="Import hỗ trợ file `.xlsx`, `.xls`, `.csv` theo contract backend hiện tại."
+          select-file-label="Chọn file Excel"
+          cancel-text="Hủy"
+          import-text="Nhập dữ liệu"
+          :export-loading="isExporting"
+          :import-handler="handleImport"
+          :template-handler="downloadDocumentFieldImportTemplate"
+          :export-handler="exportData"
+          :create-handler="openAddDialog"
+        />
       </div>
     </div>
 
@@ -451,17 +468,22 @@ const importData = async () => {
       </VDataTableServer>
     </div>
 
-    <VDialog
+    <VNavigationDrawer
       v-model="isAddDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Thêm Lĩnh vực">
+      <VCard
+        title="Thêm lĩnh vực tài liệu"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên lĩnh vực"
+                label="Tên lĩnh vực tài liệu"
                 required
               />
             </VCol>
@@ -499,19 +521,24 @@ const importData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
-    <VDialog
+    <VNavigationDrawer
       v-model="isEditDialogVisible"
-      max-width="500"
+      temporary
+      location="end"
+      width="460"
     >
-      <VCard title="Cập nhật Lĩnh vực">
+      <VCard
+        title="Cập nhật lĩnh vực tài liệu"
+        flat
+      >
         <VCardText>
           <VRow>
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên lĩnh vực"
+                label="Tên lĩnh vực tài liệu"
                 required
               />
             </VCol>
@@ -549,7 +576,7 @@ const importData = async () => {
           </VBtn>
         </VCardText>
       </VCard>
-    </VDialog>
+    </VNavigationDrawer>
 
     <ActionConfirmDialog
       v-model="isConfirmDialogVisible"
@@ -587,37 +614,6 @@ const importData = async () => {
             @click="confirmBulkUpdateStatus"
           >
             Cập nhật
-          </VBtn>
-        </VCardText>
-      </VCard>
-    </VDialog>
-
-    <VDialog
-      v-model="isImportDialogVisible"
-      max-width="480"
-    >
-      <VCard title="Nhập lĩnh vực tài liệu">
-        <VCardText>
-          <VFileInput
-            v-model="importFile"
-            label="Chọn file Excel / CSV"
-            accept=".xlsx,.xls,.csv"
-            prepend-icon="tabler-upload"
-          />
-        </VCardText>
-        <VCardText class="d-flex justify-end gap-3 flex-wrap">
-          <VBtn
-            color="secondary"
-            variant="tonal"
-            @click="isImportDialogVisible = false"
-          >
-            Hủy
-          </VBtn>
-          <VBtn
-            :loading="isSubmitting"
-            @click="importData"
-          >
-            Import
           </VBtn>
         </VCardText>
       </VCard>

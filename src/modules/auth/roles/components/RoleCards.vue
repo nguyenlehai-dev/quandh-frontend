@@ -37,6 +37,83 @@ const headers = [
   { title: t('roles.roles.headers.actions'), key: 'actions', sortable: false, width: 140 },
 ]
 
+const permissionGroupLabelMap = {
+  users: 'Nguoi dung',
+  roles: 'Vai tro',
+  organizations: 'To chuc',
+  permissions: 'Quyen han',
+  settings: 'Cau hinh he thong',
+  'log-activities': 'Nhat ky hoat dong',
+  posts: 'Tin tuc',
+  meetings: 'Cuoc hop',
+  'my-meetings': 'Lich hop cua toi',
+  agendas: 'Chuong trinh hop',
+  'meeting-agendas': 'Chuong trinh hop',
+  'meeting-types': 'Loai cuoc hop',
+  'attendee-groups': 'Nhom thanh phan tham du',
+  'attendee-group-members': 'Thanh vien nhom tham du',
+  'meeting-document-types': 'Loai tai lieu hop',
+  'meeting-document-fields': 'Linh vuc tai lieu hop',
+  documents: 'Tai lieu hop',
+  conclusions: 'Ket luan',
+  votings: 'Bieu quyet',
+  reminders: 'Nhac lich hop',
+  checkins: 'Diem danh',
+  notifications: 'Thong bao',
+}
+
+const permissionActionLabelMap = {
+  index: 'Xem danh sach',
+  show: 'Xem chi tiet',
+  store: 'Tao moi',
+  update: 'Cap nhat',
+  destroy: 'Xoa',
+  stats: 'Xem thong ke',
+  import: 'Nhap du lieu',
+  export: 'Xuat du lieu',
+  tree: 'Xem cay quyen',
+  dashboard: 'Xem bang dieu khien',
+  'live-control': 'Dieu hanh truc tiep',
+  'bulk-destroy': 'Xoa hang loat',
+  'bulk-update-status': 'Cap nhat trang thai hang loat',
+  'set-active': 'Dat noi dung dang dien ra',
+  approve: 'Duyet',
+  reject: 'Tu choi',
+  vote: 'Bo phieu',
+  open: 'Mo',
+  close: 'Dong',
+  'qr-checkin': 'Diem danh QR',
+  'self-checkin': 'Tu diem danh',
+}
+
+const humanizePermissionPart = value => {
+  const normalized = String(value || '').trim()
+  if (!normalized)
+    return ''
+
+  return normalized
+    .split(/[-_.]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const getPermissionGroupLabel = groupName => permissionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
+
+const getPermissionDisplayLabel = permissionName => {
+  if (!permissionName)
+    return ''
+
+  if (permissionName.startsWith('group:'))
+    return getPermissionGroupLabel(permissionName.replace('group:', ''))
+
+  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
+  const groupLabel = getPermissionGroupLabel(groupName)
+  const actionLabel = permissionActionLabelMap[actionName] || humanizePermissionPart(actionName)
+
+  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
+}
+
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key
   orderBy.value = options.sortBy[0]?.order
@@ -101,16 +178,17 @@ const clearFilters = () => {
 }
 
 const isRoleDialogVisible = ref(false)
+const isRoleDetailDialogVisible = ref(false)
 const isAddRoleDialogVisible = ref(false)
-const roleDetail = ref({ id: null, name: '', permissions: [] })
+const roleDetail = ref({ id: null, name: '', 'guard_name': 'web', permissions: [] })
 
 const openCreateDialog = () => {
   isAddRoleDialogVisible.value = true
 }
 
-const editRole = async item => {
+const showRoleDetail = async item => {
   editingRole.value = true
-  roleDetail.value = { id: null, name: '', permissions: [] }
+  roleDetail.value = { id: null, name: '', 'guard_name': 'web', permissions: [] }
 
   try {
     const response = await fetchRole(item.id)
@@ -119,7 +197,33 @@ const editRole = async item => {
     roleDetail.value = {
       id: detail.id,
       name: detail.name,
-      'guard_name': detail.guard_name ?? 'api',
+      'guard_name': detail.guard_name ?? 'web',
+      permissions: detail.permissions ?? [],
+    }
+  }
+  catch (err) {
+    console.error('Fetch role detail error:', err)
+    showError(err, 'Khong the tai chi tiet vai tro.')
+  }
+  finally {
+    editingRole.value = false
+    if (roleDetail.value?.id === item.id)
+      isRoleDetailDialogVisible.value = true
+  }
+}
+
+const editRole = async item => {
+  editingRole.value = true
+  roleDetail.value = { id: null, name: '', 'guard_name': 'web', permissions: [] }
+
+  try {
+    const response = await fetchRole(item.id)
+    const detail = response.data ?? response
+
+    roleDetail.value = {
+      id: detail.id,
+      name: detail.name,
+      'guard_name': detail.guard_name ?? 'web',
       permissions: detail.permissions ?? [],
     }
   }
@@ -220,8 +324,8 @@ const exportRoles = async () => {
       exportRowsToExcel({
         rows: selectedRoles.map(item => ({
           name: item.name || '',
-          'guard_name': item.guard_name || 'api',
-          permissions: (item.permissions || []).map(permission => permission.name || permission).join(', '),
+          'guard_name': item.guard_name || 'web',
+          permissions: (item.permissions || []).map(permission => getPermissionDisplayLabel(permission.name || permission)).join(', '),
           'permissions_count': item.permissions?.length || 0,
           'updated_at': formatAuthDateTime(item.updated_at || item.created_at, { fallback: '' }),
         })),
@@ -276,7 +380,10 @@ const exportRoles = async () => {
 const permissionPreview = permissions => {
   const items = Array.isArray(permissions) ? permissions : []
 
-  return items.slice(0, 3)
+  return items.slice(0, 3).map(permission => ({
+    raw: permission,
+    label: getPermissionDisplayLabel(permission.name || permission),
+  }))
 }
 
 defineExpose({
@@ -421,7 +528,7 @@ defineExpose({
           variant="tonal"
           label
         >
-          {{ item.guard_name || 'api' }}
+          {{ item.guard_name || 'web' }}
         </VChip>
       </template>
 
@@ -429,13 +536,13 @@ defineExpose({
         <div class="d-flex flex-wrap gap-2 py-2">
           <VChip
             v-for="permission in permissionPreview(item.permissions)"
-            :key="permission.id || permission"
+            :key="permission.raw?.id || permission.raw"
             size="x-small"
             color="primary"
             variant="tonal"
             label
           >
-            {{ permission.name || permission }}
+            {{ permission.label }}
           </VChip>
           <VChip
             v-if="(item.permissions?.length || 0) > 3"
@@ -463,6 +570,19 @@ defineExpose({
 
       <template #item.actions="{ item }">
         <div class="d-flex align-center">
+          <IconBtn
+            v-if="$can('show', 'Role')"
+            variant="text"
+            color="info"
+            size="small"
+            @click="showRoleDetail(item)"
+          >
+            <VIcon
+              icon="tabler-eye"
+              size="20"
+            />
+          </IconBtn>
+
           <IconBtn
             v-if="$can('update', 'Role')"
             variant="text"
@@ -510,6 +630,12 @@ defineExpose({
     v-model:is-dialog-visible="isRoleDialogVisible"
     v-model:role-permissions="roleDetail"
     @saved="onRoleSaved"
+  />
+
+  <AddEditRoleDialog
+    v-model:is-dialog-visible="isRoleDetailDialogVisible"
+    v-model:role-permissions="roleDetail"
+    readonly
   />
 
   <ActionConfirmDialog

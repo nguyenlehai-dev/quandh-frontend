@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 
+import * as XLSX from 'xlsx'
 import { API_ADMIN_MEETINGS, API_BASE, API_PARTICIPANT } from '../configs'
 
 export const fetchMeetings = params => $api(API_BASE, { params })
@@ -17,6 +18,51 @@ export const updateMeeting = (id, data) => $api(`${API_BASE}/${id}`, { method: '
 export const deleteMeeting = id => $api(`${API_BASE}/${id}`, { method: 'DELETE' })
 export const exportMeetings = params => $api(`${API_BASE}/export`, { params, responseType: 'blob' })
 export const importMeetings = data => $api(`${API_BASE}/import`, { method: 'POST', body: data })
+export const downloadMeetingImportTemplate = () => {
+  const rows = [
+    {
+      title: 'Hop giao ban tuan 1',
+      code: 'HOP-0001',
+      description: 'Cuoc hop giao ban noi bo',
+      location: 'Phong hop A',
+      meeting_type_id: 1,
+      start_at: '2026-04-10 08:30:00',
+      end_at: '2026-04-10 10:30:00',
+      status: 'draft',
+    },
+    {
+      title: 'Hop thong qua ke hoach quy 2',
+      code: 'HOP-0002',
+      description: 'Thong qua noi dung trien khai quy 2',
+      location: 'Phong hop B',
+      meeting_type_id: 1,
+      start_at: '2026-04-15 14:00:00',
+      end_at: '2026-04-15 16:30:00',
+      status: 'active',
+    },
+  ]
+
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: ['title', 'code', 'description', 'location', 'meeting_type_id', 'start_at', 'end_at', 'status'],
+  })
+
+  const workbook = XLSX.utils.book_new()
+
+  worksheet['!cols'] = [
+    { wch: 32 },
+    { wch: 18 },
+    { wch: 36 },
+    { wch: 24 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 22 },
+    { wch: 16 },
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Meetings')
+  XLSX.writeFile(workbook, 'meetings-import-template.xlsx')
+}
+
 export const changeMeetingStatus = (id, status) => $api(`${API_BASE}/${id}/status`, { method: 'PATCH', body: { status } })
 export const setActiveAgenda = (meetingId, agendaId) => $api(`${API_BASE}/${meetingId}/agendas/${agendaId}/set-active`, { method: 'PATCH' })
 export const fetchMeetingQrToken = meetingId => $api(`${API_ADMIN_MEETINGS}/${meetingId}/qr-token`)

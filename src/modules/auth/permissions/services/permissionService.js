@@ -23,14 +23,14 @@ export const downloadPermissionTemplate = () => {
   const rows = [
     {
       name: 'group:users',
-      'guard_name': 'api',
+      'guard_name': 'web',
       description: 'Nhom nguoi dung',
       'sort_order': 1,
       'parent_id': '',
     },
     {
       name: 'users.index',
-      'guard_name': 'api',
+      'guard_name': 'web',
       description: 'Xem danh sach nguoi dung',
       'sort_order': 2,
       'parent_id': 1,
