@@ -156,9 +156,9 @@ const logout = async () => {
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  border: 1px solid rgba(var(--v-theme-primary), 0.12);
+  border: 1px solid rgba(var(--v-theme-primary-darken-1), 0.12);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-surface), 1));
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary-darken-1), 0.08), rgba(var(--v-theme-surface), 1));
   padding: 0.875rem;
 }
 
@@ -190,7 +190,7 @@ const logout = async () => {
   margin-block-start: 0.25rem;
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary-darken-1));
 }
 
 .mobile-nav-user-panel__initials {

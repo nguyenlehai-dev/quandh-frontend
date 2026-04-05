@@ -177,10 +177,6 @@ export default class ApiService {
     return string
   }
 
-  /**
-   * Parse error keys cho validation errors (422)
-   * Biến 'field.0.name' → 'field[0].name'
-   */
   parseErrorKey(errors) {
     if (!errors || typeof errors !== 'object')
       return errors
@@ -210,19 +206,15 @@ export default class ApiService {
     err.response.data.code = status
 
     if (status === 401 && router.currentRoute.value.name !== 'login') {
-      if (api !== '/user') {
-        // Lưu trang hiện tại để redirect sau login
-        localStorage.setItem('history_link', window.location.pathname)
+      localStorage.setItem('history_link', window.location.pathname)
 
-        // Xóa auth cookies
-        useCookie('accessToken').value = null
-        useCookie('userData').value = null
-        localStorage.removeItem('userAbilityRules')
-        useCookie('currentOrganizationId').value = null
-        localStorage.removeItem('availableOrganizations')
+      useCookie('accessToken').value = null
+      useCookie('userData').value = null
+      localStorage.removeItem('userAbilityRules')
+      useCookie('currentOrganizationId').value = null
+      localStorage.removeItem('availableOrganizations')
 
-        return router.push('/login')
-      }
+      return router.push('/login')
     }
     else if (status === 403) {
       err.response.data.code = 403

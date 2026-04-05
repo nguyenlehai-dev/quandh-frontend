@@ -203,8 +203,8 @@ body .fc {
 
         .fc-button,
         .fc-button:active {
-          background-color: rgba(var(--v-theme-primary), 0.16);
-          color: rgb(var(--v-theme-primary));
+          background-color: rgba(var(--v-theme-primary-darken-1), 0.16);
+          color: rgb(var(--v-theme-primary-darken-1));
           font-size: 0.9375rem;
           font-weight: 500;
           letter-spacing: 0.0187rem;
@@ -212,12 +212,12 @@ body .fc {
           text-transform: capitalize;
 
           &:not(:last-child) {
-            border-inline-end: 0.0625rem solid rgba(var(--v-theme-primary), var(--v-border-opacity));
+            border-inline-end: 0.0625rem solid rgba(var(--v-theme-primary-darken-1), var(--v-border-opacity));
           }
 
           &.fc-button-active {
-            background-color: rgba(var(--v-theme-primary), 0.24);
-            color: rgb(var(--v-theme-primary));
+            background-color: rgba(var(--v-theme-primary-darken-1), 0.24);
+            color: rgb(var(--v-theme-primary-darken-1));
           }
         }
       }

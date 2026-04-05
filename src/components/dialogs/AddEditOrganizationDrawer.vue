@@ -5,7 +5,7 @@ import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import {
   createOrganization,
-  fetchOrganizationTree,
+  fetchPublicOrganizationOptions,
   updateOrganization,
 } from '@/modules/auth/organizations/services/organizationService'
 
@@ -13,6 +13,10 @@ const props = defineProps({
   isDrawerOpen: {
     type: Boolean,
     required: true,
+  },
+  readonly: {
+    type: Boolean,
+    default: false,
   },
   organization: {
     type: Object,
@@ -25,6 +29,69 @@ const emit = defineEmits([
   'update:isDrawerOpen',
   'saved',
 ])
+const { t } = useI18n({
+  useScope: 'local',
+  messages: {
+    en: {
+      form: {
+        detailTitle: 'ORGANIZATION DETAILS',
+        editTitle: 'EDIT ORGANIZATION',
+        createTitle: 'ADD NEW ORGANIZATION',
+        name: 'Organization name',
+        namePlaceholder: 'Enter organization name',
+        slugPlaceholder: 'Leave blank to let backend generate it',
+        description: 'Description',
+        descriptionPlaceholder: 'Enter description',
+        parent: 'Parent organization',
+        parentPlaceholder: 'Select parent organization',
+        parentHint: 'Select a parent organization if you want this organization to belong to a parent.',
+        status: 'Status',
+        sortOrderParent: 'Order within parent organization',
+        sortOrderRoot: 'Root order',
+        sortOrderParentHint: 'If a parent organization is selected, the order is understood as the position inside "{name}".',
+        sortOrderRootHint: 'If no parent organization is selected, the order is understood as the root-level position.',
+        parentFallback: 'parent organization',
+        save: 'Save',
+        cancel: 'Cancel',
+        close: 'Close',
+        validationName: 'Please enter organization name.',
+        updateSuccess: 'Organization updated successfully.',
+        createSuccess: 'Organization created successfully.',
+        updateError: 'Unable to update organization.',
+        createError: 'Unable to create organization.',
+      },
+    },
+    vi: {
+      form: {
+        detailTitle: 'CHI TIẾT TỔ CHỨC',
+        editTitle: 'CHỈNH SỬA TỔ CHỨC',
+        createTitle: 'THÊM MỚI TỔ CHỨC',
+        name: 'Tên tổ chức',
+        namePlaceholder: 'Nhập tên tổ chức',
+        slugPlaceholder: 'Để trống nếu muốn backend tự sinh',
+        description: 'Mô tả',
+        descriptionPlaceholder: 'Nhập mô tả',
+        parent: 'Tổ chức cấp trên',
+        parentPlaceholder: 'Chọn tổ chức cấp trên',
+        parentHint: 'Chọn tổ chức cấp trên nếu muốn tổ chức này nằm bên trong một tổ chức cha.',
+        status: 'Trạng thái',
+        sortOrderParent: 'Thứ tự trong tổ chức cha',
+        sortOrderRoot: 'Thứ tự cấp gốc',
+        sortOrderParentHint: 'Nếu đã chọn tổ chức cấp trên, số thứ tự sẽ được hiểu là vị trí bên trong "{name}".',
+        sortOrderRootHint: 'Nếu không chọn tổ chức cấp trên, số thứ tự sẽ được hiểu là vị trí ngoài cấp gốc.',
+        parentFallback: 'tổ chức cha',
+        save: 'Lưu',
+        cancel: 'Hủy',
+        close: 'Đóng',
+        validationName: 'Vui lòng nhập tên tổ chức.',
+        updateSuccess: 'Cập nhật tổ chức thành công.',
+        createSuccess: 'Thêm mới tổ chức thành công.',
+        updateError: 'Không thể cập nhật tổ chức.',
+        createError: 'Không thể thêm mới tổ chức.',
+      },
+    },
+  },
+})
 
 const defaultForm = () => ({
   name: '',
@@ -37,7 +104,9 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm())
 const saving = ref(false)
+const parentOptionsLoading = ref(false)
 const parentOptions = ref([])
+const parentSearch = ref('')
 const { snackbar, showSnackbar, showError } = useActionFeedback()
 
 const selectedParentLabel = computed(() => {
@@ -47,42 +116,53 @@ const selectedParentLabel = computed(() => {
 })
 
 const sortOrderLabel = computed(() => {
-  return form.value.parent_id ? 'Thu tu trong to chuc cha' : 'Thu tu cap goc'
+  return form.value.parent_id ? t('form.sortOrderParent') : t('form.sortOrderRoot')
 })
 
 const sortOrderHint = computed(() => {
   if (form.value.parent_id)
-    return `Neu da chon to chuc cap tren, so thu tu se duoc hieu la vi tri ben trong "${selectedParentLabel.value || 'to chuc cha'}".`
+    return t('form.sortOrderParentHint', { name: selectedParentLabel.value || t('form.parentFallback') })
 
-  return 'Neu khong chon to chuc cap tren, so thu tu se duoc hieu la vi tri ngoai cap goc.'
+  return t('form.sortOrderRootHint')
 })
 
-const flattenTreeOptions = (nodes, depth = 0, options = []) => {
-  nodes.forEach(node => {
-    options.push({
-      title: `${'-- '.repeat(depth)}${node.name}`,
-      value: node.id,
+const normalizeParentOptions = items => {
+  const options = (items || []).map(item => ({
+    title: item.name,
+    value: item.id,
+  }))
+
+  if (props.organization?.parent?.id && !options.some(item => item.value === props.organization.parent.id)) {
+    options.unshift({
+      title: props.organization.parent.name,
+      value: props.organization.parent.id,
     })
+  }
 
-    if (Array.isArray(node.children) && node.children.length)
-      flattenTreeOptions(node.children, depth + 1, options)
-  })
-
-  return options
+  return props.organization?.id
+    ? options.filter(item => item.value !== props.organization.id)
+    : options
 }
 
-const fetchParentOptions = async () => {
+const fetchParentOptions = async search => {
+  parentOptionsLoading.value = true
   try {
-    const response = await fetchOrganizationTree({ status: 'active' })
-    const options = flattenTreeOptions(response.data || [])
+    const response = await fetchPublicOrganizationOptions({
+      search: search || undefined,
+      status: 'active',
+      sort_by: 'name',
+      sort_order: 'asc',
+      limit: 100,
+    })
 
-    parentOptions.value = props.organization?.id
-      ? options.filter(item => item.value !== props.organization.id)
-      : options
+    parentOptions.value = normalizeParentOptions(response.data || [])
   }
   catch (error) {
     console.error('Fetch parent organizations error:', error)
     parentOptions.value = []
+  }
+  finally {
+    parentOptionsLoading.value = false
   }
 }
 
@@ -93,8 +173,6 @@ const resetForm = () => {
 watch(() => props.isDrawerOpen, visible => {
   if (!visible)
     return
-
-  fetchParentOptions()
 
   if (props.organization) {
     form.value = {
@@ -109,15 +187,30 @@ watch(() => props.isDrawerOpen, visible => {
   else {
     resetForm()
   }
+
+  parentSearch.value = ''
+  fetchParentOptions()
 })
+
+watchDebounced(parentSearch, value => {
+  if (!props.isDrawerOpen) return
+
+  fetchParentOptions(value)
+}, { debounce: 400, maxWait: 1000 })
 
 const closeNavigationDrawer = () => {
   emit('update:isDrawerOpen', false)
 }
 
 const onSubmit = async () => {
+  if (props.readonly) {
+    closeNavigationDrawer()
+
+    return
+  }
+
   if (!form.value.name?.trim()) {
-    showSnackbar('Vui long nhap ten to chuc.', 'warning')
+    showSnackbar(t('form.validationName'), 'warning')
 
     return
   }
@@ -140,8 +233,8 @@ const onSubmit = async () => {
 
     emit('saved', {
       message: props.organization?.id
-        ? 'Cap nhat to chuc thanh cong.'
-        : 'Them moi to chuc thanh cong.',
+        ? t('form.updateSuccess')
+        : t('form.createSuccess'),
     })
     closeNavigationDrawer()
   }
@@ -150,8 +243,8 @@ const onSubmit = async () => {
     showError(
       error,
       props.organization?.id
-        ? 'Khong the cap nhat to chuc.'
-        : 'Khong the them moi to chuc.',
+        ? t('form.updateError')
+        : t('form.createError'),
     )
   }
   finally {
@@ -169,7 +262,7 @@ const onSubmit = async () => {
     @update:model-value="val => emit('update:isDrawerOpen', val)"
   >
     <AppDrawerHeaderSection
-      :title="props.organization?.id ? 'CHINH SUA TO CHUC' : 'THEM MOI TO CHUC'"
+      :title="props.readonly ? t('form.detailTitle') : props.organization?.id ? t('form.editTitle') : t('form.createTitle')"
       @cancel="closeNavigationDrawer"
     />
 
@@ -183,8 +276,9 @@ const onSubmit = async () => {
               <VCol cols="12">
                 <AppTextField
                   v-model="form.name"
-                  label="Ten to chuc"
-                  placeholder="Nhap ten to chuc"
+                  :label="t('form.name')"
+                  :placeholder="t('form.namePlaceholder')"
+                  :readonly="props.readonly"
                 />
               </VCol>
 
@@ -192,38 +286,49 @@ const onSubmit = async () => {
                 <AppTextField
                   v-model="form.slug"
                   label="Slug"
-                  placeholder="De trong neu muon backend tu sinh"
+                  :placeholder="t('form.slugPlaceholder')"
+                  :readonly="props.readonly"
                 />
               </VCol>
 
               <VCol cols="12">
                 <AppTextField
                   v-model="form.description"
-                  label="Mo ta"
-                  placeholder="Nhap mo ta"
+                  :label="t('form.description')"
+                  :placeholder="t('form.descriptionPlaceholder')"
+                  :readonly="props.readonly"
                 />
               </VCol>
 
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="form.parent_id"
-                  label="To chuc cap tren"
-                  placeholder="Chon to chuc cap tren"
+                  v-model:search="parentSearch"
+                  :label="t('form.parent')"
+                  :placeholder="t('form.parentPlaceholder')"
                   :items="parentOptions"
-                  clearable
+                  :loading="parentOptionsLoading"
+                  item-title="title"
+                  item-value="value"
+                  no-filter
+                  :clearable="!props.readonly"
+                  :readonly="props.readonly"
+                  :disabled="props.readonly"
                 />
                 <div class="text-caption text-medium-emphasis mt-1">
-                  Chon to chuc cap tren neu muon to chuc nay nam ben trong mot to chuc cha.
+                  {{ t('form.parentHint') }}
                 </div>
               </VCol>
 
               <VCol cols="12" md="6">
                 <AppSelect
                   v-model="form.status"
-                  label="Trang thai"
+                  :readonly="props.readonly"
+                  :disabled="props.readonly"
+                  :label="t('form.status')"
                   :items="[
-                    { title: 'Dang hoat dong', value: 'active' },
-                    { title: 'Ngung hoat dong', value: 'inactive' },
+                    { title: t('organizations.organizations.status.active'), value: 'active' },
+                    { title: t('organizations.organizations.status.inactive'), value: 'inactive' },
                   ]"
                   item-title="title"
                   item-value="value"
@@ -237,6 +342,7 @@ const onSubmit = async () => {
                   type="number"
                   min="0"
                   placeholder="0"
+                  :readonly="props.readonly"
                 />
                 <div class="text-caption text-medium-emphasis mt-1">
                   {{ sortOrderHint }}
@@ -246,19 +352,20 @@ const onSubmit = async () => {
               <VCol cols="12">
                 <div class="d-flex justify-start gap-4">
                   <VBtn
+                    v-if="!props.readonly"
                     type="submit"
                     :loading="saving"
                     prepend-icon="tabler-device-floppy"
                     color="primary"
                   >
-                    Luu
+                    {{ t('form.save') }}
                   </VBtn>
                   <VBtn
                     color="secondary"
                     variant="tonal"
                     @click="closeNavigationDrawer"
                   >
-                    Huy
+                    {{ props.readonly ? t('form.close') : t('form.cancel') }}
                   </VBtn>
                 </div>
               </VCol>

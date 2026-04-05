@@ -211,7 +211,7 @@ onMounted(() => {
         <div class="d-flex align-center">
           <div
             class="d-flex justify-center align-center me-6 rounded"
-            style="background-color: rgba(var(--v-theme-primary), 0.08); border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity)); block-size: 70px; inline-size: 150px;"
+            style="background-color: rgba(var(--v-theme-primary-darken-1), 0.08); border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity)); block-size: 70px; inline-size: 150px;"
           >
             <VImg
               v-if="settings.logo"

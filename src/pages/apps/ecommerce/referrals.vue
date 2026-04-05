@@ -5,17 +5,17 @@ import userInfoImg from '@images/svg/user-info.svg?raw'
 
 const rocketIcon = h('div', {
   innerHTML: rocketImg,
-  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary))',
+  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary-darken-1))',
 })
 
 const userInfoIcon = h('div', {
   innerHTML: paperImg,
-  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary))',
+  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary-darken-1))',
 })
 
 const paperIcon = h('div', {
   innerHTML: userInfoImg,
-  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary))',
+  style: 'font-size: 2.625rem;color: rgb(var(--v-theme-primary-darken-1))',
 })
 
 const widgetData = [
@@ -380,7 +380,7 @@ const resolveStatus = status => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed rgb(var(--v-theme-primary));
+  border: 2px dashed rgb(var(--v-theme-primary-darken-1));
   border-radius: 50%;
   block-size: 70px;
   inline-size: 70px;

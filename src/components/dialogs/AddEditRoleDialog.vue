@@ -1,4 +1,6 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { VForm } from 'vuetify/components/VForm'
 import { useActionFeedback } from '@/composables/useActionFeedback'
 
@@ -29,6 +31,7 @@ const emit = defineEmits([
   'saved',
 ])
 
+const { t } = useI18n()
 const { snackbar, showError, showSnackbar } = useActionFeedback()
 
 const allPermissions = ref([])
@@ -66,7 +69,7 @@ const fetchPermissions = async () => {
   catch (err) {
     console.error('Fetch permissions error:', err)
     allPermissions.value = []
-    showError(err, 'Khong the tai danh sach quyen cho vai tro.')
+    showError(err, t('roles.roles.dialog.messages.fetch_permissions_error'))
   }
   finally {
     loadingPermissions.value = false
@@ -265,7 +268,7 @@ const onSubmit = async () => {
 
   const roleName = role.value?.trim()
   if (!roleName) {
-    showSnackbar('Vui long nhap ten vai tro.', 'warning')
+    showSnackbar(t('roles.roles.dialog.messages.validation_name'), 'warning')
 
     return
   }
@@ -289,14 +292,14 @@ const onSubmit = async () => {
         method: 'PUT',
         body,
       })
-      emit('saved', { message: 'Cap nhat vai tro thanh cong.' })
+      emit('saved', { message: t('roles.roles.dialog.messages.update_success') })
     }
     else {
       await $api('/roles', {
         method: 'POST',
         body,
       })
-      emit('saved', { message: 'Tao vai tro thanh cong.' })
+      emit('saved', { message: t('roles.roles.dialog.messages.create_success') })
     }
 
     emit('update:isDialogVisible', false)
@@ -304,7 +307,7 @@ const onSubmit = async () => {
   }
   catch (err) {
     console.error('Save role error:', err)
-    submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || 'Khong the luu vai tro.'
+    submitError.value = err?.response?._data?.message || err?.data?.message || err?.message || t('roles.roles.dialog.messages.save_error')
     showError(err, submitError.value)
   }
   finally {
@@ -322,209 +325,217 @@ const onReset = () => {
 </script>
 
 <template>
-  <VDialog
-    :width="$vuetify.display.smAndDown ? 'auto' : 900"
+  <VNavigationDrawer
     :model-value="props.isDialogVisible"
-    scrollable
-    @update:model-value="onReset"
+    temporary
+    location="end"
+    :width="$vuetify.display.smAndDown ? 360 : 760"
+    class="role-drawer"
+    @update:model-value="val => emit('update:isDialogVisible', val)"
   >
-    <DialogCloseBtn @click="onReset" />
+    <AppDrawerHeaderSection
+      :title="isReadonlyMode ? t('roles.roles.dialog.title_detail') : (roleId ? t('roles.roles.dialog.title_edit') : t('roles.roles.dialog.title_create'))"
+      @cancel="onReset"
+    />
 
-    <VCard>
-      <VCardTitle class="d-flex align-center justify-center flex-column pt-8 pb-4">
-        <VAvatar
-          color="info"
-          variant="tonal"
-          size="48"
-          class="mb-3"
-        >
-          <VIcon
-            icon="tabler-shield-check"
-            size="26"
-          />
-        </VAvatar>
-        <h4 class="text-h4 text-uppercase font-weight-bold">
-          {{ isReadonlyMode ? 'CHI TIET VAI TRO' : (roleId ? 'CHINH SUA VAI TRO' : 'TAO MOI VAI TRO') }}
-        </h4>
-        <span class="text-body-2 text-disabled mt-1">{{ isReadonlyMode ? 'Thong tin va danh sach quyen' : 'Phan quyen' }}</span>
-      </VCardTitle>
+    <VDivider />
 
-      <VDivider />
-
-      <VCardText
-        class="pt-6"
-        style="max-block-size: 65vh; overflow-y: auto;"
+    <PerfectScrollbar
+      class="role-drawer__scroll"
+      :options="{ wheelPropagation: false }"
+    >
+      <VCard
+        flat
+        class="role-drawer__card"
       >
-        <VForm ref="refPermissionForm">
-          <VAlert
-            v-if="submitError"
-            type="error"
-            variant="tonal"
-            class="mb-4"
-          >
-            {{ submitError }}
-          </VAlert>
-
-          <VRow class="mb-6">
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppTextField
-                v-model="role"
-                label="Ten vai tro"
-                placeholder="Nhap ten vai tro"
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
-
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppTextField
-                v-model="roleGuardName"
-                label="Guard"
-                placeholder="web"
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
-          </VRow>
-
-          <VAlert
-            v-if="normalizedRoleGuardName !== 'web'"
-            type="warning"
-            variant="tonal"
-            class="mb-4"
-          >
-            Dialog chi hien thi permission cung guard <strong>{{ normalizedRoleGuardName }}</strong> de tranh loi cap nhat.
-          </VAlert>
-
-          <h5 class="text-h5 font-weight-bold mb-4">
-            Phan quyen
-          </h5>
-
-          <VProgressLinear
-            v-if="loadingPermissions"
-            indeterminate
-            class="mb-4"
-          />
-
-          <template v-else>
+        <VCardText class="pt-6">
+          <VForm ref="refPermissionForm">
             <VAlert
-              v-if="availablePermissions.length === 0"
+              v-if="submitError"
+              type="error"
+              variant="tonal"
+              class="mb-4"
+            >
+              {{ submitError }}
+            </VAlert>
+
+            <VRow class="mb-6">
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="role"
+                  :label="t('roles.roles.dialog.fields.name')"
+                  :placeholder="t('roles.roles.dialog.placeholders.name')"
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
+
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="roleGuardName"
+                  :label="t('roles.roles.dialog.fields.guard_name')"
+                  :placeholder="t('roles.roles.dialog.placeholders.guard_name')"
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
+            </VRow>
+
+            <VAlert
+              v-if="normalizedRoleGuardName !== 'web'"
               type="info"
               variant="tonal"
               class="mb-4"
             >
-              Khong co permission nao thuoc guard <strong>{{ normalizedRoleGuardName }}</strong>.
+              {{ t('roles.roles.dialog.messages.guard_warning', { guard: normalizedRoleGuardName }) }}
             </VAlert>
 
-            <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
-              <span class="text-h6 font-weight-bold">Danh sach quyen</span>
-              <VCheckbox
-                v-model="isSelectAll"
-                :disabled="isReadonlyMode"
-                :indeterminate="isIndeterminate"
-                label="Chon tat ca"
-                hide-details
-                density="compact"
-              />
-            </div>
+            <h5 class="text-h5 font-weight-bold mb-4">
+              {{ t('roles.roles.dialog.sections.permissions') }}
+            </h5>
 
-            <AppTextField
-              v-model="permissionSearch"
-              label="Tim kiem quyen"
-              placeholder="Nhap ten quyen hoac nhom quyen"
-              prepend-inner-icon="tabler-search"
+            <VProgressLinear
+              v-if="loadingPermissions"
+              indeterminate
               class="mb-4"
             />
 
-            <div
-              v-for="group in permissionGroups"
-              :key="group.name"
-              class="role-perm-group mb-6"
-            >
-              <div class="d-flex align-center justify-space-between mb-3">
-                <h6 class="text-h6 font-weight-bold">
-                  {{ group.label }}
-                </h6>
+            <template v-else>
+              <VAlert
+                v-if="availablePermissions.length === 0"
+                type="info"
+                variant="tonal"
+                class="mb-4"
+              >
+                {{ t('roles.roles.dialog.messages.no_permissions_for_guard', { guard: normalizedRoleGuardName }) }}
+              </VAlert>
+
+              <div class="role-perm-header d-flex align-center justify-space-between px-4 py-3 mb-6 mt-4 rounded">
+                <span class="text-h6 font-weight-bold">{{ t('roles.roles.dialog.sections.permission_list') }}</span>
                 <VCheckbox
-                  :model-value="isGroupChecked(group)"
+                  v-model="isSelectAll"
                   :disabled="isReadonlyMode"
-                  :indeterminate="isGroupIndeterminate(group)"
-                  label="Chon tat ca"
+                  :indeterminate="isIndeterminate"
+                  :label="t('roles.roles.dialog.actions.select_all')"
                   hide-details
                   density="compact"
-                  @update:model-value="toggleGroup(group, $event)"
                 />
               </div>
 
-              <VRow dense>
-                <VCol
-                  v-for="permission in group.permissions"
-                  :key="permission.permission.id"
-                  cols="12"
-                  sm="6"
-                  class="py-1"
-                >
+              <AppTextField
+                v-model="permissionSearch"
+                :label="t('roles.roles.dialog.fields.permission_search')"
+                :placeholder="t('roles.roles.dialog.placeholders.permission_search')"
+                prepend-inner-icon="tabler-search"
+                class="mb-4"
+              />
+
+              <div
+                v-for="group in permissionGroups"
+                :key="group.name"
+                class="role-perm-group mb-6"
+              >
+                <div class="d-flex align-center justify-space-between mb-3">
+                  <h6 class="text-h6 font-weight-bold">
+                    {{ group.label }}
+                  </h6>
                   <VCheckbox
-                    v-model="permission.permission.checked"
-                    :label="permission.displayLabel"
+                    :model-value="isGroupChecked(group)"
                     :disabled="isReadonlyMode"
+                    :indeterminate="isGroupIndeterminate(group)"
+                    :label="t('roles.roles.dialog.actions.select_all')"
                     hide-details
                     density="compact"
-                    class="ms-2"
+                    @update:model-value="toggleGroup(group, $event)"
                   />
-                </VCol>
-              </VRow>
+                </div>
 
-              <VDivider class="mt-5" />
+                <VRow dense>
+                  <VCol
+                    v-for="permission in group.permissions"
+                    :key="permission.permission.id"
+                    cols="12"
+                    sm="6"
+                    class="py-1"
+                  >
+                    <VCheckbox
+                      v-model="permission.permission.checked"
+                      :label="permission.displayLabel"
+                      :disabled="isReadonlyMode"
+                      hide-details
+                      density="compact"
+                      class="ms-2"
+                    />
+                  </VCol>
+                </VRow>
+
+                <VDivider class="mt-5" />
+              </div>
+            </template>
+
+            <div class="d-flex justify-start gap-4 mt-6">
+                <VBtn
+                  v-if="!isReadonlyMode"
+                  color="primary"
+                  :loading="saving"
+                  min-width="120"
+                  @click="onSubmit"
+                >
+                  <VIcon
+                    icon="tabler-check"
+                    class="me-1"
+                  />
+                  {{ roleId ? t('roles.roles.dialog.actions.update') : t('roles.roles.dialog.actions.create') }}
+                </VBtn>
+
+              <VBtn
+                color="secondary"
+                variant="tonal"
+                min-width="120"
+                @click="onReset"
+              >
+                {{ isReadonlyMode ? t('roles.roles.dialog.actions.close') : t('roles.roles.dialog.actions.cancel') }}
+              </VBtn>
             </div>
-          </template>
-        </VForm>
-      </VCardText>
-
-      <VDivider />
-
-      <VCardActions class="pa-4 d-flex justify-center gap-4">
-        <VBtn
-          v-if="!isReadonlyMode"
-          color="primary"
-          :loading="saving"
-          min-width="120"
-          @click="onSubmit"
-        >
-          <VIcon
-            icon="tabler-check"
-            class="me-1"
-          />
-          {{ roleId ? 'Cap nhat' : 'Tao moi' }}
-        </VBtn>
-
-        <VBtn
-          color="secondary"
-          variant="tonal"
-          min-width="120"
-          @click="onReset"
-        >
-          {{ isReadonlyMode ? 'Dong' : 'Huy' }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </PerfectScrollbar>
 
     <ActionSnackbar
       v-model="snackbar.show"
       :message="snackbar.message"
       :color="snackbar.color"
     />
-  </VDialog>
+  </VNavigationDrawer>
 </template>
 
 <style lang="scss">
+.role-drawer {
+  :deep(.v-navigation-drawer__content) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+.role-drawer__scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  block-size: 100%;
+}
+
+.role-drawer__card {
+  min-block-size: 100%;
+}
+
 .role-perm-header {
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  background: rgba(var(--v-theme-primary), 0.08);
+  border: 1px solid rgba(var(--v-theme-primary-darken-1), 0.2);
+  background: rgba(var(--v-theme-primary-darken-1), 0.08);
 }
 
 .role-perm-group {

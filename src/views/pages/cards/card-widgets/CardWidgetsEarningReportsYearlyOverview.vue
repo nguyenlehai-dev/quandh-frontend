@@ -571,7 +571,7 @@ const moreList = [
         >
           <div
             style="block-size: 100px; inline-size: 110px;"
-            :style="isSelected ? 'border-color:rgb(var(--v-theme-primary)) !important' : ''"
+            :style="isSelected ? 'border-color:rgb(var(--v-theme-primary-darken-1)) !important' : ''"
             :class="isSelected ? 'border' : 'border border-dashed'"
             class="d-flex flex-column justify-center align-center cursor-pointer rounded py-4 px-5 me-4"
             @click="toggle"

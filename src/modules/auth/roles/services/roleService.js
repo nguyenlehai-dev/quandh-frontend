@@ -21,16 +21,18 @@ export const downloadRoleTemplate = () => {
   const rows = [
     {
       name: 'admin',
-      'guard_name': 'api',
+      'guard_name': 'web',
+      'organization_id': '',
     },
     {
       name: 'editor',
-      'guard_name': 'api',
+      'guard_name': 'web',
+      'organization_id': '',
     },
   ]
 
   const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: ['name', 'guard_name'],
+    header: ['name', 'guard_name', 'organization_id'],
   })
 
   const workbook = XLSX.utils.book_new()
@@ -38,6 +40,7 @@ export const downloadRoleTemplate = () => {
   worksheet['!cols'] = [
     { wch: 24 },
     { wch: 16 },
+    { wch: 18 },
   ]
 
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Roles')

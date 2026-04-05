@@ -8,6 +8,7 @@ export default {
     close: 'Close',
     search: 'Search',
     export: 'Export',
+    import: 'Export',
     download: 'Download',
     duplicate: 'Duplicate',
     view: 'View',

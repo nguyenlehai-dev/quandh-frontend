@@ -8,6 +8,8 @@ export default {
   purpose: 'Quan ly cay to chuc va boi canh lam viec theo to chuc.',
   features: [
     'Danh sach to chuc',
+    'Danh sach to chuc cong khai',
+    'Dropdown organization cong khai',
     'Tree organization',
     'Tao, sua, xoa to chuc',
     'Bulk delete va bulk status',
@@ -15,6 +17,8 @@ export default {
   ],
   api: [
     { method: 'GET', endpoint: '/organizations', service: 'fetchOrganizations', description: 'Danh sach to chuc' },
+    { method: 'GET', endpoint: '/organizations/public', service: 'fetchPublicOrganizations', description: 'Danh sach to chuc cong khai' },
+    { method: 'GET', endpoint: '/organizations/public-options', service: 'fetchPublicOrganizationOptions', description: 'Danh sach to chuc cong khai toi gian cho dropdown' },
     { method: 'GET', endpoint: '/organizations/:id', service: 'fetchOrganization', description: 'Chi tiet to chuc' },
     { method: 'POST', endpoint: '/organizations', service: 'createOrganization', description: 'Tao to chuc' },
     { method: 'PUT', endpoint: '/organizations/:id', service: 'updateOrganization', description: 'Cap nhat to chuc' },

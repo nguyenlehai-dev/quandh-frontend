@@ -1,11 +1,11 @@
 <script setup>
 /* eslint-disable camelcase, padding-line-between-statements */
-import '@/modules/meetings/assets/meeting-styles.css'
 import { useActionFeedback } from '@/composables/useActionFeedback'
-import { ability } from '@/plugins/casl/ability'
 import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
 import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
+import '@/modules/meetings/assets/meeting-styles.css'
 import { changeMeetingStatus, deleteMeeting, downloadMeetingImportTemplate, exportMeetings, fetchMeetingTypes, importMeetings } from '@/modules/meetings/services/meetingService'
+import { ability } from '@/plugins/casl/ability'
 import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -252,39 +252,75 @@ const handleImport = async file => {
 <template>
   <section>
     <VRow class="mb-6">
-      <VCol cols="12" md="4">
+      <VCol
+        cols="12"
+        md="4"
+      >
         <div class="stat-overview-card">
           <div class="stat-overview-icon green">
-            <VIcon icon="tabler-calendar-event" size="24" />
+            <VIcon
+              icon="tabler-calendar-event"
+              size="24"
+            />
           </div>
           <div>
-            <div class="stat-overview-label">Tong cuoc hop</div>
-            <div class="stat-overview-value">{{ totalItems }}</div>
-            <div class="stat-overview-desc">Tong so cuoc hop trong he thong</div>
+            <div class="stat-overview-label">
+              Tong cuoc hop
+            </div>
+            <div class="stat-overview-value">
+              {{ totalItems }}
+            </div>
+            <div class="stat-overview-desc">
+              Tong so cuoc hop trong he thong
+            </div>
           </div>
         </div>
       </VCol>
-      <VCol cols="12" md="4">
+      <VCol
+        cols="12"
+        md="4"
+      >
         <div class="stat-overview-card">
           <div class="stat-overview-icon blue">
-            <VIcon icon="tabler-player-play" size="24" />
+            <VIcon
+              icon="tabler-player-play"
+              size="24"
+            />
           </div>
           <div>
-            <div class="stat-overview-label">Dang dien ra / Sap toi</div>
-            <div class="stat-overview-value">{{ isStatsLoading ? '...' : activeCount }}</div>
-            <div class="stat-overview-desc">Cuoc hop dang hoac sap dien ra</div>
+            <div class="stat-overview-label">
+              Dang dien ra / Sap toi
+            </div>
+            <div class="stat-overview-value">
+              {{ isStatsLoading ? '...' : activeCount }}
+            </div>
+            <div class="stat-overview-desc">
+              Cuoc hop dang hoac sap dien ra
+            </div>
           </div>
         </div>
       </VCol>
-      <VCol cols="12" md="4">
+      <VCol
+        cols="12"
+        md="4"
+      >
         <div class="stat-overview-card">
           <div class="stat-overview-icon gray">
-            <VIcon icon="tabler-circle-check" size="24" />
+            <VIcon
+              icon="tabler-circle-check"
+              size="24"
+            />
           </div>
           <div>
-            <div class="stat-overview-label">Da ket thuc</div>
-            <div class="stat-overview-value">{{ isStatsLoading ? '...' : completedCount }}</div>
-            <div class="stat-overview-desc">Cuoc hop da ket thuc</div>
+            <div class="stat-overview-label">
+              Da ket thuc
+            </div>
+            <div class="stat-overview-value">
+              {{ isStatsLoading ? '...' : completedCount }}
+            </div>
+            <div class="stat-overview-desc">
+              Cuoc hop da ket thuc
+            </div>
           </div>
         </div>
       </VCol>
@@ -293,21 +329,43 @@ const handleImport = async file => {
     <div class="meeting-section-card mb-6">
       <div class="meeting-section-header">
         <div class="meeting-section-title">
-          <VIcon icon="tabler-filter" class="section-icon" />
+          <VIcon
+            icon="tabler-filter"
+            class="section-icon"
+          />
           Bo loc
         </div>
-        <VBtn variant="outlined" size="small" prepend-icon="tabler-rotate" @click="resetFilters">
+        <VBtn
+          variant="outlined"
+          size="small"
+          prepend-icon="tabler-rotate"
+          @click="resetFilters"
+        >
           Dat lai
         </VBtn>
       </div>
       <div class="pa-5">
         <VRow>
-          <VCol cols="12" md="4">
-            <div class="text-body-2 font-weight-medium mb-1">Tim kiem</div>
-            <AppTextField v-model="searchQuery" placeholder="Tim kiem cuoc hop" density="compact" />
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Tim kiem
+            </div>
+            <AppTextField
+              v-model="searchQuery"
+              placeholder="Tim kiem cuoc hop"
+              density="compact"
+            />
           </VCol>
-          <VCol cols="12" md="4">
-            <div class="text-body-2 font-weight-medium mb-1">Trang thai</div>
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Trang thai
+            </div>
             <AppSelect
               v-model="statusFilter"
               :items="[
@@ -320,25 +378,72 @@ const handleImport = async file => {
               placeholder="Tat ca trang thai"
             />
           </VCol>
-          <VCol cols="12" md="4">
-            <div class="text-body-2 font-weight-medium mb-1">Loai cuoc hop</div>
-            <AppSelect v-model="meetingTypeFilter" :items="meetingTypeOptions" density="compact" placeholder="Tat ca loai cuoc hop" clearable />
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Loai cuoc hop
+            </div>
+            <AppSelect
+              v-model="meetingTypeFilter"
+              :items="meetingTypeOptions"
+              density="compact"
+              placeholder="Tat ca loai cuoc hop"
+              clearable
+            />
           </VCol>
-          <VCol cols="12" md="3">
-            <div class="text-body-2 font-weight-medium mb-1">Bat dau tu</div>
-            <AppTextField v-model="startFromFilter" type="datetime-local" density="compact" />
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Bat dau tu
+            </div>
+            <AppTextField
+              v-model="startFromFilter"
+              type="datetime-local"
+              density="compact"
+            />
           </VCol>
-          <VCol cols="12" md="3">
-            <div class="text-body-2 font-weight-medium mb-1">Bat dau den</div>
-            <AppTextField v-model="startToFilter" type="datetime-local" density="compact" />
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Bat dau den
+            </div>
+            <AppTextField
+              v-model="startToFilter"
+              type="datetime-local"
+              density="compact"
+            />
           </VCol>
-          <VCol cols="12" md="3">
-            <div class="text-body-2 font-weight-medium mb-1">Ket thuc tu</div>
-            <AppTextField v-model="endFromFilter" type="datetime-local" density="compact" />
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Ket thuc tu
+            </div>
+            <AppTextField
+              v-model="endFromFilter"
+              type="datetime-local"
+              density="compact"
+            />
           </VCol>
-          <VCol cols="12" md="3">
-            <div class="text-body-2 font-weight-medium mb-1">Ket thuc den</div>
-            <AppTextField v-model="endToFilter" type="datetime-local" density="compact" />
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <div class="text-body-2 font-weight-medium mb-1">
+              Ket thuc den
+            </div>
+            <AppTextField
+              v-model="endToFilter"
+              type="datetime-local"
+              density="compact"
+            />
           </VCol>
         </VRow>
       </div>
@@ -396,17 +501,27 @@ const handleImport = async file => {
         @update:options="updateOptions"
       >
         <template #item.title="{ item }">
-          <div class="font-weight-bold text-uppercase">{{ item.title }}</div>
+          <div class="font-weight-bold text-uppercase">
+            {{ item.title }}
+          </div>
         </template>
 
         <template #item.start_at="{ item }">
           <div>
             <div class="d-flex align-center gap-1">
-              <VIcon icon="tabler-clock" size="14" color="primary" />
+              <VIcon
+                icon="tabler-clock"
+                size="14"
+                color="primary"
+              />
               <span class="font-weight-medium">{{ item.start_at || 'Chua xac dinh' }}</span>
             </div>
             <div class="d-flex align-center gap-1 mt-1">
-              <VIcon icon="tabler-map-pin" size="14" color="secondary" />
+              <VIcon
+                icon="tabler-map-pin"
+                size="14"
+                color="secondary"
+              />
               <span class="text-caption text-disabled">{{ item.location || 'Phong hop truc tuyen' }}</span>
             </div>
           </div>
@@ -418,7 +533,11 @@ const handleImport = async file => {
 
         <template #item.created_by="{ item }">
           <div class="d-flex align-center gap-2">
-            <VAvatar size="28" color="primary" variant="tonal">
+            <VAvatar
+              size="28"
+              color="primary"
+              variant="tonal"
+            >
               <span class="text-caption font-weight-bold">{{ (item.created_by || 'N/A').charAt(0).toUpperCase() }}</span>
             </VAvatar>
             <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
@@ -427,8 +546,18 @@ const handleImport = async file => {
 
         <template #item.status="{ item }">
           <div class="d-flex align-center gap-2">
-            <VSwitch :model-value="['active', 'in_progress'].includes(item.status)" color="success" density="compact" readonly hide-details />
-            <VChip size="small" :color="resolveStatusColor(item.status)" variant="tonal">
+            <VSwitch
+              :model-value="['active', 'in_progress'].includes(item.status)"
+              color="success"
+              density="compact"
+              readonly
+              hide-details
+            />
+            <VChip
+              size="small"
+              :color="resolveStatusColor(item.status)"
+              variant="tonal"
+            >
               {{ resolveStatusLabel(item.status) }}
             </VChip>
           </div>
@@ -436,19 +565,43 @@ const handleImport = async file => {
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <IconBtn v-if="$can('update', 'Meeting')" :to="{ name: 'meetings-live-controller', params: { id: item.id } }">
+            <IconBtn
+              v-if="$can('update', 'Meeting')"
+              :to="{ name: 'meetings-live-controller', params: { id: item.id } }"
+            >
               <VIcon icon="tabler-player-play" />
-              <VTooltip activator="parent" location="top">Dieu hanh cuoc hop</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Dieu hanh cuoc hop
+              </VTooltip>
             </IconBtn>
 
-            <IconBtn v-else-if="$can('show', 'Meeting')" :to="{ name: 'meetings-edit', params: { id: item.id } }">
+            <IconBtn
+              v-else-if="$can('show', 'Meeting')"
+              :to="{ name: 'meetings-edit', params: { id: item.id } }"
+            >
               <VIcon icon="tabler-eye" />
-              <VTooltip activator="parent" location="top">Xem chi tiet</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Xem chi tiet
+              </VTooltip>
             </IconBtn>
 
-            <IconBtn v-if="$can('update', 'Meeting')" :to="{ name: 'meetings-edit', params: { id: item.id } }">
+            <IconBtn
+              v-if="$can('update', 'Meeting')"
+              :to="{ name: 'meetings-edit', params: { id: item.id } }"
+            >
               <VIcon icon="tabler-pencil" />
-              <VTooltip activator="parent" location="top">Chinh sua</VTooltip>
+              <VTooltip
+                activator="parent"
+                location="top"
+              >
+                Chinh sua
+              </VTooltip>
             </IconBtn>
 
             <VMenu>
@@ -465,16 +618,29 @@ const handleImport = async file => {
                   @click="requestStatusChange(item, statusOption.value)"
                 >
                   <template #prepend>
-                    <VIcon icon="tabler-refresh" size="18" color="warning" />
+                    <VIcon
+                      icon="tabler-refresh"
+                      size="18"
+                      color="warning"
+                    />
                   </template>
                   <VListItemTitle>{{ statusOption.title }}</VListItemTitle>
                 </VListItem>
                 <VDivider class="my-1" />
-                <VListItem v-if="$can('destroy', 'Meeting')" @click="deleteItem(item.id)">
+                <VListItem
+                  v-if="$can('destroy', 'Meeting')"
+                  @click="deleteItem(item.id)"
+                >
                   <template #prepend>
-                    <VIcon icon="tabler-trash" size="18" color="error" />
+                    <VIcon
+                      icon="tabler-trash"
+                      size="18"
+                      color="error"
+                    />
                   </template>
-                  <VListItemTitle class="text-error">Xoa</VListItemTitle>
+                  <VListItemTitle class="text-error">
+                    Xoa
+                  </VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
@@ -486,7 +652,11 @@ const handleImport = async file => {
             <span class="text-body-2 text-disabled">
               Hien thi {{ Math.min((page - 1) * itemsPerPage + 1, totalItems) }} den {{ Math.min(page * itemsPerPage, totalItems) }} tren tong {{ totalItems }} cuoc hop
             </span>
-            <TablePagination v-model:page="page" :items-per-page="itemsPerPage" :total-items="totalItems" />
+            <TablePagination
+              v-model:page="page"
+              :items-per-page="itemsPerPage"
+              :total-items="totalItems"
+            />
           </div>
         </template>
       </VDataTableServer>
@@ -502,7 +672,11 @@ const handleImport = async file => {
       @confirm="executeConfirmedAction"
     />
 
-    <ActionSnackbar v-model="snackbar.show" :message="snackbar.message" :color="snackbar.color" />
+    <ActionSnackbar
+      v-model="snackbar.show"
+      :message="snackbar.message"
+      :color="snackbar.color"
+    />
   </section>
 </template>
 

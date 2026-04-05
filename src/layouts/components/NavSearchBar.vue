@@ -1,127 +1,131 @@
-<script setup>
+<script setup lang="ts">
+import { useConfigStore } from '@core/stores/config'
+import type { SearchResults } from '@db/app-bar-search/types'
 import Shepherd from 'shepherd.js'
 import { withQuery } from 'ufo'
-import { useConfigStore } from '@core/stores/config'
+import type { RouteLocationRaw } from 'vue-router'
+
+interface Suggestion {
+  icon: string
+  title: string
+  url: RouteLocationRaw
+}
 
 defineOptions({
   inheritAttrs: false,
 })
 
 const configStore = useConfigStore()
+const { t } = useI18n({
+  useScope: 'local',
+  messages: {
+    en: {
+      searchBar: {
+        search: 'Search',
+        popularSearches: 'Popular Searches',
+        appsPages: 'Apps & Pages',
+        userInterface: 'User Interface',
+        formsTables: 'Forms & Tables',
+        trySearchingFor: 'Try searching for',
+        analytics: 'Analytics',
+        ecommerce: 'eCommerce',
+        logistics: 'Logistics',
+        calendar: 'Calendar',
+        rolesPermissions: 'Roles & Permissions',
+        accountSettings: 'Account Settings',
+        dialogExamples: 'Dialog Examples',
+        typography: 'Typography',
+        accordion: 'Accordion',
+        alert: 'Alert',
+        cards: 'Cards',
+        radio: 'Radio',
+        formLayouts: 'Form Layouts',
+        table: 'Table',
+        editor: 'Editor',
+      },
+    },
+    vi: {
+      searchBar: {
+        search: 'Tìm kiếm',
+        popularSearches: 'Tìm kiếm phổ biến',
+        appsPages: 'Ứng dụng & Trang',
+        userInterface: 'Giao diện người dùng',
+        formsTables: 'Biểu mẫu & Bảng',
+        trySearchingFor: 'Thử tìm kiếm',
+        analytics: 'Phân tích',
+        ecommerce: 'Thương mại điện tử',
+        logistics: 'Logistics',
+        calendar: 'Lịch',
+        rolesPermissions: 'Vai trò & Quyền hạn',
+        accountSettings: 'Cài đặt tài khoản',
+        dialogExamples: 'Ví dụ dialog',
+        typography: 'Kiểu chữ',
+        accordion: 'Accordion',
+        alert: 'Cảnh báo',
+        cards: 'Thẻ',
+        radio: 'Radio',
+        formLayouts: 'Bố cục biểu mẫu',
+        table: 'Bảng',
+        editor: 'Trình soạn thảo',
+      },
+    },
+  },
+})
+
+interface SuggestionGroup {
+  title: string
+  content: Suggestion[]
+}
+
+// 👉 Is App Search Bar Visible
 const isAppSearchBarVisible = ref(false)
 const isLoading = ref(false)
 
 // 👉 Default suggestions
-const suggestionGroups = [
+
+const suggestionGroups: SuggestionGroup[] = [
   {
-    title: 'Popular Searches',
+    title: t('searchBar.popularSearches'),
     content: [
-      {
-        icon: 'tabler-chart-bar',
-        title: 'Analytics',
-        url: { name: 'dashboards-analytics' },
-      },
-      {
-        icon: 'tabler-chart-donut-3',
-        title: 'CRM',
-        url: { name: 'dashboards-crm' },
-      },
-      {
-        icon: 'tabler-shopping-cart',
-        title: 'eCommerce',
-        url: { name: 'dashboards-ecommerce' },
-      },
-      {
-        icon: 'tabler-truck',
-        title: 'Logistics',
-        url: { name: 'dashboards-logistics' },
-      },
+      { icon: 'tabler-chart-bar', title: t('searchBar.analytics'), url: { name: 'dashboards-analytics' } },
+      { icon: 'tabler-chart-donut-3', title: 'CRM', url: { name: 'dashboards-crm' } },
+      { icon: 'tabler-shopping-cart', title: t('searchBar.ecommerce'), url: { name: 'dashboards-ecommerce' } },
+      { icon: 'tabler-truck', title: t('searchBar.logistics'), url: { name: 'dashboards-logistics' } },
     ],
   },
   {
-    title: 'Apps & Pages',
+    title: t('searchBar.appsPages'),
     content: [
-      {
-        icon: 'tabler-calendar',
-        title: 'Calendar',
-        url: { name: 'apps-calendar' },
-      },
-      {
-        icon: 'tabler-lock',
-        title: 'Roles & Permissions',
-        url: { name: 'apps-roles' },
-      },
-      {
-        icon: 'tabler-settings',
-        title: 'Account Settings',
-        url: {
-          name: 'pages-account-settings-tab',
-          params: { tab: 'account' },
-        },
-      },
-      {
-        icon: 'tabler-copy',
-        title: 'Dialog Examples',
-        url: { name: 'pages-dialog-examples' },
-      },
+      { icon: 'tabler-calendar', title: t('searchBar.calendar'), url: { name: 'apps-calendar' } },
+      { icon: 'tabler-lock', title: t('searchBar.rolesPermissions'), url: { name: 'apps-roles' } },
+      { icon: 'tabler-settings', title: t('searchBar.accountSettings'), url: { name: 'pages-account-settings-tab', params: { tab: 'account' } } },
+      { icon: 'tabler-copy', title: t('searchBar.dialogExamples'), url: { name: 'pages-dialog-examples' } },
     ],
   },
   {
-    title: 'User Interface',
+    title: t('searchBar.userInterface'),
     content: [
-      {
-        icon: 'tabler-typography',
-        title: 'Typography',
-        url: { name: 'pages-typography' },
-      },
-      {
-        icon: 'tabler-menu-2',
-        title: 'Accordion',
-        url: { name: 'components-expansion-panel' },
-      },
-      {
-        icon: 'tabler-info-triangle',
-        title: 'Alert',
-        url: { name: 'components-alert' },
-      },
-      {
-        icon: 'tabler-checkbox',
-        title: 'Cards',
-        url: { name: 'pages-cards-card-basic' },
-      },
+      { icon: 'tabler-typography', title: t('searchBar.typography'), url: { name: 'pages-typography' } },
+      { icon: 'tabler-menu-2', title: t('searchBar.accordion'), url: { name: 'components-expansion-panel' } },
+      { icon: 'tabler-info-triangle', title: t('searchBar.alert'), url: { name: 'components-alert' } },
+      { icon: 'tabler-checkbox', title: t('searchBar.cards'), url: { name: 'pages-cards-card-basic' } },
     ],
   },
   {
-    title: 'Forms & Tables',
+    title: t('searchBar.formsTables'),
     content: [
-      {
-        icon: 'tabler-circle-dot',
-        title: 'Radio',
-        url: { name: 'forms-radio' },
-      },
-      {
-        icon: 'tabler-file-invoice',
-        title: 'Form Layouts',
-        url: { name: 'forms-form-layouts' },
-      },
-      {
-        icon: 'tabler-table',
-        title: 'Table',
-        url: { name: 'tables-data-table' },
-      },
-      {
-        icon: 'tabler-edit',
-        title: 'Editor',
-        url: { name: 'forms-editors' },
-      },
+      { icon: 'tabler-circle-dot', title: t('searchBar.radio'), url: { name: 'forms-radio' } },
+      { icon: 'tabler-file-invoice', title: t('searchBar.formLayouts'), url: { name: 'forms-form-layouts' } },
+      { icon: 'tabler-table', title: t('searchBar.table'), url: { name: 'tables-data-table' } },
+      { icon: 'tabler-edit', title: t('searchBar.editor'), url: { name: 'forms-editors' } },
     ],
   },
 ]
 
 // 👉 No Data suggestion
-const noDataSuggestions = [
+const noDataSuggestions: Suggestion[] = [
   {
-    title: 'Analytics',
+    title: t('searchBar.analytics'),
     icon: 'tabler-chart-bar',
     url: { name: 'dashboards-analytics' },
   },
@@ -131,20 +135,21 @@ const noDataSuggestions = [
     url: { name: 'dashboards-crm' },
   },
   {
-    title: 'eCommerce',
+    title: t('searchBar.ecommerce'),
     icon: 'tabler-shopping-cart',
     url: { name: 'dashboards-ecommerce' },
   },
 ]
 
 const searchQuery = ref('')
+
 const router = useRouter()
-const searchResult = ref([])
+const searchResult = ref<SearchResults[]>([])
 
 const fetchResults = async () => {
   isLoading.value = true
 
-  const { data } = await useApi(withQuery('/app-bar/search', { q: searchQuery.value }))
+  const { data } = await useApi<any>(withQuery('/app-bar/search', { q: searchQuery.value }))
 
   searchResult.value = data.value
 
@@ -161,8 +166,9 @@ const closeSearchBar = () => {
   searchQuery.value = ''
 }
 
-const redirectToSuggestedPage = selected => {
-  router.push(selected.url)
+// 👉 redirect the selected page
+const redirectToSuggestedPage = (selected: Suggestion) => {
+  router.push(selected.url as string)
   closeSearchBar()
 }
 
@@ -171,31 +177,24 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
 <template>
   <div
-    class="app-nav-search d-flex align-center cursor-pointer"
+    class="d-flex align-center cursor-pointer"
     v-bind="$attrs"
-    @click="isAppSearchBarVisible = !isAppSearchBarVisible; Shepherd.activeTour?.cancel()"
+    style="user-select: none;"
+    @click="isAppSearchBarVisible = !isAppSearchBarVisible"
   >
-    <div class="app-nav-search__icon">
-      <VIcon
-        icon="tabler-search"
-        size="18"
-      />
-    </div>
+    <!-- 👉 Search Trigger button -->
+    <!-- close active tour while opening search bar using icon -->
+    <IconBtn @click="Shepherd.activeTour?.cancel()">
+      <VIcon icon="tabler-search" />
+    </IconBtn>
 
     <span
-      class="app-nav-search__label"
+      v-if="configStore.appContentLayoutNav === 'vertical'"
+      class="d-none d-md-flex align-center text-disabled ms-2"
+      @click="Shepherd.activeTour?.cancel()"
     >
-      Tìm kiếm
-    </span>
-
-    <VSpacer />
-
-    <span
-      class="meta-key app-nav-search__shortcut d-none d-md-flex align-center justify-center ms-2"
-    >
-      <span
-        class="me-1"
-      >⌘</span>K
+      <span class="me-2">{{ t('searchBar.search') }}</span>
+      <span class="meta-key">&#8984;K</span>
     </span>
   </div>
 
@@ -247,7 +246,7 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
     <!-- no data suggestion -->
     <template #noDataSuggestion>
       <div class="mt-9">
-        <span class="d-flex justify-center text-disabled mb-2">Try searching for</span>
+        <span class="d-flex justify-center text-disabled mb-2">{{ t('searchBar.trySearchingFor') }}</span>
         <h6
           v-for="suggestion in noDataSuggestions"
           :key="suggestion.title"
@@ -298,16 +297,16 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 </template>
 
 <style lang="scss">
-@use "@styles/variables/vuetify.scss";
+@use "@styles/variables/vuetify";
 
 .meta-key {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 999px;
+  border-radius: 6px;
   block-size: 1.5625rem;
   font-size: 0.8125rem;
   line-height: 1.3125rem;
   padding-block: 0.125rem;
-  padding-inline: 0.5rem;
+  padding-inline: 0.25rem;
 }
 
 .app-bar-search-dialog {
@@ -317,86 +316,6 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 
   .card-list {
     --v-card-list-gap: 8px;
-  }
-}
-
-.app-nav-search {
-  align-items: center;
-  inline-size: min(100%, 26rem);
-  min-inline-size: 0;
-  border: 1px solid rgba(var(--v-border-color), 0.5);
-  border-radius: 999px;
-  background: rgba(var(--v-theme-surface), 1);
-  block-size: 2.75rem;
-  padding-inline: 0.625rem 0.75rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-  user-select: none;
-}
-
-.app-nav-search:hover {
-  border-color: rgba(var(--v-theme-primary), 0.35);
-  background: rgba(var(--v-theme-surface), 1);
-}
-
-.app-nav-search:focus-within,
-.app-nav-search:active {
-  border-color: rgba(var(--v-theme-primary), 0.55);
-  box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.08);
-}
-
-.app-nav-search__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(var(--v-theme-primary), 0.08);
-  color: rgb(var(--v-theme-primary));
-  block-size: 2rem;
-  inline-size: 2rem;
-  flex: 0 0 2rem;
-}
-
-.app-nav-search__label {
-  overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), 0.68);
-  font-size: 0.95rem;
-  font-weight: 500;
-  margin-inline-start: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-nav-search__shortcut {
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-@media (max-width: 959px) {
-  .app-nav-search {
-    inline-size: 100%;
-  }
-}
-
-@media (max-width: 600px) {
-  .app-nav-search {
-    block-size: 2.5rem;
-    padding-inline: 0.5rem 0.625rem !important;
-  }
-
-  .app-nav-search__icon {
-    block-size: 1.875rem;
-    inline-size: 1.875rem;
-    flex-basis: 1.875rem;
-  }
-
-  .app-nav-search__label {
-    font-size: 0.9rem;
-    margin-inline-start: 0.625rem;
-  }
-
-  .app-nav-search .meta-key {
-    display: none !important;
   }
 }
 </style>

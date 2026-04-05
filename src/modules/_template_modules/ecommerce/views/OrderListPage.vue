@@ -376,7 +376,7 @@ const deleteOrder = async id => {
 
 <style lang="scss" scoped>
 .customer-title:hover {
-  color: rgba(var(--v-theme-primary)) !important;
+  color: rgba(var(--v-theme-primary-darken-1)) !important;
 }
 
 .product-widget {

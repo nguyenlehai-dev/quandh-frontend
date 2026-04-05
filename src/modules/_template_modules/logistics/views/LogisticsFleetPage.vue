@@ -373,7 +373,7 @@ watch(activeIndex, () => {
 }
 
 .marker-focus {
-  filter: drop-shadow(0 0 7px rgb(var(--v-theme-primary)));
+  filter: drop-shadow(0 0 7px rgb(var(--v-theme-primary-darken-1)));
 }
 
 .mapboxgl-ctrl-bottom-left,

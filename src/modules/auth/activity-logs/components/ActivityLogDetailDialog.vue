@@ -1,6 +1,7 @@
 <script setup>
 /* eslint-disable vue/max-attributes-per-line */
 import { formatAuthDateTime } from '../../shared/dateTime'
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -52,10 +53,10 @@ const requestDataDisplay = computed(() => {
     <VCard class="pa-2 pa-sm-6">
       <VCardText>
         <h4 class="text-h4 text-center mb-2">
-          Chi tiet nhat ky hoat dong
+          {{ t('auth.auth.activity_logs.dialog.title') }}
         </h4>
         <p class="text-body-1 text-center mb-6">
-          Xem thong tin request, nguoi dung, route va du lieu lien quan.
+          {{ t('auth.auth.activity_logs.dialog.description') }}
         </p>
 
         <div
@@ -73,80 +74,80 @@ const requestDataDisplay = computed(() => {
             cols="12"
             md="6"
           >
-            <strong>ID:</strong> {{ activityLog?.id ?? 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.id') }}:</strong> {{ activityLog?.id ?? t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Nguoi dung:</strong> {{ activityLog?.user_name || 'Guest' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.user') }}:</strong> {{ activityLog?.user_name || t('auth.auth.activity_logs.table.guest') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>User type:</strong> {{ activityLog?.user_type || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.user_type') }}:</strong> {{ activityLog?.user_type || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Organization ID:</strong> {{ activityLog?.organization_id ?? 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.organization_id') }}:</strong> {{ activityLog?.organization_id ?? t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol cols="12">
-            <strong>Mo ta:</strong> {{ activityLog?.description || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.description_label') }}:</strong> {{ activityLog?.description || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Route:</strong> {{ activityLog?.route || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.route') }}:</strong> {{ activityLog?.route || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="3"
           >
-            <strong>Method:</strong> {{ activityLog?.method_type || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.method') }}:</strong> {{ activityLog?.method_type || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="3"
           >
-            <strong>Status:</strong> {{ activityLog?.status_code ?? 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.status') }}:</strong> {{ activityLog?.status_code ?? t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>IP:</strong> {{ activityLog?.ip_address || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.ip') }}:</strong> {{ activityLog?.ip_address || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Country:</strong> {{ activityLog?.country || 'N/A' }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.country') }}:</strong> {{ activityLog?.country || t('auth.auth.activity_logs.table.empty') }}
           </VCol>
           <VCol cols="12">
-            <strong>User agent:</strong>
+            <strong>{{ t('auth.auth.activity_logs.dialog.user_agent') }}:</strong>
             <div class="activity-log-detail__block mt-2">
-              {{ activityLog?.user_agent || 'N/A' }}
+              {{ activityLog?.user_agent || t('auth.auth.activity_logs.table.empty') }}
             </div>
           </VCol>
           <VCol cols="12">
-            <strong>Request data:</strong>
+            <strong>{{ t('auth.auth.activity_logs.dialog.request_data') }}:</strong>
             <pre class="activity-log-detail__block mt-2">{{ requestDataDisplay }}</pre>
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Created at:</strong> {{ formatAuthDateTime(activityLog?.created_at, { fallback: 'N/A', includeSeconds: true }) }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.created_at') }}:</strong> {{ formatAuthDateTime(activityLog?.created_at, { fallback: t('auth.auth.activity_logs.table.empty'), includeSeconds: true }) }}
           </VCol>
           <VCol
             cols="12"
             md="6"
           >
-            <strong>Updated at:</strong> {{ formatAuthDateTime(activityLog?.updated_at, { fallback: 'N/A', includeSeconds: true }) }}
+            <strong>{{ t('auth.auth.activity_logs.dialog.updated_at') }}:</strong> {{ formatAuthDateTime(activityLog?.updated_at, { fallback: t('auth.auth.activity_logs.table.empty'), includeSeconds: true }) }}
           </VCol>
         </VRow>
 
@@ -156,7 +157,7 @@ const requestDataDisplay = computed(() => {
             variant="tonal"
             @click="closeDialog"
           >
-            Dong
+            {{ t('auth.auth.activity_logs.dialog.close') }}
           </VBtn>
         </div>
       </VCardText>

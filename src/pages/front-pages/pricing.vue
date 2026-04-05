@@ -365,7 +365,7 @@ const faqs = [
 
 .page-pricing-free-trial-banner-bg {
   /* stylelint-disable-next-line color-function-notation */
-  background-color: rgba(var(--v-theme-primary), var(--v-activated-opacity));
+  background-color: rgba(var(--v-theme-primary-darken-1), var(--v-activated-opacity));
   margin-block-start: 8.9375rem !important;
 }
 

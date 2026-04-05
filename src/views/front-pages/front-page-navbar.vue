@@ -423,7 +423,7 @@ const isPageActive = computed(() => menuItems.some(item => item.navItems.some(li
 
 .page-link {
   &:hover {
-    color: rgb(var(--v-theme-primary)) !important;
+    color: rgb(var(--v-theme-primary-darken-1)) !important;
   }
 }
 
@@ -479,7 +479,7 @@ const isPageActive = computed(() => menuItems.some(item => item.navItems.some(li
 }
 
 .active-link {
-  color: rgb(var(--v-theme-primary)) !important;
+  color: rgb(var(--v-theme-primary-darken-1)) !important;
 }
 
 .app-bar-light {
@@ -541,7 +541,7 @@ const isPageActive = computed(() => menuItems.some(item => item.navItems.some(li
 
 .mega-menu-item {
   &:hover {
-    color: rgb(var(--v-theme-primary)) !important;
+    color: rgb(var(--v-theme-primary-darken-1)) !important;
   }
 }
 

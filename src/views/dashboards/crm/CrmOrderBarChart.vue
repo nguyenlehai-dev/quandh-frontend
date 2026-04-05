@@ -49,7 +49,7 @@ const chartOptions = computed(() => {
         },
       },
     },
-    colors: ['rgba(var(--v-theme-primary),1)'],
+    colors: ['rgba(var(--v-theme-primary-darken-1),1)'],
     grid: {
       show: false,
       padding: {

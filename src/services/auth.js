@@ -127,6 +127,11 @@ const clearClientSession = () => {
   ability.update([])
 }
 
+const resetUnauthorizedSession = () => {
+  clearClientSession()
+  lastFetchMeAt = 0
+}
+
 const ABILITY_ACTION_ALIASES = {
   index: ['read'],
   show: ['read'],
@@ -326,6 +331,15 @@ export const fetchMe = async ({ force = false } = {}) => {
         url: '/user',
       })
 
+      if (res?.code === 401 || res?.status === 401 || res?.statusCode === 401) {
+        resetUnauthorizedSession()
+
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login')
+          window.location.assign(`/login?to=${encodeURIComponent(window.location.pathname)}`)
+
+        return null
+      }
+
       if (res.errors || res.code || res.success === false)
         return null
 
@@ -351,6 +365,15 @@ export const fetchMe = async ({ force = false } = {}) => {
       return null
     }
     catch (err) {
+      if (err?.code === 401 || err?.status === 401 || err?.statusCode === 401) {
+        resetUnauthorizedSession()
+
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login')
+          window.location.assign(`/login?to=${encodeURIComponent(window.location.pathname)}`)
+
+        return null
+      }
+
       if (err?.code === 403 || err?.status === 403 || err?.statusCode === 403) {
         sessionStorage.setItem(FETCH_ME_FORBIDDEN_KEY, '1')
         clearCurrentOrganization()

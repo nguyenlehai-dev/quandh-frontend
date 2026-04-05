@@ -38,7 +38,7 @@ setTimeout(async () => {
         <template #title>
           <h4
             class="text-h4 font-weight-medium"
-            style="color: rgba(var(--v-theme-primary), 1);"
+            style="color: rgba(var(--v-theme-primary-darken-1), 1);"
           >
             Hello, how can we help?
           </h4>
