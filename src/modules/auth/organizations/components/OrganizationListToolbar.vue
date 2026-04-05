@@ -126,10 +126,9 @@ const handleImport = () => {
 </script>
 
 <template>
-  <VCard
-    :title="t('organizations.organizations.list.filter')"
-    class="mb-6"
-  >
+  <div>
+    <VCardItem :title="t('organizations.organizations.list.filter')" />
+
     <VCardText>
       <VRow class="align-center">
         <VCol
@@ -272,7 +271,7 @@ const handleImport = () => {
     </VCardText>
 
     <VDivider />
-  </VCard>
+  </div>
 
   <VDialog
     v-model="isImportDialogVisible"

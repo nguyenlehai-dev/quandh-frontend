@@ -53,35 +53,35 @@ const {
   <div class="user-page">
     <UserStatsCards :widget-data="widgetData" />
 
-    <UserListToolbar
-      :search-query="searchQuery"
-      :selected-status="selectedStatus"
-      :from-date="fromDate"
-      :to-date="toDate"
-      :status-options="statusOptions"
-      :has-invalid-date-range="hasInvalidDateRange"
-      :selected-rows-count="selectedRows.length"
-      :bulk-status-options="bulkStatusOptions"
-      :is-importing="isImporting"
-      :is-exporting="isExporting"
-      :can-import="$can('import', 'User')"
-      :can-export="$can('export', 'User')"
-      :can-create="$can('create', 'User')"
-      :can-bulk-update-status="$can('bulkUpdateStatus', 'User')"
-      :can-bulk-destroy="$can('bulkDestroy', 'User')"
-      :download-template-handler="downloadUserImportTemplate"
-      @update:search-query="searchQuery = $event"
-      @update:selected-status="selectedStatus = $event"
-      @update:from-date="fromDate = $event"
-      @update:to-date="toDate = $event"
-      @bulk-change-status="bulkChangeStatus"
-      @bulk-delete="bulkDeleteUsers"
-      @import="handleImport"
-      @export="handleExport"
-      @add="openCreateUserPage"
-    />
-
     <VCard>
+      <UserListToolbar
+        :search-query="searchQuery"
+        :selected-status="selectedStatus"
+        :from-date="fromDate"
+        :to-date="toDate"
+        :status-options="statusOptions"
+        :has-invalid-date-range="hasInvalidDateRange"
+        :selected-rows-count="selectedRows.length"
+        :bulk-status-options="bulkStatusOptions"
+        :is-importing="isImporting"
+        :is-exporting="isExporting"
+        :can-import="$can('import', 'User')"
+        :can-export="$can('export', 'User')"
+        :can-create="$can('create', 'User')"
+        :can-bulk-update-status="$can('bulkUpdateStatus', 'User')"
+        :can-bulk-destroy="$can('bulkDestroy', 'User')"
+        :download-template-handler="downloadUserImportTemplate"
+        @update:search-query="searchQuery = $event"
+        @update:selected-status="selectedStatus = $event"
+        @update:from-date="fromDate = $event"
+        @update:to-date="toDate = $event"
+        @bulk-change-status="bulkChangeStatus"
+        @bulk-delete="bulkDeleteUsers"
+        @import="handleImport"
+        @export="handleExport"
+        @add="openCreateUserPage"
+      />
+
       <UserDataTable
         :page="page"
         :items-per-page="itemsPerPage"

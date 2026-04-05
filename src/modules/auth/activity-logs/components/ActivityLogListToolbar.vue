@@ -60,10 +60,9 @@ const showBulkActions = computed(() => props.selectedRowsCount > 0)
 </script>
 
 <template>
-  <VCard
-    :title="t('auth.auth.activity_logs.toolbar.filter')"
-    class="mb-6"
-  >
+  <div>
+    <VCardItem :title="t('auth.auth.activity_logs.toolbar.filter')" />
+
     <VCardText>
       <VRow class="align-center">
         <VCol cols="12" md="3">
@@ -195,5 +194,5 @@ const showBulkActions = computed(() => props.selectedRowsCount > 0)
     </VCardText>
 
     <VDivider />
-  </VCard>
+  </div>
 </template>

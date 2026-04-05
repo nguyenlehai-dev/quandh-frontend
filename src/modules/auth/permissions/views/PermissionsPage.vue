@@ -52,29 +52,29 @@ const {
   <div class="permissions-page">
     <PermissionStatsCards :widget-data="widgetData" />
 
-    <PermissionListToolbar
-      :search-query="searchQuery"
-      :from-date="fromDate"
-      :to-date="toDate"
-      :has-invalid-date-range="hasInvalidDateRange"
-      :selected-rows-count="selectedRows.length"
-      :is-importing="isImporting"
-      :is-exporting="isExporting"
-      :can-import="$can('import', 'Permission')"
-      :can-export="$can('export', 'Permission')"
-      :can-create="$can('create', 'Permission')"
-      :can-bulk-destroy="$can('bulkDestroy', 'Permission')"
-      :download-template-handler="downloadPermissionTemplate"
-      @update:search-query="searchQuery = $event"
-      @update:from-date="fromDate = $event"
-      @update:to-date="toDate = $event"
-      @bulk-delete="bulkDeletePermissions"
-      @import="handleImport"
-      @export="handleExport"
-      @add="openCreateDialog"
-    />
-
     <VCard>
+      <PermissionListToolbar
+        :search-query="searchQuery"
+        :from-date="fromDate"
+        :to-date="toDate"
+        :has-invalid-date-range="hasInvalidDateRange"
+        :selected-rows-count="selectedRows.length"
+        :is-importing="isImporting"
+        :is-exporting="isExporting"
+        :can-import="$can('import', 'Permission')"
+        :can-export="$can('export', 'Permission')"
+        :can-create="$can('create', 'Permission')"
+        :can-bulk-destroy="$can('bulkDestroy', 'Permission')"
+        :download-template-handler="downloadPermissionTemplate"
+        @update:search-query="searchQuery = $event"
+        @update:from-date="fromDate = $event"
+        @update:to-date="toDate = $event"
+        @bulk-delete="bulkDeletePermissions"
+        @import="handleImport"
+        @export="handleExport"
+        @add="openCreateDialog"
+      />
+
       <PermissionDataTable
         :page="page"
         :items-per-page="itemsPerPage"

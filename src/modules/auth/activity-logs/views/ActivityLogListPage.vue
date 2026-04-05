@@ -58,33 +58,33 @@ const {
   <div id="activity-logs-module-root">
     <ActivityLogStatsCards :widget-data="widgetData" />
 
-    <ActivityLogListToolbar
-      :search-query="searchQuery"
-      :selected-method="selectedMethod"
-      :selected-status="selectedStatus"
-      :from-date="fromDate"
-      :to-date="toDate"
-      :method-options="methodOptions"
-      :status-options="statusOptions"
-      :selected-rows-count="selectedRows.length"
-      :is-exporting="isExporting"
-      :can-export="canExportLogs"
-      :can-manage-log-cleanup="canManageLogCleanup"
-      :can-bulk-delete-logs="canBulkDeleteLogs"
-      :has-invalid-date-range="hasInvalidDateRange"
-      @update:search-query="searchQuery = $event"
-      @update:selected-method="selectedMethod = $event"
-      @update:selected-status="selectedStatus = $event"
-      @update:from-date="fromDate = $event"
-      @update:to-date="toDate = $event"
-      @reset="resetFilters"
-      @bulk-delete="handleBulkDelete"
-      @delete-by-date="openDeleteByDateDialog({ fromDate, toDate })"
-      @clear-all="handleClearAll"
-      @export="handleExport"
-    />
-
     <VCard class="activity-logs-main-card">
+      <ActivityLogListToolbar
+        :search-query="searchQuery"
+        :selected-method="selectedMethod"
+        :selected-status="selectedStatus"
+        :from-date="fromDate"
+        :to-date="toDate"
+        :method-options="methodOptions"
+        :status-options="statusOptions"
+        :selected-rows-count="selectedRows.length"
+        :is-exporting="isExporting"
+        :can-export="canExportLogs"
+        :can-manage-log-cleanup="canManageLogCleanup"
+        :can-bulk-delete-logs="canBulkDeleteLogs"
+        :has-invalid-date-range="hasInvalidDateRange"
+        @update:search-query="searchQuery = $event"
+        @update:selected-method="selectedMethod = $event"
+        @update:selected-status="selectedStatus = $event"
+        @update:from-date="fromDate = $event"
+        @update:to-date="toDate = $event"
+        @reset="resetFilters"
+        @bulk-delete="handleBulkDelete"
+        @delete-by-date="openDeleteByDateDialog({ fromDate, toDate })"
+        @clear-all="handleClearAll"
+        @export="handleExport"
+      />
+
       <ActivityLogDataTable
         :page="page"
         :items-per-page="itemsPerPage"
