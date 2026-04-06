@@ -103,6 +103,7 @@ watch(() => checkedCount.value, count => {
 })
 
 const groupLabelMap = {
+  dashboards: 'Bảng điều khiển',
   users: 'Người dùng',
   roles: 'Vai trò',
   organizations: 'Tổ chức',
@@ -136,6 +137,8 @@ const groupLabelMap = {
 }
 
 const actionLabelMap = {
+  system: 'Tổng quan hệ thống',
+  business: 'Tổng quan nghiệp vụ',
   index: 'Xem danh sách',
   show: 'Xem chi tiết',
   store: 'Tạo mới',

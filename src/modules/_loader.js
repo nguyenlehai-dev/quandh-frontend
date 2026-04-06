@@ -130,11 +130,15 @@ export function getModuleNavigation() {
       title: 'navigation.navigation.dashboard.system_overview',
       to: 'system-dashboard',
       icon: { icon: 'tabler-layout-dashboard' },
+      action: 'system',
+      subject: 'dashboards',
     },
     {
       title: 'navigation.navigation.dashboard.business_overview',
       to: 'meetings-business-overview',
       icon: { icon: 'tabler-briefcase' },
+      action: 'business',
+      subject: 'dashboards',
     },
   ]
 

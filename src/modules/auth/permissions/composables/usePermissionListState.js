@@ -4,6 +4,7 @@ const DEFAULT_STATS = Object.freeze({ total: 0 })
 const ITEMS_PER_PAGE_OPTIONS = Object.freeze([5, 10, 20, 50, 100])
 
 const permissionGroupLabelMap = Object.freeze({
+  dashboards: 'Bảng điều khiển',
   users: 'Người dùng',
   roles: 'Vai trò',
   organizations: 'Tổ chức',
@@ -29,6 +30,8 @@ const permissionGroupLabelMap = Object.freeze({
 })
 
 const permissionActionLabelMap = Object.freeze({
+  system: 'Tổng quan hệ thống',
+  business: 'Tổng quan nghiệp vụ',
   index: 'Xem danh sách',
   show: 'Xem chi tiết',
   store: 'Tạo mới',

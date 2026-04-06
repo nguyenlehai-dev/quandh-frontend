@@ -1,8 +1,8 @@
 import { ability } from '@/plugins/casl/ability'
 
 const postLoginRouteCandidates = [
-  { name: 'system-dashboard', action: 'read', subject: 'Dashboard' },
-  { name: 'meetings-business-overview', action: 'dashboard', subject: 'Meeting' },
+  { name: 'system-dashboard', action: 'system', subject: 'dashboards' },
+  { name: 'meetings-business-overview', action: 'business', subject: 'dashboards' },
   { name: 'meetings-list', action: 'index', subject: 'Meeting' },
   { name: 'meetings-participant-my-meetings', action: 'index', subject: 'MyMeeting' },
   { name: 'system-organizations', action: 'read', subject: 'Organization' },
