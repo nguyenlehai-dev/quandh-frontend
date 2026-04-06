@@ -28,6 +28,104 @@ export function useActivityLogListActions({
   buildExportParams,
 }) {
   const { t } = useI18n()
+
+  const selectedLogIds = () => selectedRows.value
+  const hasSelectedRows = () => selectedLogIds().length > 0
+  const getExportFileDate = () => new Date().toISOString().slice(0, 10)
+  const formatRequestData = value => typeof value === 'string' ? value : JSON.stringify(value ?? {})
+
+  const createSelectedLogExportRow = item => ({
+    description: item.description || '',
+    'user_type': item.user_type || '',
+    'user_name': item.user_name || t('auth.auth.activity_logs.table.guest'),
+    'organization_id': item.organization_id ?? '',
+    route: item.route || '',
+    'method_type': item.method_type || '',
+    'status_code': item.status_code ?? '',
+    'ip_address': item.ip_address || '',
+    country: item.country || '',
+    'user_agent': item.user_agent || '',
+    'request_data': formatRequestData(item.request_data),
+    'created_at': formatAuthDateTime(item.created_at, { fallback: '', includeSeconds: true }),
+    'updated_at': formatAuthDateTime(item.updated_at || item.created_at, { fallback: '', includeSeconds: true }),
+  })
+
+  const refreshActivityLogs = () => refreshList(showError)
+
+  const clearSelectedRows = () => {
+    selectedRows.value = []
+  }
+
+  const removeSelectedRow = id => {
+    selectedRows.value = selectedLogIds().filter(selectedId => selectedId !== id)
+  }
+
+  const runListAction = async ({ action, successMessage, errorMessage, onSuccess }) => {
+    try {
+      await action()
+      await onSuccess?.()
+      showSuccess(successMessage)
+      await refreshActivityLogs()
+    }
+    catch (error) {
+      showError(error, errorMessage)
+    }
+  }
+
+  const createConfirmAction = ({
+    title,
+    message,
+    confirmText,
+    action,
+  }) => openConfirmDialog({
+    title,
+    message,
+    confirmText,
+    confirmColor: 'error',
+    action,
+  })
+
+  const downloadBlobFile = ({ blob, fileName }) => {
+    const safeBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(safeBlob)
+    const anchor = document.createElement('a')
+
+    anchor.href = url
+    anchor.download = fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    setTimeout(() => {
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(url)
+    }, 5000)
+  }
+
+  const exportSelectedLogs = () => {
+    const selectedLogs = logs.value.filter(item => selectedLogIds().includes(item.id))
+
+    exportRowsToExcel({
+      rows: selectedLogs.map(createSelectedLogExportRow),
+      headers: ['description', 'user_type', 'user_name', 'organization_id', 'route', 'method_type', 'status_code', 'ip_address', 'country', 'user_agent', 'request_data', 'created_at', 'updated_at'],
+      sheetName: 'ActivityLogs',
+      fileName: `activity_logs_selected_${getExportFileDate()}.xlsx`,
+      columns: [
+        { wch: 32 },
+        { wch: 16 },
+        { wch: 24 },
+        { wch: 16 },
+        { wch: 40 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 42 },
+        { wch: 36 },
+        { wch: 22 },
+        { wch: 22 },
+      ],
+    })
+  }
+
   const openConfirmDialog = options => {
     confirmDialog.value = { ...confirmDialog.value, ...options }
     isConfirmDialogVisible.value = true
@@ -70,42 +168,40 @@ export function useActivityLogListActions({
   }
 
   const handleDeleteLog = item => {
-    openConfirmDialog({
+    createConfirmAction({
       title: t('auth.auth.activity_logs.messages.delete_title'),
       message: t('auth.auth.activity_logs.messages.delete_message', { target: item.description || item.route || item.id }),
       confirmText: t('auth.auth.activity_logs.messages.delete'),
-      confirmColor: 'error',
-      action: async () => {
-        await deleteActivityLog(item.id)
-        selectedRows.value = selectedRows.value.filter(id => id !== item.id)
-        showSuccess(t('auth.auth.activity_logs.messages.delete_success'))
-        await refreshList(showError)
-      },
+      action: () => runListAction({
+        action: () => deleteActivityLog(item.id),
+        successMessage: t('auth.auth.activity_logs.messages.delete_success'),
+        errorMessage: t('auth.auth.activity_logs.messages.action_error'),
+        onSuccess: () => removeSelectedRow(item.id),
+      }),
     })
   }
 
   const handleBulkDelete = () => {
-    if (!selectedRows.value.length)
+    if (!hasSelectedRows())
       return
 
-    openConfirmDialog({
+    createConfirmAction({
       title: t('auth.auth.activity_logs.messages.bulk_delete_title'),
-      message: t('auth.auth.activity_logs.messages.bulk_delete_message', { count: selectedRows.value.length }),
+      message: t('auth.auth.activity_logs.messages.bulk_delete_message', { count: selectedLogIds().length }),
       confirmText: t('auth.auth.activity_logs.messages.delete'),
-      confirmColor: 'error',
-      action: async () => {
-        await bulkDeleteActivityLogs(selectedRows.value)
-        selectedRows.value = []
-        showSuccess(t('auth.auth.activity_logs.messages.bulk_delete_success'))
-        await refreshList(showError)
-      },
+      action: () => runListAction({
+        action: () => bulkDeleteActivityLogs(selectedLogIds()),
+        successMessage: t('auth.auth.activity_logs.messages.bulk_delete_success'),
+        errorMessage: t('auth.auth.activity_logs.messages.action_error'),
+        onSuccess: clearSelectedRows,
+      }),
     })
   }
 
   const openDeleteByDateDialog = currentFilters => {
     deleteByDateForm.value = {
-      from_date: currentFilters.fromDate || '',
-      to_date: currentFilters.toDate || '',
+      'from_date': currentFilters.fromDate || '',
+      'to_date': currentFilters.toDate || '',
     }
     isDeleteByDateDialogVisible.value = true
   }
@@ -120,10 +216,10 @@ export function useActivityLogListActions({
     isDeleteByDateSubmitting.value = true
     try {
       await deleteActivityLogsByDate(deleteByDateForm.value)
-      selectedRows.value = []
+      clearSelectedRows()
       isDeleteByDateDialogVisible.value = false
       showSuccess(t('auth.auth.activity_logs.messages.delete_by_date_success'))
-      await refreshList(showError)
+      await refreshActivityLogs()
     }
     catch (error) {
       showError(error, t('auth.auth.activity_logs.messages.delete_by_date_error'))
@@ -134,81 +230,35 @@ export function useActivityLogListActions({
   }
 
   const handleClearAll = () => {
-    openConfirmDialog({
+    createConfirmAction({
       title: t('auth.auth.activity_logs.messages.clear_all_title'),
       message: t('auth.auth.activity_logs.messages.clear_all_message'),
       confirmText: t('auth.auth.activity_logs.messages.clear_all_confirm'),
-      confirmColor: 'error',
-      action: async () => {
-        await clearAllActivityLogs()
-        selectedRows.value = []
-        showSuccess(t('auth.auth.activity_logs.messages.clear_all_success'))
-        await refreshList(showError)
-      },
+      action: () => runListAction({
+        action: clearAllActivityLogs,
+        successMessage: t('auth.auth.activity_logs.messages.clear_all_success'),
+        errorMessage: t('auth.auth.activity_logs.messages.action_error'),
+        onSuccess: clearSelectedRows,
+      }),
     })
   }
 
   const handleExport = async () => {
     isExporting.value = true
     try {
-      if (selectedRows.value.length) {
-        const selectedLogs = logs.value.filter(item => selectedRows.value.includes(item.id))
-
-        exportRowsToExcel({
-          rows: selectedLogs.map(item => ({
-            description: item.description || '',
-            user_type: item.user_type || '',
-            user_name: item.user_name || t('auth.auth.activity_logs.table.guest'),
-            organization_id: item.organization_id ?? '',
-            route: item.route || '',
-            method_type: item.method_type || '',
-            status_code: item.status_code ?? '',
-            ip_address: item.ip_address || '',
-            country: item.country || '',
-            user_agent: item.user_agent || '',
-            request_data: typeof item.request_data === 'string' ? item.request_data : JSON.stringify(item.request_data ?? {}),
-            created_at: formatAuthDateTime(item.created_at, { fallback: '', includeSeconds: true }),
-            updated_at: formatAuthDateTime(item.updated_at || item.created_at, { fallback: '', includeSeconds: true }),
-          })),
-          headers: ['description', 'user_type', 'user_name', 'organization_id', 'route', 'method_type', 'status_code', 'ip_address', 'country', 'user_agent', 'request_data', 'created_at', 'updated_at'],
-          sheetName: 'ActivityLogs',
-          fileName: `activity_logs_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
-          columns: [
-            { wch: 32 },
-            { wch: 16 },
-            { wch: 24 },
-            { wch: 16 },
-            { wch: 40 },
-            { wch: 12 },
-            { wch: 12 },
-            { wch: 18 },
-            { wch: 20 },
-            { wch: 42 },
-            { wch: 36 },
-            { wch: 22 },
-            { wch: 22 },
-          ],
-        })
-
+      if (hasSelectedRows()) {
+        exportSelectedLogs()
         showSuccess(t('auth.auth.activity_logs.messages.export_success'))
 
         return
       }
 
       const response = await exportActivityLogs(buildExportParams())
-      const safeBlob = response instanceof Blob ? response : new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = window.URL.createObjectURL(safeBlob)
-      const anchor = document.createElement('a')
 
-      anchor.href = url
-      anchor.download = `activity_logs_${new Date().toISOString().slice(0, 10)}.xlsx`
-      document.body.appendChild(anchor)
-      anchor.click()
-      setTimeout(() => {
-        document.body.removeChild(anchor)
-        window.URL.revokeObjectURL(url)
-      }, 5000)
-
+      downloadBlobFile({
+        blob: response,
+        fileName: `activity_logs_${getExportFileDate()}.xlsx`,
+      })
       showSuccess(t('auth.auth.activity_logs.messages.export_success'))
     }
     catch (error) {
