@@ -608,7 +608,7 @@ const resetCustomizer = async () => {
 
   .v-label.custom-input.active {
     border-color: transparent;
-    outline: 2px solid rgb(var(--v-theme-primary));
+    outline: 2px solid rgb(var(--v-theme-primary-darken-1));
   }
 
   .v-label.custom-input:not(.active):hover {

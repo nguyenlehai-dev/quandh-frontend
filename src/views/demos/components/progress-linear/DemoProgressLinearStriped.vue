@@ -1,7 +1,7 @@
 <template>
   <div class="demo-space-y">
     <VProgressLinear
-      color="rgb(var(--v-theme-primary))"
+      color="rgb(var(--v-theme-primary-darken-1))"
       model-value="75"
       striped
     />

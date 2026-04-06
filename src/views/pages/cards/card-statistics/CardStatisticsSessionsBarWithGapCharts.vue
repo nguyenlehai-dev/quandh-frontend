@@ -78,7 +78,7 @@ const chartOptions = computed(() => {
     },
     legend: { show: false },
     colors: [
-      'rgba(var(--v-theme-primary),1)',
+      'rgba(var(--v-theme-primary-darken-1),1)',
       'rgba(var(--v-theme-success),1)',
     ],
     grid: {

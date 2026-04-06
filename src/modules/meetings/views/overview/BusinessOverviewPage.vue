@@ -329,7 +329,7 @@ const resolveStatusVariant = status => {
 
 <style scoped>
 .business-overview .v-card {
-  border: 1px solid rgba(var(--v-theme-primary), 0.1);
-  box-shadow: 0 4px 18px -4px rgba(var(--v-theme-primary), 0.05) !important;
+  border: 1px solid rgba(var(--v-theme-primary-darken-1), 0.1);
+  box-shadow: 0 4px 18px -4px rgba(var(--v-theme-primary-darken-1), 0.05) !important;
 }
 </style>

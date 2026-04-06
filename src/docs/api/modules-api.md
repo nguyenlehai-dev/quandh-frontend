@@ -26,15 +26,15 @@ Services:
 | PUT | `/meetings/:id` | `updateMeeting` | Cap nhat cuoc hop |
 | DELETE | `/meetings/:id` | `deleteMeeting` | Xoa cuoc hop |
 | PATCH | `/meetings/:id/status` | `changeMeetingStatus` | Doi trang thai cuoc hop |
-| GET | `/meetings/meeting-types` | `fetchMeetingTypes` | Danh muc loai cuoc hop |
-| GET | `/meetings/attendee-groups` | `fetchAttendeeGroups` | Danh muc nhom thanh phan tham du |
-| GET | `/meetings/meeting-document-types` | `fetchDocumentTypes` | Danh muc loai tai lieu meeting |
-| GET | `/meetings/meeting-document-fields` | `fetchDocumentFields` | Danh muc linh vuc tai lieu meeting |
-| GET | `/my-meetings` | `fetchMyMeetings` | Danh sach cuoc hop cua toi |
-| GET | `/meetings/all-votings` | `fetchVotes` | Danh sach bieu quyet toan he thong |
-| GET | `/meetings/all-documents` | `fetchDocuments` | Danh sach tai lieu toan he thong |
-| GET | `/meetings/all-conclusions` | `fetchConclusions` | Danh sach ket luan toan he thong |
-| GET | `/meetings/all-participants` | `fetchAttendees` | Danh sach nguoi tham gia toan he thong |
+| GET | `/meeting-types` | `fetchMeetingTypes` | Danh muc loai cuoc hop |
+| GET | `/attendee-groups` | `fetchAttendeeGroups` | Danh muc nhom thanh phan tham du |
+| GET | `/meeting-document-types` | `fetchDocumentTypes` | Danh muc loai tai lieu meeting |
+| GET | `/meeting-document-fields` | `fetchDocumentFields` | Danh muc linh vuc tai lieu meeting |
+| GET | `/participant/my-meetings` | `fetchMyMeetings` | Danh sach cuoc hop cua toi |
+| GET | `/admin/meetings/all-votings` | `fetchVotes` | Danh sach bieu quyet toan he thong |
+| GET | `/admin/meetings/all-documents` | `fetchDocuments` | Danh sach tai lieu toan he thong |
+| GET | `/admin/meetings/all-conclusions` | `fetchConclusions` | Danh sach ket luan toan he thong |
+| GET | `/admin/meetings/all-participants` | `fetchAttendees` | Danh sach nguoi tham gia toan he thong |
 
 ## Organizations
 

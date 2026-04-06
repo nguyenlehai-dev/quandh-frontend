@@ -1,4 +1,5 @@
 <script setup>
+import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { useActionFeedback } from '@/composables/useActionFeedback'
 
 const props = defineProps({
@@ -46,6 +47,7 @@ const currentPermission = ref({
 const saving = ref(false)
 const isEditMode = computed(() => !!currentPermission.value.id)
 const isReadonlyMode = computed(() => props.readonly)
+const { t } = useI18n()
 const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
 
 const permissionGroupLabelMap = {
@@ -145,7 +147,7 @@ const onSubmit = async () => {
   }
 
   if (!currentPermission.value.name.trim()) {
-    showSnackbar('Vui long nhap ma quyen.', 'warning')
+    showSnackbar(t('permissions.permissions.dialog.validation.name_required'), 'warning')
 
     return
   }
@@ -165,14 +167,14 @@ const onSubmit = async () => {
         method: 'PUT',
         body: payload,
       })
-      showSuccess('Cap nhat quyen han thanh cong.')
+      showSuccess(t('permissions.permissions.dialog.messages.update_success'))
     }
     else {
       await $api('/permissions', {
         method: 'POST',
         body: payload,
       })
-      showSuccess('Tao quyen han thanh cong.')
+      showSuccess(t('permissions.permissions.dialog.messages.create_success'))
     }
 
     emit('saved')
@@ -180,7 +182,7 @@ const onSubmit = async () => {
   }
   catch (err) {
     console.error('Save permission error:', err)
-    showError(err, 'Khong the luu quyen han.')
+    showError(err, t('permissions.permissions.dialog.messages.save_error'))
   }
   finally {
     saving.value = false
@@ -194,124 +196,142 @@ watch(() => props.isDialogVisible, visible => {
 </script>
 
 <template>
-  <VDialog
-    :width="$vuetify.display.smAndDown ? 'auto' : 700"
+  <VNavigationDrawer
     :model-value="props.isDialogVisible"
-    @update:model-value="onReset"
+    temporary
+    location="end"
+    :width="$vuetify.display.smAndDown ? 360 : 520"
+    class="permission-drawer"
+    @update:model-value="val => emit('update:isDialogVisible', val)"
   >
-    <DialogCloseBtn @click="onReset" />
+    <AppDrawerHeaderSection
+      :title="isReadonlyMode ? t('permissions.permissions.dialog.title_detail') : (isEditMode ? t('permissions.permissions.dialog.title_edit') : t('permissions.permissions.dialog.title_create'))"
+      @cancel="onReset"
+    />
 
-    <VCard class="pa-2 pa-sm-8">
-      <VCardText>
-        <h4 class="text-h4 text-center mb-2">
-          {{ isReadonlyMode ? 'Chi tiet quyen han' : (isEditMode ? 'Chinh sua quyen han' : 'Them quyen han') }}
-        </h4>
-        <p class="text-body-1 text-center mb-6">
-          {{ isReadonlyMode ? 'Xem thong tin va cau truc cay cua quyen han.' : (isEditMode ? 'Cap nhat thong tin va cau truc cay quyen han.' : 'Khai bao ma quyen va thong tin hien thi moi.') }}
-        </p>
+    <VDivider />
 
-        <VAlert
-          v-if="displayPermissionName"
-          type="info"
-          variant="tonal"
-          class="mb-6"
-        >
-          <div class="d-flex flex-column gap-1">
-            <span class="text-subtitle-2 font-weight-bold">{{ displayPermissionName }}</span>
-            <span class="text-body-2 text-medium-emphasis">{{ currentPermission.name }}</span>
-          </div>
-        </VAlert>
+    <PerfectScrollbar
+      class="permission-drawer__scroll"
+      :options="{ wheelPropagation: false }"
+    >
+      <VCard flat>
+        <VCardText class="pt-6">
+          <p class="text-body-1 mb-6">
+            {{ isReadonlyMode ? t('permissions.permissions.dialog.subtitle_detail') : (isEditMode ? t('permissions.permissions.dialog.subtitle_edit') : t('permissions.permissions.dialog.subtitle_create')) }}
+          </p>
 
-        <VForm @submit.prevent="onSubmit">
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppTextField
-                v-model="currentPermission.name"
-                label="Ma quyen he thong"
-                placeholder="Vi du: permissions.export"
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
+          <VAlert
+            v-if="displayPermissionName"
+            type="info"
+            variant="tonal"
+            class="mb-6"
+          >
+            <div class="d-flex flex-column gap-1">
+              <span class="text-subtitle-2 font-weight-bold">{{ displayPermissionName }}</span>
+              <span class="text-body-2 text-medium-emphasis">{{ currentPermission.name }}</span>
+            </div>
+          </VAlert>
 
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppTextField
-                v-model="currentPermission.guard_name"
-                label="Guard"
-                placeholder="web"
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
+          <VForm @submit.prevent="onSubmit">
+            <VRow>
+              <VCol cols="12">
+                <AppTextField
+                  v-model="currentPermission.name"
+                  :label="t('permissions.permissions.dialog.fields.name')"
+                  :placeholder="t('permissions.permissions.dialog.placeholders.name')"
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
 
-            <VCol cols="12">
-              <AppTextarea
-                v-model="currentPermission.description"
-                label="Mo ta"
-                placeholder="Mo ta ro quyen han nay dung de lam gi"
-                rows="3"
-                auto-grow
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
+              <VCol cols="12">
+                <AppTextField
+                  v-model="currentPermission.guard_name"
+                  :label="t('permissions.permissions.dialog.fields.guard_name')"
+                  :placeholder="t('permissions.permissions.dialog.placeholders.guard_name')"
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
 
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppTextField
-                v-model="currentPermission.sort_order"
-                type="number"
-                label="Thu tu hien thi"
-                placeholder="0"
-                :readonly="isReadonlyMode"
-              />
-            </VCol>
+              <VCol cols="12">
+                <AppTextarea
+                  v-model="currentPermission.description"
+                  :label="t('permissions.permissions.dialog.fields.description')"
+                  :placeholder="t('permissions.permissions.dialog.placeholders.description')"
+                  rows="3"
+                  auto-grow
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
 
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <AppSelect
-                v-model="currentPermission.parent_id"
-                :items="props.parentOptions"
-                label="Quyen cha"
-                placeholder="Chon quyen cha"
-                clearable
-                :readonly="isReadonlyMode"
-                :disabled="isReadonlyMode"
-              />
-            </VCol>
-          </VRow>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppTextField
+                  v-model="currentPermission.sort_order"
+                  type="number"
+                  :label="t('permissions.permissions.dialog.fields.sort_order')"
+                  :placeholder="t('permissions.permissions.dialog.placeholders.sort_order')"
+                  :readonly="isReadonlyMode"
+                />
+              </VCol>
 
-          <div class="d-flex gap-4 justify-center mt-6">
-            <VBtn
-              v-if="!isReadonlyMode"
-              type="submit"
-              :loading="saving"
-            >
-              {{ isEditMode ? 'Cap nhat' : 'Them moi' }}
-            </VBtn>
-            <VBtn
-              color="secondary"
-              variant="tonal"
-              @click="onReset"
-            >
-              {{ isReadonlyMode ? 'Dong' : 'Huy' }}
-            </VBtn>
-          </div>
-        </VForm>
-      </VCardText>
-    </VCard>
+              <VCol
+                cols="12"
+                md="6"
+              >
+                <AppSelect
+                  v-model="currentPermission.parent_id"
+                  :items="props.parentOptions"
+                  :label="t('permissions.permissions.dialog.fields.parent_id')"
+                  :placeholder="t('permissions.permissions.dialog.placeholders.parent_id')"
+                  clearable
+                  :readonly="isReadonlyMode"
+                  :disabled="isReadonlyMode"
+                />
+              </VCol>
+            </VRow>
+
+            <div class="d-flex gap-4 justify-start mt-6">
+              <VBtn
+                v-if="!isReadonlyMode"
+                type="submit"
+                :loading="saving"
+                color="primary"
+              >
+                {{ isEditMode ? t('permissions.permissions.dialog.actions.update') : t('permissions.permissions.dialog.actions.create') }}
+              </VBtn>
+              <VBtn
+                color="secondary"
+                variant="tonal"
+                @click="onReset"
+              >
+                {{ isReadonlyMode ? t('permissions.permissions.dialog.actions.close') : t('permissions.permissions.dialog.actions.cancel') }}
+              </VBtn>
+            </div>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </PerfectScrollbar>
 
     <ActionSnackbar
       v-model="snackbar.show"
       :message="snackbar.message"
       :color="snackbar.color"
     />
-  </VDialog>
+  </VNavigationDrawer>
 </template>
+
+<style scoped>
+.permission-drawer :deep(.v-navigation-drawer__content) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.permission-drawer__scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+</style>

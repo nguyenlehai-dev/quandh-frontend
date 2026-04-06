@@ -62,10 +62,10 @@
   }
 
   &.active {
-    border-color: rgb(var(--v-theme-primary));
+    border-color: rgb(var(--v-theme-primary-darken-1));
 
     .v-icon {
-      color: rgb(var(--v-theme-primary)) !important;
+      color: rgb(var(--v-theme-primary-darken-1)) !important;
     }
   }
 

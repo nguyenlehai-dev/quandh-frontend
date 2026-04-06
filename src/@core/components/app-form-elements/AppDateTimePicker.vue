@@ -1,5 +1,6 @@
 <script setup>
 import FlatPickr from 'vue-flatpickr-component'
+import { Vietnamese } from 'flatpickr/dist/l10n/vn.js'
 import { useTheme } from 'vuetify'
 import {
   VField,
@@ -55,6 +56,7 @@ defineOptions({
 })
 
 const configStore = useConfigStore()
+const { locale } = useI18n({ useScope: 'global' })
 const attrs = useAttrs()
 const [rootAttrs, compAttrs] = filterInputAttrs(attrs)
 const inputProps = ref(VInput.filterProps(props))
@@ -74,6 +76,14 @@ compAttrs.config = {
   prevArrow: '<i class="tabler-chevron-left v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
   nextArrow: '<i class="tabler-chevron-right v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
 }
+
+const localizedCompAttrs = computed(() => ({
+  ...compAttrs,
+  config: {
+    ...compAttrs.config,
+    locale: compAttrs.config?.locale ?? (locale.value === 'vi' ? Vietnamese : undefined),
+  },
+}))
 
 const onClear = el => {
   el.stopPropagation()
@@ -163,7 +173,7 @@ const elementId = computed(() => {
               <!-- flat-picker  -->
               <FlatPickr
                 v-if="!isInlinePicker"
-                v-bind="compAttrs"
+                v-bind="localizedCompAttrs"
                 ref="refFlatPicker"
                 :model-value="modelValue"
                 :placeholder="props.placeholder"
@@ -193,7 +203,7 @@ const elementId = computed(() => {
     <!-- flat picker for inline props -->
     <FlatPickr
       v-if="isInlinePicker"
-      v-bind="compAttrs"
+      v-bind="localizedCompAttrs"
       ref="refFlatPicker"
       :model-value="modelValue"
       @update:model-value="emitModelValue"
@@ -276,55 +286,55 @@ input[altinputclass="inlinePicker"] {
     &.today {
       &:not(.selected) {
         border: none !important;
-        background: rgba(var(--v-theme-primary), 0.24);
-        color: rgb(var(--v-theme-primary));
+        background: rgba(var(--v-theme-primary-darken-1), 0.24);
+        color: rgb(var(--v-theme-primary-darken-1));
       }
 
       &:hover {
         border: none !important;
-        background: rgba(var(--v-theme-primary), 0.24);
-        color: rgb(var(--v-theme-primary));
+        background: rgba(var(--v-theme-primary-darken-1), 0.24);
+        color: rgb(var(--v-theme-primary-darken-1));
       }
     }
 
     &.selected,
     &.selected:hover {
-      border-color: rgb(var(--v-theme-primary));
-      background: rgb(var(--v-theme-primary));
+      border-color: rgb(var(--v-theme-primary-darken-1));
+      background: rgb(var(--v-theme-primary-darken-1));
       color: rgb(var(--v-theme-on-primary));
 
-      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
     }
 
     &.inRange,
     &.inRange:hover {
       border: none;
-      background: rgba(var(--v-theme-primary), var(--v-activated-opacity)) !important;
+      background: rgba(var(--v-theme-primary-darken-1), var(--v-activated-opacity)) !important;
       box-shadow: none !important;
-      color: rgb(var(--v-theme-primary));
+      color: rgb(var(--v-theme-primary-darken-1));
     }
 
     &.startRange {
-      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
     }
 
     &.endRange {
-      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
     }
 
     &.startRange,
     &.endRange,
     &.startRange:hover,
     &.endRange:hover {
-      border-color: rgb(var(--v-theme-primary));
-      background: rgb(var(--v-theme-primary));
+      border-color: rgb(var(--v-theme-primary-darken-1));
+      background: rgb(var(--v-theme-primary-darken-1));
       color: rgb(var(--v-theme-on-primary));
     }
 
     &.selected.startRange + .endRange:not(:nth-child(7n + 1)),
     &.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
     &.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-      box-shadow: -10px 0 0 rgb(var(--v-theme-primary));
+      box-shadow: -10px 0 0 rgb(var(--v-theme-primary-darken-1));
     }
 
     &.flatpickr-disabled,

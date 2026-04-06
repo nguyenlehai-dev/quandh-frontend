@@ -76,7 +76,7 @@ $v-input-density: (
         }
 
         &:not([class*="text-"]) {
-          @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
+          @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
         }
       }
     }

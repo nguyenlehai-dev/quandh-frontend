@@ -118,7 +118,11 @@ const syncAppShellSettings = event => {
   appShellVersion.value += 1
 }
 
-import { fetchMe, getOrganizationSessionState } from '@/services/auth'
+import {
+  fetchMe,
+  getOrganizationSessionState,
+  isAuthenticated,
+} from '@/services/auth'
 
 loadGlobalSettings()
 
@@ -133,8 +137,12 @@ const hasCachedAuthState = () => {
   )
 }
 
-if (!hasCachedAuthState())
-  fetchMe()
+if (isAuthenticated()) {
+  if (hasCachedAuthState())
+    fetchMe({ force: true })
+  else
+    fetchMe()
+}
 
 const syncPermissionsOnFocus = () => {
   if (document.visibilityState === 'visible') {

@@ -109,8 +109,8 @@ const emit = defineEmits(['import', 'export', 'template', 'create'])
 @media (max-width: 600px) {
   .auth-list-toolbar-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     inline-size: 100%;
   }
 
@@ -119,8 +119,8 @@ const emit = defineEmits(['import', 'export', 'template', 'create'])
   }
 
   .auth-list-toolbar-actions :deep(.v-btn) {
-    inline-size: 100%;
     justify-content: center;
+    inline-size: 100%;
   }
 }
 </style>

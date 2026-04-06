@@ -63,14 +63,14 @@ onBeforeUnmount(() => {
 }
 
 .footer-link {
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary-darken-1));
   font-weight: 500;
   text-decoration: none;
   transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .footer-link:hover {
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary-darken-1));
   opacity: 0.72;
 }
 </style>

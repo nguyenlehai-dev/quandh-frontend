@@ -8,6 +8,7 @@ export default {
     close: 'Đóng',
     search: 'Tìm kiếm',
     export: 'Xuất',
+    import: 'Nhập',
     download: 'Tải xuống',
     duplicate: 'Nhân bản',
     view: 'Xem',

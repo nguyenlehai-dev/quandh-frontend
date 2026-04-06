@@ -56,7 +56,7 @@ const vehicleData = [
             Unloading
           </div>
           <VProgressLinear
-            color="rgb(var(--v-theme-primary))"
+            color="rgb(var(--v-theme-primary-darken-1))"
             model-value="100"
             class="rounded-0"
             height="46"

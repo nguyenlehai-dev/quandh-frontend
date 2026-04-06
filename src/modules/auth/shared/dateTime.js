@@ -51,7 +51,8 @@ export const parseAuthDateTime = value => {
 export const formatAuthDateTime = (value, options = {}) => {
   const {
     fallback = 'N/A',
-    includeSeconds = false,
+    includeSeconds = true,
+    forceDateOnly = false,
   } = options
 
   if (!value)
@@ -67,7 +68,15 @@ export const formatAuthDateTime = (value, options = {}) => {
   const day = pad(parsedDate.getDate())
   const month = pad(parsedDate.getMonth() + 1)
   const year = parsedDate.getFullYear()
+  const hasTime = !forceDateOnly && (typeof value === 'string'
+    ? /[T\s]\d{2}:\d{2}(:\d{2})?/.test(value.trim()) || `${hours}${minutes}${seconds}` !== '000000'
+    : `${hours}${minutes}${seconds}` !== '000000')
+  const dateLabel = `${day}/${month}/${year}`
+
+  if (!hasTime)
+    return dateLabel
+
   const timeLabel = includeSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
 
-  return `${timeLabel} ${day}/${month}/${year}`
+  return `${timeLabel} ${dateLabel}`
 }
