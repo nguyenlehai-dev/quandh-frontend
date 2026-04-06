@@ -130,7 +130,7 @@ const emit = defineEmits([
           :to="{ name: 'meetings-edit', params: { id: item.id } }"
         >
           <VIcon
-            icon="tabler-pencil"
+            icon="tabler-edit"
             size="20"
           />
           <VTooltip

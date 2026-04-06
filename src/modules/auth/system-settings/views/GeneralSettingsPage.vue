@@ -1,10 +1,9 @@
 <script setup>
 /* eslint-disable camelcase */
 
-import { h, ref, onMounted } from 'vue'
+import { h, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { cookieRef } from '@layouts/stores/config'
-import { getI18n } from '@/plugins/i18n'
+import { setAppLanguage } from '@/plugins/i18n'
 import { themeConfig, layoutConfig as initialLayoutConfig } from '@themeConfig'
 import { layoutConfig as activeLayoutConfig } from '@layouts'
 import { getSystemSettingsPageMeta } from '../configs/metadata'
@@ -12,8 +11,12 @@ import { useSystemSettingsPage } from '../composables/useSystemSettingsPage'
 import SystemSettingsPageCard from '../components/SystemSettingsPageCard.vue'
 import SettingsLayout from './SettingsLayout.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n({ useScope: 'global' })
 const pageConfig = computed(() => getSystemSettingsPageMeta().general)
+const generalManagedFields = [
+  { key: 'icon', group: 'general', type: 'text', defaultValue: '' },
+  { key: 'logo', group: 'general', type: 'text', defaultValue: '' },
+]
 
 const refFaviconInput = ref()
 const refLogoInput = ref()
@@ -49,8 +52,16 @@ const syncCopyright = copyright => {
       logo: settings.value.logo || '',
       language: settings.value.language || 'vi',
       copyright: copyright || '',
+      designed_by: settings.value.designed_by || '',
     },
   }))
+}
+
+const syncLanguageField = nextLanguage => {
+  if (!nextLanguage || settings.value.language === nextLanguage)
+    return
+
+  settings.value.language = nextLanguage
 }
 
 const {
@@ -60,6 +71,7 @@ const {
   saving,
   saveSettings,
 } = useSystemSettingsPage(pageConfig, {
+  extraFields: generalManagedFields,
   afterSave: async ({ settings: currentSettings }) => {
     if (currentSettings.logo) localStorage.setItem('app_logo', currentSettings.logo)
     else localStorage.removeItem('app_logo')
@@ -70,8 +82,10 @@ const {
     if (currentSettings.copyright) localStorage.setItem('app_copyright', currentSettings.copyright)
     else localStorage.removeItem('app_copyright')
 
-    cookieRef('language', 'vi').value = currentSettings.language
-    getI18n().global.locale.value = currentSettings.language
+    if (currentSettings.designed_by) localStorage.setItem('app_designed_by', currentSettings.designed_by)
+    else localStorage.removeItem('app_designed_by')
+
+    setAppLanguage(currentSettings.language)
 
     syncFavicon(currentSettings.icon)
     syncLogo(currentSettings.logo)
@@ -114,7 +128,28 @@ const resetLogo = () => {
 onMounted(() => {
   syncFavicon(settings.value.icon)
   syncLogo(settings.value.logo)
+  window.addEventListener('app-language-updated', handleLanguageUpdated)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('app-language-updated', handleLanguageUpdated)
+})
+
+watch(() => loading.value, isLoading => {
+  if (!isLoading) {
+    syncFavicon(settings.value.icon)
+    syncLogo(settings.value.logo)
+    syncCopyright(settings.value.copyright)
+  }
+})
+
+watch(() => locale.value, nextLanguage => {
+  syncLanguageField(nextLanguage)
+})
+
+function handleLanguageUpdated(event) {
+  syncLanguageField(event?.detail?.language)
+}
 </script>
 
 <template>

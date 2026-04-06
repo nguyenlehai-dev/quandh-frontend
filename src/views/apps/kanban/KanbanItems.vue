@@ -53,7 +53,7 @@ const refKanbanBoardTitle = ref()
 const boardActions = [
   {
     title: 'Rename',
-    prependIcon: 'tabler-pencil',
+    prependIcon: 'tabler-edit',
     onClick: () => {
       isBoardNameEditing.value = true
     },

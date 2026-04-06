@@ -656,7 +656,7 @@ const submitForm = async actionType => {
         <VBtn
           variant="outlined"
           color="warning"
-          prepend-icon="tabler-pencil"
+          prepend-icon="tabler-edit"
           :disabled="!!submittingAction && submittingAction !== 'save-edit'"
           :loading="submittingAction === 'save-edit'"
           @click="submitForm('save-edit')"

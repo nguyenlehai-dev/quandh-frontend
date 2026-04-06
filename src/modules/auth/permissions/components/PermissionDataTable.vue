@@ -134,7 +134,7 @@ const getUpdatedByLabel = item => item.updated_by || t('permissions.permissions.
           @click="emit('edit', item)"
         >
           <VIcon
-            icon="tabler-pencil"
+            icon="tabler-edit"
             size="20"
           />
         </IconBtn>

@@ -49,13 +49,14 @@ const normalizeOutgoingValue = (value, field) => {
 export function useSystemSettingsPage(config, options = {}) {
   const {
     afterSave,
+    extraFields = [],
   } = options
 
   const { snackbar, showSuccess, showError } = useActionFeedback()
   const loading = ref(false)
   const saving = ref(false)
 
-  const fields = getFields(config)
+  const fields = [...getFields(config), ...extraFields]
   const settings = ref(Object.fromEntries(fields.map(field => [field.key, getInitialValue(field)])))
 
   const hydrate = groups => {

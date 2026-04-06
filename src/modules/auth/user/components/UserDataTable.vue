@@ -201,7 +201,7 @@ const getUpdatedByLabel = item => item.updated_by || t('user.user.list.system_ad
           @click="emit('edit', item.id)"
         >
           <VIcon
-            icon="tabler-pencil"
+            icon="tabler-edit"
             size="20"
           />
         </IconBtn>

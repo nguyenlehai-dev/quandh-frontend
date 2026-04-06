@@ -364,7 +364,7 @@ const openResultsDialog = async item => {
             v-if="$can('update', 'MeetingVoting') && item.status === 'pending'"
             @click="openEditDialog(item)"
           >
-            <VIcon icon="tabler-pencil" />
+            <VIcon icon="tabler-edit" />
           </IconBtn>
           <IconBtn
             v-if="$can('open', 'MeetingVoting') && item.status === 'pending'"

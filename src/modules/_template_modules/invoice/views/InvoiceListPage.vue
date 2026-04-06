@@ -157,7 +157,7 @@ const computedMoreList = computed(() => {
     {
       title: t('common.common.actions.edit'),
       value: 'edit',
-      prependIcon: 'tabler-pencil',
+      prependIcon: 'tabler-edit',
       to: {
         name: 'apps-invoice-edit-id',
         params: { id: paramId },

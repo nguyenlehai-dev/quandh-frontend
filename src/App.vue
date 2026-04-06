@@ -9,7 +9,7 @@ import {
 } from '@core/stores/config'
 import { hexToRgb } from '@core/utils/colorConverter'
 import { cookieRef } from '@layouts/stores/config'
-import { getI18n } from '@/plugins/i18n'
+import { getSupportedLocales, setAppLanguage } from '@/plugins/i18n'
 
 const { global } = useTheme()
 
@@ -21,8 +21,6 @@ const configStore = useConfigStore()
 
 import { themeConfig, layoutConfig as initialLayoutConfig } from '@themeConfig'
 import { layoutConfig as activeLayoutConfig } from '@layouts'
-
-const appShellVersion = ref(0)
 
 const applyFavicon = icon => {
   let link = document.querySelector("link[rel~='icon']")
@@ -49,7 +47,7 @@ const applyLogo = logo => {
 // Load global logo and favicon dynamically
 const loadGlobalSettings = async () => {
   const languageCookie = cookieRef('language', themeConfig.app.i18n.defaultLocale)
-  const supportedLocales = new Set(themeConfig.app.i18n.langConfig.map(lang => lang.i18nLang))
+  const supportedLocales = getSupportedLocales()
 
   // 1. Load from localStorage instantly to avoid flicker
   const cachedLogo = localStorage.getItem('app_logo')
@@ -63,7 +61,7 @@ const loadGlobalSettings = async () => {
   try {
     const res = await $api('/settings/public')
     if (res?.data?.general) {
-      const { icon, logo, copyright, language } = res.data.general
+      const { icon, logo, copyright, designed_by, language } = res.data.general
       
       if (icon && icon !== cachedIcon) {
         localStorage.setItem('app_icon', icon)
@@ -90,10 +88,25 @@ const loadGlobalSettings = async () => {
         localStorage.removeItem('app_copyright')
       }
 
-      if (language && supportedLocales.has(language) && languageCookie.value !== language) {
-        languageCookie.value = language
-        getI18n().global.locale.value = language
+      if (designed_by) {
+        localStorage.setItem('app_designed_by', designed_by)
       }
+      else {
+        localStorage.removeItem('app_designed_by')
+      }
+
+      if (language && supportedLocales.has(language) && languageCookie.value !== language)
+        setAppLanguage(language)
+
+      window.dispatchEvent(new CustomEvent('app-settings-updated', {
+        detail: {
+          icon: icon || '',
+          logo: logo || '',
+          language: language || languageCookie.value || themeConfig.app.i18n.defaultLocale,
+          copyright: copyright || '',
+          designed_by: designed_by || '',
+        },
+      }))
     }
   } catch (err) {
     console.warn('Failed to load global settings', err)
@@ -104,18 +117,20 @@ const syncAppShellSettings = event => {
   const nextLogo = event?.detail?.logo ?? localStorage.getItem('app_logo') ?? ''
   const nextIcon = event?.detail?.icon ?? localStorage.getItem('app_icon') ?? ''
   const nextLanguage = event?.detail?.language
-  const languageCookie = cookieRef('language', themeConfig.app.i18n.defaultLocale)
-  const supportedLocales = new Set(themeConfig.app.i18n.langConfig.map(lang => lang.i18nLang))
+  const nextDesignedBy = event?.detail?.designed_by
 
   applyLogo(nextLogo)
   applyFavicon(nextIcon)
 
-  if (nextLanguage && supportedLocales.has(nextLanguage) && languageCookie.value !== nextLanguage) {
-    languageCookie.value = nextLanguage
-    getI18n().global.locale.value = nextLanguage
-  }
+  if (nextLanguage)
+    setAppLanguage(nextLanguage)
 
-  appShellVersion.value += 1
+  if (typeof nextDesignedBy === 'string') {
+    if (nextDesignedBy)
+      localStorage.setItem('app_designed_by', nextDesignedBy)
+    else
+      localStorage.removeItem('app_designed_by')
+  }
 }
 
 import {
@@ -167,7 +182,7 @@ onBeforeUnmount(() => {
   <VLocaleProvider :rtl="configStore.isAppRTL">
     <!-- ℹ️ This is required to set the background color of active nav link based on currently active global theme's primary -->
     <VApp :style="`--v-global-theme-primary: ${hexToRgb(global.current.value.colors.primary)}`">
-      <RouterView :key="`${useCookie('currentOrganizationId').value || 'default'}-${appShellVersion}`" />
+      <RouterView :key="useCookie('currentOrganizationId').value || 'default'" />
       <ScrollToTop />
     </VApp>
   </VLocaleProvider>

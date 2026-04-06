@@ -38,7 +38,7 @@ const resolveUserRoleVariant = role => {
   if (role === 'editor')
     return {
       color: 'info',
-      icon: 'tabler-pencil',
+      icon: 'tabler-edit',
     }
   if (role === 'admin')
     return {

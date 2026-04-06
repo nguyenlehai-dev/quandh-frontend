@@ -74,7 +74,7 @@ const InternationalTableData = [
 
           <div>
             <IconBtn color="secondary">
-              <VIcon icon="tabler-pencil" />
+              <VIcon icon="tabler-edit" />
             </IconBtn>
             <IconBtn color="secondary">
               <VIcon icon="tabler-trash" />
@@ -133,7 +133,7 @@ const InternationalTableData = [
           <VSpacer />
           <div>
             <IconBtn color="secondary">
-              <VIcon icon="tabler-pencil" />
+              <VIcon icon="tabler-edit" />
             </IconBtn>
             <IconBtn color="secondary">
               <VIcon icon="tabler-trash" />

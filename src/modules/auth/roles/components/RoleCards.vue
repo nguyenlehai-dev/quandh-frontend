@@ -682,7 +682,7 @@ defineExpose({
             @click="editRole(item)"
           >
             <VIcon
-              :icon="editingRole && roleDetail.id === item.id ? 'tabler-loader-2' : 'tabler-pencil'"
+              :icon="editingRole && roleDetail.id === item.id ? 'tabler-loader-2' : 'tabler-edit'"
               size="20"
             />
           </IconBtn>

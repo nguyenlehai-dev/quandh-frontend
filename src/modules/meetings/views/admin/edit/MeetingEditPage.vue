@@ -131,7 +131,7 @@ const {
                 v-if="canSaveCurrentMeeting"
                 variant="outlined"
                 color="warning"
-                prepend-icon="tabler-pencil"
+                prepend-icon="tabler-edit"
                 style="background-color: white; border-radius: 20px; font-weight: 600; padding: 0 20px; text-transform: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;"
                 :disabled="!!submittingAction && submittingAction !== 'save-edit'"
                 :loading="submittingAction === 'save-edit'"
@@ -1225,4 +1225,3 @@ const EditModeRequired = {
   margin-block-start: 18px;
 }
 </style>
-

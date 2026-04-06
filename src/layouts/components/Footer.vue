@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 const defaultCopyright = `© ${new Date().getFullYear()} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng`
 const copyrightText = ref(localStorage.getItem('app_copyright') || defaultCopyright)
+const designedByText = ref(localStorage.getItem('app_designed_by') || '')
 
 const footerLinks = [
   { title: 'Hệ thống', href: '#' },
@@ -13,11 +14,17 @@ const footerLinks = [
 
 const syncCopyright = event => {
   const nextValue = event?.detail?.copyright
+  const nextDesignedBy = event?.detail?.designed_by
 
   if (typeof nextValue === 'string')
     copyrightText.value = nextValue || defaultCopyright
   else
     copyrightText.value = localStorage.getItem('app_copyright') || defaultCopyright
+
+  if (typeof nextDesignedBy === 'string')
+    designedByText.value = nextDesignedBy
+  else
+    designedByText.value = localStorage.getItem('app_designed_by') || ''
 }
 
 onMounted(() => {
@@ -35,6 +42,12 @@ onBeforeUnmount(() => {
       <div class="d-flex align-center min-w-0">
         <span class="footer-text text-body-2">
           {{ copyrightText }}
+        </span>
+        <span
+          v-if="designedByText"
+          class="footer-text text-body-2 ms-2"
+        >
+          | Thiết kế bởi {{ designedByText }}
         </span>
       </div>
 

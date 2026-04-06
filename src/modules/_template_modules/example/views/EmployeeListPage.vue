@@ -164,7 +164,7 @@ const handleSubmitted = () => {
                 <VIcon icon="tabler-eye" />
               </IconBtn>
               <IconBtn @click="handleEdit(emp)">
-                <VIcon icon="tabler-pencil" />
+                <VIcon icon="tabler-edit" />
               </IconBtn>
               <IconBtn @click="handleDelete(emp)">
                 <VIcon icon="tabler-trash" />

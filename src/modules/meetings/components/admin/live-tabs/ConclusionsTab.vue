@@ -165,7 +165,7 @@ const formatDateTime = raw => {
                 color="#64748b"
               >
                 <VIcon
-                  icon="tabler-pencil"
+                  icon="tabler-edit"
                   size="18"
                 />
               </VBtn>

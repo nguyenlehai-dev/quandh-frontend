@@ -91,7 +91,7 @@ const getRowNumber = index => ((props.page - 1) * props.itemsPerPage) + index + 
           @click="emit('edit', item)"
         >
           <VIcon
-            icon="tabler-pencil"
+            icon="tabler-edit"
             size="20"
           />
         </IconBtn>

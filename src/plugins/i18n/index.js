@@ -45,6 +45,28 @@ export const getI18n = () => {
 
   return _i18n
 }
+
+export const getSupportedLocales = () => new Set(themeConfig.app.i18n.langConfig.map(lang => lang.i18nLang))
+
+export const setAppLanguage = nextLanguage => {
+  if (!nextLanguage || !getSupportedLocales().has(nextLanguage))
+    return false
+
+  const languageCookie = cookieRef('language', themeConfig.app.i18n.defaultLocale)
+  const currentLanguage = languageCookie.value
+
+  if (currentLanguage === nextLanguage && getI18n().global.locale.value === nextLanguage)
+    return false
+
+  languageCookie.value = nextLanguage
+  getI18n().global.locale.value = nextLanguage
+  window.dispatchEvent(new CustomEvent('app-language-updated', {
+    detail: { language: nextLanguage },
+  }))
+
+  return true
+}
+
 export default function (app) {
   app.use(getI18n())
 }

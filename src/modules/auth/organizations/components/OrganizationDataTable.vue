@@ -187,7 +187,7 @@ const getUpdatedByLabel = item => item.updated_by || t('organizations.organizati
           @click="emit('edit', item)"
         >
           <VIcon
-            icon="tabler-pencil"
+            icon="tabler-edit"
             size="20"
           />
         </IconBtn>

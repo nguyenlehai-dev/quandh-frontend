@@ -9,7 +9,12 @@ const router = useRouter()
 
 const activeTab = computed({
   get: () => route.name,
-  set: val => router.push({ name: val }),
+  set: val => {
+    if (!val || val === route.name)
+      return
+
+    router.push({ name: val })
+  },
 })
 
 const tabsData = computed(() => getSystemSettingsTabs())

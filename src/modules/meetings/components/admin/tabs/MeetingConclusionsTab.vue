@@ -173,7 +173,7 @@ const submitEdit = async () => {
             v-if="$can('update', 'MeetingConclusion')"
             @click="openEditDialog(item)"
           >
-            <VIcon icon="tabler-pencil" />
+            <VIcon icon="tabler-edit" />
           </IconBtn>
           <IconBtn
             v-if="$can('destroy', 'MeetingConclusion')"
