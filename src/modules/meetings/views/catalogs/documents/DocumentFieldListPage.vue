@@ -1,76 +1,64 @@
 <script setup>
 /* eslint-disable camelcase, padding-line-between-statements */
-
-import { useActionFeedback } from '@/composables/useActionFeedback'
-import AuthDataActions from '@/modules/auth/shared/AuthDataActions.vue'
-import { exportRowsToExcel } from '@/modules/auth/shared/excelExport'
-import {
-  bulkDeleteDocumentFields,
-  bulkUpdateDocumentFields,
-  changeDocumentFieldStatus,
-  createDocumentField,
-  downloadDocumentFieldImportTemplate,
-  deleteDocumentField,
-  exportDocumentFields,
-  importDocumentFields,
-  updateDocumentField,
-} from '@/modules/meetings/services/meetingService'
 import { ability } from '@/plugins/casl/ability'
-import { downloadBlob } from '@/utils/downloadHelper'
 import { computed, ref } from 'vue'
 
-const searchQuery = ref('')
-const statusFilter = ref('')
-const itemsPerPage = ref(10)
-const page = ref(1)
-const selectedRows = ref([])
-const isConfirmDialogVisible = ref(false)
-const isConfirming = ref(false)
-const confirmDialog = ref({ title: '', message: '', confirmText: 'Xác nhận', confirmColor: 'primary', action: null })
-const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+import { useDocumentFieldListPage } from '@/modules/meetings/composables/useDocumentFieldListPage'
+import DocumentFieldListToolbar from '@/modules/meetings/components/DocumentFieldListToolbar.vue'
+import DocumentFieldDataTable from '@/modules/meetings/components/DocumentFieldDataTable.vue'
 
-const statusOptions = [
-  { title: 'Hoạt động', value: 'active' },
-  { title: 'Tạm khóa', value: 'inactive' },
-]
+const {
+  snackbar,
+  searchQuery,
+  statusFilter,
+  
+  itemsPerPage,
+  page,
+  selectedRows,
+  itemsData,
+  totalItems,
+  loading,
+  statusOptions,
+  
+  bulkStatusOptions,
+  headers,
+  isConfirmDialogVisible,
+  isConfirming,
+  confirmDialog,
+  isExporting,
+  isImporting,
+  
+  fetchItems,
+  createDocumentField,
+  updateDocumentField,
+  updateOptions,
+  handleSelectionChange,
+  
+  bulkDeleteItems,
+  bulkChangeStatus,
+  deleteItem,
+  toggleItemStatus,
+  executeConfirmedAction,
+  handleExport,
+  handleImport,
+  showSuccess, 
+  showError,
+} = useDocumentFieldListPage()
 
-const headers = [
-  { title: 'STT', key: 'stt', sortable: false },
-  { title: 'Tên', key: 'name' },
-  { title: 'Mô tả', key: 'description', sortable: false },
-  { title: 'Trạng thái', key: 'status' },
-  { title: 'Tạo', key: 'created_info', sortable: false },
-  { title: 'Cập nhật', key: 'updated_info', sortable: false },
-  { title: 'Hành động', key: 'actions', sortable: false },
-]
-
-const { data: requestData, execute: fetchItems, isFetching: isLoading } = useApi(createUrl('/meeting-document-fields', {
-  query: {
-    search: computed(() => searchQuery.value || undefined),
-    status: computed(() => statusFilter.value || undefined),
-    limit: itemsPerPage,
-    page,
-  },
-}))
-
-const items = computed(() => requestData.value?.data ?? [])
-const totalItems = computed(() => requestData.value?.meta?.total ?? 0)
-
-const selectedDocumentFields = computed(() => items.value.filter(item => selectedRows.value.includes(item.id)))
-
+// === Dialog CRUD Local ===
 const isAddDialogVisible = ref(false)
 const isEditDialogVisible = ref(false)
 const isSubmitting = ref(false)
 const selectedItemId = ref(null)
 const isBulkUpdateDialogVisible = ref(false)
 const bulkUpdateStatusValue = ref('active')
+
 const formData = ref({
   name: '',
   description: '',
   status: 'active',
+  
 })
-
-const getRowNumber = index => ((page.value - 1) * itemsPerPage.value) + index + 1
 
 const openAddDialog = () => {
   formData.value = { name: '', description: '', status: 'active' }
@@ -79,33 +67,19 @@ const openAddDialog = () => {
 
 const openEditDialog = item => {
   selectedItemId.value = item.id
-  formData.value = { name: item.name, description: item.description || '', status: item.status }
-  isEditDialogVisible.value = true
-}
-
-const openConfirmDialog = options => {
-  confirmDialog.value = { ...confirmDialog.value, ...options }
-  isConfirmDialogVisible.value = true
-}
-
-const executeConfirmedAction = async () => {
-  if (!confirmDialog.value.action) return
-
-  isConfirming.value = true
-  try {
-    await confirmDialog.value.action()
-    isConfirmDialogVisible.value = false
-  } catch (err) {
-    showError(err, 'Không thể thực hiện thao tác này.')
-  } finally {
-    isConfirming.value = false
+  formData.value = {
+    name: item.name,
+    description: item.description || '',
+    status: item.status,
+    
   }
+  isEditDialogVisible.value = true
 }
 
 const submitForm = async () => {
   if (!formData.value.name) {
-    showSnackbar('Vui lòng nhập tên lĩnh vực.', 'warning')
-
+    showError(new Error('Validation'), 'Vui lòng nhập tên.')
+    
     return
   }
   isSubmitting.value = true
@@ -113,369 +87,107 @@ const submitForm = async () => {
     if (isEditDialogVisible.value) {
       await updateDocumentField(selectedItemId.value, formData.value)
       isEditDialogVisible.value = false
-      showSuccess('Cập nhật lĩnh vực thành công.')
+      showSuccess('Cập nhật thành công.')
     } else {
-      await createDocumentField(formData.value)
+      await createDocumentField(formData.value) 
       isAddDialogVisible.value = false
-      showSuccess('Tạo lĩnh vực thành công.')
+      showSuccess('Tạo thành công.')
     }
     fetchItems()
   } catch (err) {
-    showError(err, 'Không thể lưu lĩnh vực.')
-    console.error('Action failed:', err)
+    showError(err, 'Không thể lưu.')
   } finally {
     isSubmitting.value = false
   }
 }
 
-const deleteItem = item => {
-  openConfirmDialog({
-    title: 'Xóa lĩnh vực',
-    message: `Bạn có chắc chắn muốn xóa "${item.name}" không?`,
-    confirmText: 'Xóa',
-    confirmColor: 'error',
-    action: async () => {
-      await deleteDocumentField(item.id)
-      showSuccess('Xóa lĩnh vực thành công.')
-      fetchItems()
-    },
-  })
-}
-
-const bulkDelete = () => {
-  if (!selectedRows.value.length) return
-
-  openConfirmDialog({
-    title: 'Xóa hàng loạt lĩnh vực',
-    message: `Bạn có chắc chắn muốn xóa ${selectedRows.value.length} lĩnh vực đã chọn không?`,
-    confirmText: 'Xóa',
-    confirmColor: 'error',
-    action: async () => {
-      await bulkDeleteDocumentFields({ ids: selectedRows.value })
-      selectedRows.value = []
-      showSuccess('Xóa hàng loạt lĩnh vực thành công.')
-      fetchItems()
-    },
-  })
-}
-
-const bulkUpdateStatus = () => {
+const openBulkUpdateStatusDialog = () => {
   if (!selectedRows.value.length) return
   isBulkUpdateDialogVisible.value = true
 }
 
 const confirmBulkUpdateStatus = async () => {
   isSubmitting.value = true
-  try {
-    await bulkUpdateDocumentFields({ ids: selectedRows.value, status: bulkUpdateStatusValue.value })
-    selectedRows.value = []
-    isBulkUpdateDialogVisible.value = false
-    showSuccess('Cập nhật trạng thái hàng loạt lĩnh vực thành công.')
-    fetchItems()
-  } catch (err) {
-    showError(err, 'Không thể cập nhật trạng thái hàng loạt.')
-    console.error('Bulk update document fields failed:', err)
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-const toggleItemStatus = item => {
-  const nextStatus = item.status === 'active' ? 'inactive' : 'active'
-  const nextLabel = nextStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'
-
-  openConfirmDialog({
-    title: 'Đổi trạng thái lĩnh vực',
-    message: `Bạn có chắc chắn muốn chuyển "${item.name}" sang trạng thái "${nextLabel}" không?`,
-    confirmText: 'Đổi trạng thái',
-    confirmColor: 'warning',
-    action: async () => {
-      await changeDocumentFieldStatus(item.id, nextStatus)
-      showSuccess('Đổi trạng thái lĩnh vực thành công.')
-      fetchItems()
-    },
-  })
-}
-
-const isExporting = ref(false)
-
-const exportData = async () => {
-  if (!ability.can('export', 'MeetingDocumentField')) return
-
-  isExporting.value = true
-  try {
-    if (selectedDocumentFields.value.length) {
-      exportRowsToExcel({
-        rows: selectedDocumentFields.value.map(item => ({
-          name: item.name || '',
-          description: item.description || '',
-          status: item.status || '',
-          created_at: item.created_at || '',
-          updated_at: item.updated_at || '',
-        })),
-        headers: ['name', 'description', 'status', 'created_at', 'updated_at'],
-        sheetName: 'MeetingDocumentFields',
-        fileName: `meeting_document_fields_selected_${new Date().toISOString().slice(0, 10)}.xlsx`,
-        columns: [{ wch: 28 }, { wch: 36 }, { wch: 16 }, { wch: 22 }, { wch: 22 }],
-      })
-
-      return
-    }
-
-    const res = await exportDocumentFields({
-      search: searchQuery.value || undefined,
-      status: statusFilter.value || undefined,
-      limit: itemsPerPage.value,
-      page: page.value,
-    })
-
-    downloadBlob(res, 'linh-vuc-tai-lieu-hop.xlsx')
-  } catch (error) {
-    showError(error, 'Không thể xuất dữ liệu lĩnh vực.')
-    console.error('Lỗi khi xuất dữ liệu:', error)
-  } finally {
-    isExporting.value = false
-  }
-}
-
-const handleImport = async file => {
-  if (!ability.can('import', 'MeetingDocumentField')) return
-
-  isSubmitting.value = true
-  try {
-    const payload = new FormData()
-    payload.append('file', file)
-    await importDocumentFields(payload)
-    showSuccess('Import lĩnh vực tài liệu thành công.')
-    fetchItems()
-  } catch (error) {
-    showError(error, 'Không thể import lĩnh vực tài liệu.')
-  } finally {
-    isSubmitting.value = false
-  }
+  await bulkChangeStatus(bulkUpdateStatusValue.value)
+  isBulkUpdateDialogVisible.value = false
+  isSubmitting.value = false
 }
 </script>
 
 <template>
   <section>
-    <div class="meeting-section-card mb-6">
-      <div class="meeting-section-header">
-        <div class="meeting-section-title">
-          <VIcon
-            icon="tabler-category"
-            class="section-icon"
-          />
+    <!-- Header -->
+    <div class="d-flex align-center gap-4 mb-6">
+      <VAvatar
+        color="primary"
+        variant="tonal"
+        rounded
+        size="48"
+      >
+        <VIcon icon="tabler-category" />
+      </VAvatar>
+      <div>
+        <h2 class="text-h4 mb-1">
           Lĩnh vực tài liệu họp
+        </h2>
+        <div class="text-body-1 text-disabled">
+          Quản lý danh mục lĩnh vực tài liệu cuộc họp
         </div>
       </div>
-      <div class="pa-5">
-        <VRow>
-          <VCol
-            cols="12"
-            md="6"
-          >
-            <div class="text-body-2 font-weight-medium mb-1">
-              Tìm kiếm
-            </div>
-            <AppTextField
-              v-model="searchQuery"
-              placeholder="Tìm kiếm lĩnh vực tài liệu..."
-              density="compact"
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="6"
-          >
-            <div class="text-body-2 font-weight-medium mb-1">
-              Trạng thái
-            </div>
-            <AppSelect
-              v-model="statusFilter"
-              :items="[{ title: 'Tất cả trạng thái', value: '' }, ...statusOptions]"
-              placeholder="Lọc theo trạng thái"
-              density="compact"
-            />
-          </VCol>
-        </VRow>
-      </div>
     </div>
 
-    <div class="d-flex align-center justify-space-between flex-wrap gap-4 mb-4">
-      <div class="d-flex align-center gap-3">
-        <AppSelect
-          v-model="itemsPerPage"
-          :items="[
-            { title: '10', value: 10 },
-            { title: '20', value: 20 },
-            { title: '50', value: 50 },
-          ]"
-          density="compact"
-          style="max-inline-size: 80px;"
-        />
-        <VBtn
-          v-if="selectedRows.length > 0"
-          color="error"
-          variant="tonal"
-          prepend-icon="tabler-trash"
-          @click="bulkDelete"
-        >
-          Xoa ({{ selectedRows.length }})
-        </VBtn>
-        <VBtn
-          v-if="selectedRows.length > 0"
-          color="warning"
-          variant="tonal"
-          prepend-icon="tabler-exchange"
-          @click="bulkUpdateStatus"
-        >
-          Doi trang thai
-        </VBtn>
-      </div>
-      <div class="d-flex gap-3">
-        <AuthDataActions
-          :show-import="$can('import', 'MeetingDocumentField')"
-          :show-template="$can('import', 'MeetingDocumentField')"
-          :show-export="$can('export', 'MeetingDocumentField')"
-          :show-create="$can('store', 'MeetingDocumentField')"
-          create-label="Thêm mới"
-          import-label="Nhập dữ liệu"
-          import-subtitle="Nạp file Excel lĩnh vực tài liệu họp"
-          template-label="Tải file mẫu import"
-          template-subtitle="Lấy mẫu Excel đúng cột backend đang nhận"
-          export-label="Xuất dữ liệu"
-          export-subtitle="Xuất danh sách lĩnh vực tài liệu họp"
-          import-dialog-title="Nhập dữ liệu lĩnh vực tài liệu họp"
-          import-hint="Import hỗ trợ file `.xlsx`, `.xls`, `.csv` theo contract backend hiện tại."
-          select-file-label="Chọn file Excel"
-          cancel-text="Hủy"
-          import-text="Nhập dữ liệu"
-          :export-loading="isExporting"
-          :import-handler="handleImport"
-          :template-handler="downloadDocumentFieldImportTemplate"
-          :export-handler="exportData"
-          :create-handler="openAddDialog"
-        />
-      </div>
-    </div>
+    <!-- Main Content -->
+    <VCard>
+      <DocumentFieldListToolbar
+        v-model:search-query="searchQuery"
+        v-model:status-filter="statusFilter"
+        
+        :status-options="statusOptions"
+        
+        :selected-rows-count="selectedRows.length"
+        :bulk-status-options="bulkStatusOptions"
+        :is-importing="isImporting"
+        :is-exporting="isExporting"
+        :can-import="$can('import', 'MeetingDocumentField')"
+        :can-export="$can('export', 'MeetingDocumentField')"
+        :can-create="$can('store', 'MeetingDocumentField')"
+        :can-bulk-update-status="$can('update', 'MeetingDocumentField')"
+        :can-bulk-destroy="$can('destroy', 'MeetingDocumentField')"
+        @bulk-change-status="openBulkUpdateStatusDialog"
+        @bulk-delete="bulkDeleteItems"
+        @import="handleImport"
+        @export="handleExport"
+        @add="openAddDialog"
+      />
 
-    <div class="meeting-section-card mb-6">
-      <VDataTableServer
-        v-model="selectedRows"
-        v-model:items-per-page="itemsPerPage"
-        v-model:page="page"
-        :items="items"
-        :items-length="totalItems"
+      <DocumentFieldDataTable
+        :selected-rows="selectedRows"
+        :items="itemsData"
+        :total-items="totalItems"
         :headers="headers"
-        :loading="isLoading"
-        class="text-no-wrap"
-        show-select
-      >
-        <template #item.stt="{ index }">
-          <span class="text-body-2 text-disabled">{{ getRowNumber(index) }}</span>
-        </template>
-
-        <template #item.name="{ item }">
-          <span class="font-weight-medium">{{ item.name }}</span>
-        </template>
-
-        <template #item.description="{ item }">
-          <span>{{ item.description || '---' }}</span>
-        </template>
-
-        <template #item.created_info="{ item }">
-          <div class="d-flex flex-column">
-            <span class="font-weight-medium">{{ item.created_by || 'N/A' }}</span>
-            <span class="text-body-2 text-disabled">{{ item.created_at || '---' }}</span>
-          </div>
-        </template>
-
-        <template #item.updated_info="{ item }">
-          <div class="d-flex flex-column">
-            <span class="font-weight-medium">{{ item.updated_by || 'N/A' }}</span>
-            <span class="text-body-2 text-disabled">{{ item.updated_at || '---' }}</span>
-          </div>
-        </template>
-
-        <template #item.status="{ item }">
-          <VChip
-            size="small"
-            :color="item.status === 'active' ? 'success' : 'secondary'"
-          >
-            {{ item.status === 'active' ? 'Hoạt động' : 'Tạm khóa' }}
-          </VChip>
-        </template>
-
-        <template #item.actions="{ item }">
-          <div class="d-flex gap-1">
-            <IconBtn
-              v-if="$can('update', 'MeetingDocumentField')"
-              @click="openEditDialog(item)"
-            >
-              <VIcon icon="tabler-pencil" />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Sửa
-              </VTooltip>
-            </IconBtn>
-            <IconBtn
-              v-if="$can('update', 'MeetingDocumentField')"
-              @click="toggleItemStatus(item)"
-            >
-              <VIcon
-                :icon="item.status === 'active' ? 'tabler-toggle-right' : 'tabler-toggle-left'"
-                :color="item.status === 'active' ? 'success' : 'warning'"
-              />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Đổi trạng thái
-              </VTooltip>
-            </IconBtn>
-            <IconBtn
-              v-if="$can('destroy', 'MeetingDocumentField')"
-              @click="deleteItem(item)"
-            >
-              <VIcon
-                icon="tabler-trash"
-                color="error"
-              />
-              <VTooltip
-                activator="parent"
-                location="top"
-              >
-                Xóa
-              </VTooltip>
-            </IconBtn>
-          </div>
-        </template>
-
-        <template #bottom>
-          <div class="d-flex align-center justify-space-between pa-4">
-            <span class="text-body-2 text-disabled">
-              Hiển thị {{ Math.min((page - 1) * itemsPerPage + 1, totalItems) }} đến {{ Math.min(page * itemsPerPage, totalItems) }} trên tổng {{ totalItems }} bản ghi
-            </span>
-            <TablePagination
-              v-model:page="page"
-              :items-per-page="itemsPerPage"
-              :total-items="totalItems"
-            />
-          </div>
-        </template>
-      </VDataTableServer>
-    </div>
+        :loading="loading"
+        :page="page"
+        :items-per-page="itemsPerPage"
+        :can-read="$can('read', 'MeetingDocumentField')"
+        :can-update="$can('update', 'MeetingDocumentField')"
+        :can-delete="$can('destroy', 'MeetingDocumentField')"
+        @update:selected-rows="handleSelectionChange"
+        @update:options="updateOptions"
+        @edit="openEditDialog"
+        @detail="openEditDialog"
+        @delete="deleteItem"
+        @toggle-status="toggleItemStatus"
+      />
+    </VCard>
 
     <VNavigationDrawer
       v-model="isAddDialogVisible"
       temporary
       location="end"
-      width="460"
+      width="520"
     >
       <VCard
-        title="Thêm lĩnh vực tài liệu"
+        title="Thêm mới"
         flat
       >
         <VCardText>
@@ -483,10 +195,11 @@ const handleImport = async file => {
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên lĩnh vực tài liệu"
+                label="Tên *"
                 required
               />
             </VCol>
+            
             <VCol cols="12">
               <AppTextarea
                 v-model="formData.description"
@@ -527,10 +240,10 @@ const handleImport = async file => {
       v-model="isEditDialogVisible"
       temporary
       location="end"
-      width="460"
+      width="520"
     >
       <VCard
-        title="Cập nhật lĩnh vực tài liệu"
+        title="Cập nhật"
         flat
       >
         <VCardText>
@@ -538,10 +251,11 @@ const handleImport = async file => {
             <VCol cols="12">
               <AppTextField
                 v-model="formData.name"
-                label="Tên lĩnh vực tài liệu"
+                label="Tên *"
                 required
               />
             </VCol>
+            
             <VCol cols="12">
               <AppTextarea
                 v-model="formData.description"
@@ -578,6 +292,7 @@ const handleImport = async file => {
       </VCard>
     </VNavigationDrawer>
 
+    <!-- Generic Dialogs -->
     <ActionConfirmDialog
       v-model="isConfirmDialogVisible"
       :title="confirmDialog.title"

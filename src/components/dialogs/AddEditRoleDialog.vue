@@ -103,51 +103,79 @@ watch(() => checkedCount.value, count => {
 })
 
 const groupLabelMap = {
-  users: 'Nguoi dung',
-  roles: 'Vai tro',
-  organizations: 'To chuc',
-  permissions: 'Quyen han',
-  settings: 'Cau hinh he thong',
-  'log-activities': 'Nhat ky hoat dong',
-  posts: 'Tin tuc',
-  meetings: 'Cuoc hop',
-  'my-meetings': 'Lich hop cua toi',
-  'meeting-types': 'Loai cuoc hop',
-  'attendee-groups': 'Nhom thanh phan tham du',
-  'attendee-group-members': 'Thanh vien nhom tham du',
-  'meeting-document-types': 'Loai tai lieu hop',
-  'meeting-document-fields': 'Linh vuc tai lieu hop',
-  documents: 'Tai lieu hop',
-  conclusions: 'Ket luan',
-  votings: 'Bieu quyet',
-  reminders: 'Nhac lich hop',
-  checkins: 'Diem danh',
-  notifications: 'Thong bao',
-  'post-categories': 'Danh muc tin tuc',
+  users: 'Người dùng',
+  roles: 'Vai trò',
+  organizations: 'Tổ chức',
+  permissions: 'Quyền hạn',
+  settings: 'Cấu hình hệ thống',
+  'log-activities': 'Nhật ký hoạt động',
+  'post-categories': 'Danh mục tin tức',
+  posts: 'Tin tức',
+  meetings: 'Cuộc họp',
+  'meeting-participants': 'Thành phần họp',
+  'meeting-agendas': 'Chương trình họp',
+  'meeting-documents': 'Tài liệu họp',
+  'meeting-conclusions': 'Kết luận họp',
+  'meeting-speech-requests': 'Đăng ký phát biểu',
+  'meeting-votings': 'Biểu quyết họp',
+  'meeting-personal-notes': 'Ghi chú cá nhân',
+  'meeting-reminders': 'Nhắc lịch họp',
+  'meeting-types': 'Loại cuộc họp',
+  'attendee-groups': 'Nhóm thành phần tham dự',
+  'attendee-group-members': 'Thành viên nhóm thành phần',
+  'meeting-document-types': 'Loại tài liệu họp',
+  'meeting-document-fields': 'Lĩnh vực tài liệu họp',
+  'my-meetings': 'Lịch họp của tôi',
+  // fallback placeholders
+  documents: 'Tài liệu',
+  conclusions: 'Kết luận',
+  votings: 'Biểu quyết',
+  reminders: 'Nhắc lịch họp',
+  checkins: 'Điểm danh',
+  notifications: 'Thông báo',
 }
 
 const actionLabelMap = {
-  index: 'Xem danh sach',
-  show: 'Xem chi tiet',
-  store: 'Tao moi',
-  update: 'Cap nhat',
-  destroy: 'Xoa',
-  stats: 'Thong ke',
-  import: 'Nhap du lieu',
-  export: 'Xuat du lieu',
-  'bulk-destroy': 'Xoa hang loat',
-  'bulk-update-status': 'Cap nhat trang thai hang loat',
-  tree: 'Xem cay quyen',
-  dashboard: 'Xem bang dieu khien',
-  'live-control': 'Dieu hanh truc tiep',
-  'set-active': 'Dat noi dung dang dien ra',
-  approve: 'Duyet',
-  reject: 'Tu choi',
-  vote: 'Bo phieu',
-  open: 'Mo',
-  close: 'Dong',
-  'qr-checkin': 'Diem danh QR',
-  'self-checkin': 'Tu diem danh',
+  index: 'Xem danh sách',
+  show: 'Xem chi tiết',
+  store: 'Tạo mới',
+  update: 'Cập nhật',
+  destroy: 'Xóa',
+  stats: 'Thống kê',
+  import: 'Nhập dữ liệu',
+  export: 'Xuất dữ liệu',
+  tree: 'Xem cây quyền',
+  dashboard: 'Xem bảng điều khiển',
+  'live-control': 'Điều hành trực tiếp',
+  'bulk-destroy': 'Xóa hàng loạt',
+  'bulk-update-status': 'Cập nhật trạng thái hàng loạt',
+  'set-active': 'Đặt nội dung đang diễn ra',
+  approve: 'Duyệt',
+  reject: 'Từ chối',
+  vote: 'Bỏ phiếu',
+  open: 'Mở',
+  close: 'Đóng',
+  'qr-checkin': 'Điểm danh QR',
+  'self-checkin': 'Tự điểm danh',
+  checkin: 'Điểm danh',
+  reorder: 'Sắp xếp lại',
+  results: 'Xem kết quả',
+  'change-status': 'Đổi trạng thái',
+  'speech-request': 'Đăng ký phát biểu',
+  note: 'Ghi chú cá nhân',
+}
+
+const groupOrder = Object.keys(groupLabelMap)
+const actionOrder = Object.keys(actionLabelMap)
+
+const getGroupSortIndex = groupName => {
+  const index = groupOrder.indexOf(groupName)
+  return index === -1 ? 999 : index
+}
+
+const getActionSortIndex = actionName => {
+  const index = actionOrder.indexOf(actionName)
+  return index === -1 ? 999 : index
 }
 
 const sortByLabel = (left, right) => left.localeCompare(right, 'vi', { sensitivity: 'base' })
@@ -201,10 +229,22 @@ const permissionGroups = computed(() => {
             || item.permission.name.toLowerCase().includes(keyword)
             || group.label.toLowerCase().includes(keyword)
         })
-        .sort((left, right) => sortByLabel(left.displayLabel, right.displayLabel)),
+        .sort((left, right) => {
+          const actionL = left.permission.name.split('.')[1] || ''
+          const actionR = right.permission.name.split('.')[1] || ''
+          const indexL = getActionSortIndex(actionL)
+          const indexR = getActionSortIndex(actionR)
+          if (indexL !== indexR) return indexL - indexR
+          return sortByLabel(left.displayLabel, right.displayLabel)
+        }),
     }))
     .filter(group => group.permissions.length > 0)
-    .sort((left, right) => sortByLabel(left.label, right.label))
+    .sort((left, right) => {
+      const indexL = getGroupSortIndex(left.name)
+      const indexR = getGroupSortIndex(right.name)
+      if (indexL !== indexR) return indexL - indexR
+      return sortByLabel(left.label, right.label)
+    })
 })
 
 const isGroupChecked = group => group.permissions.length > 0 && group.permissions.every(item => item.permission.checked)
@@ -333,12 +373,17 @@ const onReset = () => {
     class="role-drawer"
     @update:model-value="val => emit('update:isDialogVisible', val)"
   >
-    <AppDrawerHeaderSection
-      :title="isReadonlyMode ? t('roles.roles.dialog.title_detail') : (roleId ? t('roles.roles.dialog.title_edit') : t('roles.roles.dialog.title_create'))"
-      @cancel="onReset"
-    />
+    <VForm
+      ref="refPermissionForm"
+      class="d-flex flex-column h-100"
+      @submit.prevent="onSubmit"
+    >
+      <AppDrawerHeaderSection
+        :title="isReadonlyMode ? t('roles.roles.dialog.title_detail') : (roleId ? t('roles.roles.dialog.title_edit') : t('roles.roles.dialog.title_create'))"
+        @cancel="onReset"
+      />
 
-    <VDivider />
+      <VDivider />
 
     <PerfectScrollbar
       class="role-drawer__scroll"
@@ -349,8 +394,7 @@ const onReset = () => {
         class="role-drawer__card"
       >
         <VCardText class="pt-6">
-          <VForm ref="refPermissionForm">
-            <VAlert
+          <VAlert
               v-if="submitError"
               type="error"
               variant="tonal"
@@ -477,34 +521,37 @@ const onReset = () => {
               </div>
             </template>
 
-            <div class="d-flex justify-start gap-4 mt-6">
-                <VBtn
-                  v-if="!isReadonlyMode"
-                  color="primary"
-                  :loading="saving"
-                  min-width="120"
-                  @click="onSubmit"
-                >
-                  <VIcon
-                    icon="tabler-check"
-                    class="me-1"
-                  />
-                  {{ roleId ? t('roles.roles.dialog.actions.update') : t('roles.roles.dialog.actions.create') }}
-                </VBtn>
-
-              <VBtn
-                color="secondary"
-                variant="tonal"
-                min-width="120"
-                @click="onReset"
-              >
-                {{ isReadonlyMode ? t('roles.roles.dialog.actions.close') : t('roles.roles.dialog.actions.cancel') }}
-              </VBtn>
-            </div>
-          </VForm>
         </VCardText>
       </VCard>
     </PerfectScrollbar>
+
+    <VDivider />
+
+    <div class="pa-4 d-flex justify-start gap-4 flex-shrink-0 bg-surface">
+      <VBtn
+        v-if="!isReadonlyMode"
+        color="primary"
+        :loading="saving"
+        min-width="120"
+        type="submit"
+      >
+        <VIcon
+          icon="tabler-check"
+          class="me-1"
+        />
+        {{ roleId ? t('roles.roles.dialog.actions.update') : t('roles.roles.dialog.actions.create') }}
+      </VBtn>
+
+      <VBtn
+        color="secondary"
+        variant="tonal"
+        min-width="120"
+        @click="onReset"
+      >
+        {{ isReadonlyMode ? t('roles.roles.dialog.actions.close') : t('roles.roles.dialog.actions.cancel') }}
+      </VBtn>
+    </div>
+  </VForm>
 
     <ActionSnackbar
       v-model="snackbar.show"
