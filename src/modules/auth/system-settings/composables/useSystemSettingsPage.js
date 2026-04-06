@@ -1,8 +1,8 @@
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, unref } from 'vue'
 import { useActionFeedback } from '@/composables/useActionFeedback'
 import { fetchSystemSettings, normalizeSettingGroups, updateSystemSettings } from '../services/systemSettingService'
 
-const getFields = config => config.sections.flatMap(section => section.fields || [])
+const getFields = config => unref(config).sections.flatMap(section => section.fields || [])
 
 const getInitialValue = field => {
   if (field.defaultValue !== undefined)
@@ -77,8 +77,8 @@ export function useSystemSettingsPage(config, options = {}) {
       hydrate(normalizeSettingGroups(await fetchSystemSettings()))
     }
     catch (error) {
-      console.error(`Fetch settings error for ${config.title}:`, error)
-      showError(error, config.loadErrorMessage)
+      console.error(`Fetch settings error for ${unref(config).title}:`, error)
+      showError(error, unref(config).loadErrorMessage)
     }
     finally {
       loading.value = false
@@ -97,15 +97,15 @@ export function useSystemSettingsPage(config, options = {}) {
       if (typeof afterSave === 'function')
         await afterSave({ settings: settings.value, groups })
 
-      showSuccess(config.saveSuccessMessage)
+      showSuccess(unref(config).saveSuccessMessage)
     }
     catch (error) {
-      console.error(`Save settings error for ${config.title}:`, error)
+      console.error(`Save settings error for ${unref(config).title}:`, error)
 
       if (error?.message === 'invalid_json')
         showError(error, 'JSON cấu hình không hợp lệ.')
       else
-        showError(error, config.saveErrorMessage)
+        showError(error, unref(config).saveErrorMessage)
     }
     finally {
       saving.value = false

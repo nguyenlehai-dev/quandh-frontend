@@ -1,6 +1,7 @@
 <script setup>
 import FlatPickr from 'vue-flatpickr-component'
 import { Vietnamese } from 'flatpickr/dist/l10n/vn.js'
+import { english } from 'flatpickr/dist/l10n/default.js'
 import { useTheme } from 'vuetify'
 import {
   VField,
@@ -81,7 +82,7 @@ const localizedCompAttrs = computed(() => ({
   ...compAttrs,
   config: {
     ...compAttrs.config,
-    locale: compAttrs.config?.locale ?? (locale.value === 'vi' ? Vietnamese : undefined),
+    locale: compAttrs.config?.locale ?? (locale.value === 'vi' ? Vietnamese : english),
   },
 }))
 

@@ -3,7 +3,6 @@ export const routes = [
     path: '/business-overview',
     name: 'meetings-business-overview',
     component: () => import('../views/overview/BusinessOverviewPage.vue'),
-    meta: { action: 'dashboard', subject: 'Meeting' },
   },
   {
     path: '/meetings',

@@ -1,6 +1,10 @@
 /**
  * Non-Module Navigation Items
- *
- * Trống — toàn bộ navigation tree được build trong _loader.js
  */
-export default []
+export default [
+  {
+    title: 'navigation.navigation.user_profile',
+    to: 'user-profile',
+    icon: { icon: 'tabler-user' },
+  },
+]

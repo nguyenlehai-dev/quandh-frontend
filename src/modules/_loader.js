@@ -4,14 +4,11 @@
 // Khi them module moi, chi can tao folder trong modules/ voi index.js
 // -> he thong tu nhan dien, khong can sua bat ky file nao khac.
 import { can } from '@layouts/plugins/casl'
-import { getI18n } from '@/plugins/i18n'
 
 const moduleFiles = import.meta.glob([
   './**/index.js',
   '!./_template_modules/**/index.js',
 ], { eager: true })
-
-const t = key => getI18n().global.t(key)
 
 // Danh sách các module không tải vào app (demo hoặc chưa dùng tới)
 // eslint-disable-next-line sonarjs/no-empty-collection
@@ -82,6 +79,8 @@ function isNavItemVisible(item) {
     return can(item.action, item.subject) && hasVisibleChild
   }
 
+  if (!item.action || !item.subject) return true
+
   return can(item.action, item.subject)
 }
 
@@ -98,6 +97,26 @@ function buildSection(heading, items) {
 }
 
 /**
+ * Resolve titleKey → title recursively cho navigation items.
+ * Gọi t() tại runtime để đổi lang thì title tự cập nhật.
+ */
+function resolveNavTitle(item) {
+  if (!item) return item
+
+  const resolved = { ...item }
+
+  if (resolved.titleKey) {
+    resolved.title = resolved.titleKey
+  }
+
+  if (Array.isArray(resolved.children)) {
+    resolved.children = resolved.children.map(child => resolveNavTitle(child))
+  }
+
+  return resolved
+}
+
+/**
  * Build cây menu sidebar theo cấu trúc chuẩn:
  * 1. Hồ sơ cá nhân
  * 2. Bảng điều khiển (Tổng quan hệ thống, Tổng quan nghiệp vụ)
@@ -108,30 +127,26 @@ export function getModuleNavigation() {
   // 1. Bảng điều khiển: luôn hiện cho mọi user
   const dashboardNav = [
     {
-      title: t('navigation.navigation.dashboard.system_overview'),
+      title: 'navigation.navigation.dashboard.system_overview',
       to: 'system-dashboard',
       icon: { icon: 'tabler-layout-dashboard' },
-      action: 'read',
-      subject: 'Dashboard',
     },
     {
-      title: t('navigation.navigation.dashboard.business_overview'),
+      title: 'navigation.navigation.dashboard.business_overview',
       to: 'meetings-business-overview',
       icon: { icon: 'tabler-briefcase' },
-      action: 'read',
-      subject: 'BusinessOverview',
     },
   ]
 
   // 2. Quản lý cuộc họp (từ meetings module)
-  const meetingsNav = normalizeNavItems(getModNav('meetings'))
+  const meetingsNav = normalizeNavItems(getModNav('meetings')).map(item => resolveNavTitle(item))
 
   // 3. Quản lý hệ thống
-  const orgNav = getModNav('organizations')
-  const userNav = getModNav('user')
-  const activityLogNav = getModNav('activity-logs')
-  const rolesNav = getModNav('roles')
-  const settingsNav = getModNav('system-settings')
+  const orgNav = resolveNavTitle(getModNav('organizations'))
+  const userNav = resolveNavTitle(getModNav('user'))
+  const activityLogNav = resolveNavTitle(getModNav('activity-logs'))
+  const rolesNav = resolveNavTitle(getModNav('roles'))
+  const settingsNav = resolveNavTitle(getModNav('system-settings'))
 
   const systemNav = [
     orgNav,
@@ -141,10 +156,16 @@ export function getModuleNavigation() {
     settingsNav,
   ].filter(Boolean)
 
+  const dashboardGroup = {
+    title: 'navigation.navigation.dashboard.section',
+    icon: { icon: 'tabler-dashboard' },
+    children: dashboardNav,
+  }
+
   return [
-    ...buildSection(t('navigation.navigation.dashboard.section'), dashboardNav),
-    ...buildSection(t('navigation.navigation.meetings.section'), meetingsNav),
-    ...buildSection(t('navigation.navigation.system.section'), systemNav),
+    ...(isNavItemVisible(dashboardGroup) ? [dashboardGroup] : []),
+    ...buildSection('navigation.navigation.meetings.section', meetingsNav),
+    ...buildSection('navigation.navigation.system.section', systemNav),
   ]
 }
 

@@ -3,7 +3,6 @@ export const routes = [
     path: '/system/dashboard',
     name: 'system-dashboard',
     component: () => import('../views/SystemDashboardPage.vue'),
-    meta: { action: 'read', subject: 'Dashboard' },
   },
   {
     path: '/system/settings/general',

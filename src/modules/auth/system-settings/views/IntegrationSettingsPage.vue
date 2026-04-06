@@ -1,10 +1,11 @@
 <script setup>
-import { systemSettingsPageMeta } from '../configs/metadata'
+import { computed } from 'vue'
+import { getSystemSettingsPageMeta } from '../configs/metadata'
 import { useSystemSettingsPage } from '../composables/useSystemSettingsPage'
 import SystemSettingsPageCard from '../components/SystemSettingsPageCard.vue'
 import SettingsLayout from './SettingsLayout.vue'
 
-const pageConfig = systemSettingsPageMeta.integrations
+const pageConfig = computed(() => getSystemSettingsPageMeta().integrations)
 const { snackbar, settings, loading, saving, saveSettings } = useSystemSettingsPage(pageConfig)
 </script>
 

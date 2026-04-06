@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { SYSTEM_SETTINGS_TABS } from '../configs/metadata'
+import { getSystemSettingsTabs } from '../configs/metadata'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -12,7 +12,7 @@ const activeTab = computed({
   set: val => router.push({ name: val }),
 })
 
-const tabsData = SYSTEM_SETTINGS_TABS
+const tabsData = computed(() => getSystemSettingsTabs())
 </script>
 
 <template>

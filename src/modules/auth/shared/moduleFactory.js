@@ -12,7 +12,7 @@ export function createModuleManifest({ routes, navigation, navOrder }) {
 
 export function createNavItem({ titleKey, icon, to, action, subject, children }) {
   const item = {
-    title: titleKey ? tAuth(titleKey) : undefined,
+    titleKey,
     action,
     subject,
   }

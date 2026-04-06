@@ -2,16 +2,18 @@
 /* eslint-disable camelcase */
 
 import { h, ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { cookieRef } from '@layouts/stores/config'
 import { getI18n } from '@/plugins/i18n'
 import { themeConfig, layoutConfig as initialLayoutConfig } from '@themeConfig'
 import { layoutConfig as activeLayoutConfig } from '@layouts'
-import { systemSettingsPageMeta } from '../configs/metadata'
+import { getSystemSettingsPageMeta } from '../configs/metadata'
 import { useSystemSettingsPage } from '../composables/useSystemSettingsPage'
 import SystemSettingsPageCard from '../components/SystemSettingsPageCard.vue'
 import SettingsLayout from './SettingsLayout.vue'
 
-const pageConfig = systemSettingsPageMeta.general
+const { t } = useI18n()
+const pageConfig = computed(() => getSystemSettingsPageMeta().general)
 
 const refFaviconInput = ref()
 const refLogoInput = ref()
@@ -135,7 +137,7 @@ onMounted(() => {
             size="20"
             class="me-2"
           />
-          <span class="text-subtitle-1 text-info font-weight-medium">Favicon</span>
+          <span class="text-subtitle-1 text-info font-weight-medium">{{ t('system-settings.system_settings.general.favicon.title') }}</span>
         </div>
 
         <div class="d-flex align-center">
@@ -166,7 +168,7 @@ onMounted(() => {
                 prepend-icon="tabler-cloud-upload"
                 @click="refFaviconInput?.click()"
               >
-                Tải lên
+                {{ t('system-settings.system_settings.general.favicon.upload') }}
               </VBtn>
 
               <input
@@ -186,12 +188,12 @@ onMounted(() => {
                 prepend-icon="tabler-refresh"
                 @click="resetFavicon"
               >
-                Đặt lại
+                {{ t('system-settings.system_settings.general.favicon.reset') }}
               </VBtn>
             </div>
 
             <p class="text-caption text-disabled mb-0">
-              Chấp nhận định dạng JPG, PNG hoặc GIF cho biểu tượng favicon.
+              {{ t('system-settings.system_settings.general.favicon.hint') }}
             </p>
           </div>
         </div>
@@ -205,7 +207,7 @@ onMounted(() => {
             size="20"
             class="me-2"
           />
-          <span class="text-subtitle-1 text-info font-weight-medium">Logo</span>
+          <span class="text-subtitle-1 text-info font-weight-medium">{{ t('system-settings.system_settings.general.logo.title') }}</span>
         </div>
 
         <div class="d-flex align-center">
@@ -236,7 +238,7 @@ onMounted(() => {
                 prepend-icon="tabler-cloud-upload"
                 @click="refLogoInput?.click()"
               >
-                Tải lên
+                {{ t('system-settings.system_settings.general.logo.upload') }}
               </VBtn>
 
               <input
@@ -256,12 +258,12 @@ onMounted(() => {
                 prepend-icon="tabler-refresh"
                 @click="resetLogo"
               >
-                Đặt lại
+                {{ t('system-settings.system_settings.general.logo.reset') }}
               </VBtn>
             </div>
 
             <p class="text-caption text-disabled mb-0">
-              Chấp nhận định dạng JPG, PNG hoặc GIF cho logo hệ thống.
+              {{ t('system-settings.system_settings.general.logo.hint') }}
             </p>
           </div>
         </div>

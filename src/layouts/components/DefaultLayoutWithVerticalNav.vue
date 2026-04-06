@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import navItems from '@/navigation/vertical'
+import { getVerticalNavItems } from '@/navigation/vertical'
 import { themeConfig } from '@themeConfig'
+import { useI18n } from 'vue-i18n'
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'
@@ -13,6 +14,15 @@ import NavBarI18n from '@core/components/I18n.vue'
 
 // @layouts plugin
 import { VerticalNavLayout } from '@layouts'
+
+const { locale } = useI18n()
+
+// Re-compute nav items when locale changes
+const navItems = computed(() => {
+  // eslint-disable-next-line no-unused-expressions
+  locale.value // trigger reactivity on lang change
+  return getVerticalNavItems()
+})
 </script>
 
 <template>

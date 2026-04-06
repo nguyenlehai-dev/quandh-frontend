@@ -203,6 +203,11 @@ export default class ApiService {
     const t = i18n.global.t
     const status = err.response.status
 
+    // Normalize: when backend returns non-JSON (e.g. HTML), data may be a string
+    if (typeof err.response.data !== 'object' || err.response.data === null) {
+      err.response.data = { message: err.response.statusText || 'Error', errors: null }
+    }
+
     err.response.data.code = status
 
     if (status === 401 && router.currentRoute.value.name !== 'login') {
