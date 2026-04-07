@@ -109,8 +109,49 @@ const loadProfile = async () => {
 
 const statusLabel = computed(() => profile.value?.status === 'active' ? t('Active') : t('Inactive'))
 const statusColor = computed(() => profile.value?.status === 'active' ? 'success' : 'secondary')
-const roleChips = computed(() => profile.value?.roles ?? [])
-const organizationChips = computed(() => profile.value?.organizations ?? [])
+const categorizedPermissions = computed(() => {
+  const groups = {}
+
+  permissions.value.forEach(p => {
+    const parts = p.split('.')
+    const resource = parts[0]
+    const action = parts[1] || 'access'
+
+    if (!groups[resource])
+      groups[resource] = []
+    groups[resource].push(action)
+  })
+
+  return groups
+})
+
+const getResourceIcon = resource => {
+  const iconMap = {
+    user: 'tabler-users',
+    role: 'tabler-lock',
+    permission: 'tabler-shield-lock',
+    organization: 'tabler-building',
+    setting: 'tabler-settings',
+    profile: 'tabler-user-circle',
+    dashboard: 'tabler-layout-dashboard',
+    system: 'tabler-device-desktop-analytics',
+  }
+
+  return iconMap[resource.toLowerCase()] || 'tabler-category'
+}
+
+const getActionColor = action => {
+  const colorMap = {
+    index: 'info',
+    show: 'info',
+    create: 'success',
+    update: 'warning',
+    delete: 'error',
+    access: 'primary',
+  }
+
+  return colorMap[action.toLowerCase()] || 'secondary'
+}
 
 onMounted(loadProfile)
 </script>
@@ -332,27 +373,53 @@ onMounted(loadProfile)
                 color="warning"
                 variant="tonal"
               >
-                <VIcon icon="tabler-key" />
+                <VIcon icon="tabler-shield-check" />
               </VAvatar>
             </template>
 
             <VCardTitle>{{ $t('Access Permissions') }}</VCardTitle>
-            <VCardSubtitle>{{ $t('Permission list from the current session.') }}</VCardSubtitle>
+            <VCardSubtitle>{{ $t('Permission list grouped by system resources.') }}</VCardSubtitle>
           </VCardItem>
 
           <VCardText>
-            <div class="d-flex flex-wrap gap-2">
-              <VChip
-                v-for="permission in permissions"
-                :key="permission"
-                size="small"
-                color="warning"
-                variant="tonal"
-                label
+            <VRow>
+              <VCol
+                v-for="(actions, resource) in categorizedPermissions"
+                :key="resource"
+                cols="12"
+                sm="6"
               >
-                {{ permission }}
-              </VChip>
-            </div>
+                <div class="d-flex align-center gap-x-2 mb-2">
+                  <VIcon
+                    :icon="getResourceIcon(resource)"
+                    size="20"
+                    class="text-disabled"
+                  />
+                  <span class="text-body-1 font-weight-medium text-capitalize">{{ resource }}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                  <VChip
+                    v-for="action in actions"
+                    :key="action"
+                    size="x-small"
+                    :color="getActionColor(action)"
+                    variant="tonal"
+                    class="text-uppercase"
+                  >
+                    {{ action }}
+                  </VChip>
+                </div>
+              </VCol>
+            </VRow>
+
+            <VAlert
+              v-if="permissions.length === 0"
+              type="warning"
+              variant="tonal"
+              class="mt-4"
+            >
+              {{ $t('No permissions found for the current session.') }}
+            </VAlert>
           </VCardText>
         </VCard>
       </VCol>
