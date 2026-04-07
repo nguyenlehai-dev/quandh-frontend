@@ -350,26 +350,15 @@ onMounted(() => {
                 </a>
               </div>
             </div>
-            <IconBtn>
-              <VIcon icon="tabler-dots-vertical" class="text-high-emphasis" />
-              <VMenu activator="parent">
-                <VList>
-                  <VListItem
-                    prepend-icon="tabler-pencil"
-                    @click="editPermission(item.details)"
-                  >
-                    {{ $t('Edit') }}
-                  </VListItem>
+            <div class="d-flex align-center">
+              <IconBtn @click="editPermission(item.details)">
+                <VIcon icon="tabler-pencil" />
+              </IconBtn>
 
-                  <VListItem
-                    prepend-icon="tabler-trash"
-                    @click="requestDeleteRole(item.details)"
-                  >
-                    {{ $t('Delete') }}
-                  </VListItem>
-                </VList>
-              </VMenu>
-            </IconBtn>
+              <IconBtn @click="requestDeleteRole(item.details)">
+                <VIcon icon="tabler-trash" />
+              </IconBtn>
+            </div>
           </div>
         </VCardText>
       </VCard>

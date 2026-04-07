@@ -33,18 +33,26 @@ const headers = [
   },
 ]
 
-const { data: courseData } = await useApi(createUrl('/apps/academy/courses', {
-  query: {
-    q: searchQuery,
-    itemsPerPage,
-    page,
-    sortBy,
-    orderBy,
-  },
-}))
+// Endpoint này là demo, trên Core backend không có. Dùng dữ liệu mẫu để tránh lỗi 404.
+const courseData = ref({
+  courses: [],
+  total: 0,
+})
 
-const courses = computed(() => courseData.value.courses)
-const totalCourse = computed(() => courseData.value.total)
+const courses = computed(() => {
+  if (courseData.value?.courses?.length)
+    return courseData.value.courses
+    
+  return [
+    { id: 1, user: 'Lauretta Coie', completedTasks: 19, totalTasks: 25, userCount: 18, note: 20, view: 83, time: '17h 34m', logo: 'tabler-brand-angular', color: 'error', courseTitle: 'Basics of Angular', tags: 'Web' },
+    { id: 2, user: 'Maybelle Zmitrovich', completedTasks: 48, totalTasks: 52, userCount: 14, note: 48, view: 43, time: '19h 17m', logo: 'tabler-color-swatch', color: 'warning', courseTitle: 'UI/UX Design', tags: 'Design' },
+    { id: 3, user: 'Gertie Langwade', completedTasks: 87, totalTasks: 100, userCount: 19, note: 81, view: 88, time: '16h 16m', logo: 'tabler-brand-react', color: 'info', courseTitle: 'React Native', tags: 'Web' },
+    { id: 4, user: 'Estella Chace', completedTasks: 33, totalTasks: 50, userCount: 28, note: 21, view: 87, time: '15h 49m', logo: 'tabler-edit', color: 'success', courseTitle: 'Art & Drawing', tags: 'Design' },
+    { id: 5, user: 'Euell Bownass', completedTasks: 100, totalTasks: 100, userCount: 13, note: 19, view: 13, time: '12h 42m', logo: 'tabler-star', color: 'primary', courseTitle: 'Basic Fundamentals', tags: 'Web' },
+  ]
+})
+
+const totalCourse = computed(() => courseData.value?.total || courses.value.length)
 </script>
 
 <template>

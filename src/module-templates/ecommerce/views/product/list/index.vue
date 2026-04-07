@@ -564,41 +564,19 @@ onMounted(() => {
       </template>
 
       <template #item.actions="{ item }">
-        <IconBtn @click="openOrganizationDrawer('view', item)">
-          <VIcon icon="tabler-eye" />
-        </IconBtn>
+        <div class="d-flex align-center">
+          <IconBtn @click="openOrganizationDrawer('view', item)">
+            <VIcon icon="tabler-eye" />
+          </IconBtn>
 
-        <IconBtn @click="openOrganizationDrawer('edit', item)">
-          <VIcon icon="tabler-edit" />
-        </IconBtn>
+          <IconBtn @click="openOrganizationDrawer('edit', item)">
+            <VIcon icon="tabler-pencil" />
+          </IconBtn>
 
-        <IconBtn>
-          <VIcon icon="tabler-dots-vertical" />
-          <VMenu activator="parent">
-            <VList>
-              <VListItem
-                prepend-icon="tabler-eye"
-                @click="openOrganizationDrawer('view', item)"
-              >
-                {{ $t('View') }}
-              </VListItem>
-
-              <VListItem
-                prepend-icon="tabler-pencil"
-                @click="openOrganizationDrawer('edit', item)"
-              >
-                {{ $t('Edit') }}
-              </VListItem>
-
-              <VListItem
-                prepend-icon="tabler-trash"
-                @click="requestDeleteOrganization(item.id)"
-              >
-                {{ $t('Delete') }}
-              </VListItem>
-            </VList>
-          </VMenu>
-        </IconBtn>
+          <IconBtn @click="requestDeleteOrganization(item.id)">
+            <VIcon icon="tabler-trash" />
+          </IconBtn>
+        </div>
       </template>
 
       <template #bottom>

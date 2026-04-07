@@ -602,43 +602,15 @@ onMounted(() => {
           </template>
 
           <template #item.actions="{ item }">
-            <VBtn
-              icon
-              size="small"
-              color="medium-emphasis"
-              variant="text"
-              @click="openPermissionDialog(item)"
-            >
-              <VIcon
-                size="22"
-                icon="tabler-edit"
-              />
-            </VBtn>
+            <div class="d-flex align-center">
+              <IconBtn @click="openPermissionDialog(item)">
+                <VIcon icon="tabler-pencil" />
+              </IconBtn>
 
-            <VBtn
-              icon
-              variant="text"
-              color="medium-emphasis"
-            >
-              <VIcon icon="tabler-dots-vertical" />
-              <VMenu activator="parent">
-                <VList>
-                  <VListItem @click="openPermissionDialog(item)">
-                    <template #prepend>
-                      <VIcon icon="tabler-pencil" />
-                    </template>
-                    <VListItemTitle>{{ $t('Edit') }}</VListItemTitle>
-                  </VListItem>
-
-                  <VListItem @click="requestDeletePermission(item.id)">
-                    <template #prepend>
-                      <VIcon icon="tabler-trash" />
-                    </template>
-                    <VListItemTitle>{{ $t('Delete') }}</VListItemTitle>
-                  </VListItem>
-                </VList>
-              </VMenu>
-            </VBtn>
+              <IconBtn @click="requestDeletePermission(item.id)">
+                <VIcon icon="tabler-trash" />
+              </IconBtn>
+            </div>
           </template>
 
           <template #bottom>
