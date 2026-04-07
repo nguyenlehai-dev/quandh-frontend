@@ -37,6 +37,13 @@ export const coreApi = ofetch.create({
       includeOrganizationHeader: !requestPath.startsWith('/auth/'),
     })
   },
+  onResponseError({ response }) {
+    console.error('Core API Error:', {
+      status: response.status,
+      url: response.url,
+      data: response._data,
+    })
+  },
 })
 
 const createCoreRequestUrl = (path, query) => {

@@ -149,9 +149,9 @@ const login = async () => {
       return
     }
 
-    if (authPayload.availableOrganizations.length > 1 && !authPayload.currentOrganizationId) {
+    if (authPayload.availableOrganizations.length > 1) {
       pendingAuthPayload.value = authPayload
-      selectedOrganizationId.value = authPayload.availableOrganizations[0]?.id ?? null
+      selectedOrganizationId.value = authPayload.currentOrganizationId ?? authPayload.availableOrganizations[0]?.id ?? null
       isOrganizationDialogVisible.value = true
 
       return
