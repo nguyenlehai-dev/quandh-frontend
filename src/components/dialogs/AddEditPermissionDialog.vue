@@ -1,29 +1,25 @@
 <script setup>
-import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { useActionFeedback } from '@/composables/useActionFeedback'
-
 const props = defineProps({
   isDialogVisible: {
     type: Boolean,
     required: true,
   },
-  permissionItem: {
-    type: Object,
+  permissionId: {
+    type: Number,
     required: false,
-    default: () => ({
-      id: null,
-      name: '',
-      'guard_name': 'web',
-      description: '',
-      'sort_order': 0,
-      'parent_id': null,
-    }),
+    default: null,
   },
-  readonly: {
-    type: Boolean,
-    default: false,
+  permissionName: {
+    type: String,
+    required: false,
+    default: '',
   },
-  parentOptions: {
+  assignedRoles: {
+    type: Array,
+    required: false,
+    default: () => [],
+  },
+  roleOptions: {
     type: Array,
     required: false,
     default: () => [],
@@ -31,307 +27,129 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'save',
+  'update:assignedRoles',
   'update:isDialogVisible',
-  'saved',
+  'update:permissionName',
 ])
 
-const currentPermission = ref({
-  id: null,
-  name: '',
-  'guard_name': 'web',
-  description: '',
-  'sort_order': 0,
-  'parent_id': null,
-})
+const refForm = ref()
+const currentPermissionName = ref('')
+const currentAssignedRoles = ref([])
 
-const saving = ref(false)
-const isEditMode = computed(() => !!currentPermission.value.id)
-const isReadonlyMode = computed(() => props.readonly)
-const { t } = useI18n()
-const { snackbar, showSnackbar, showSuccess, showError } = useActionFeedback()
+const dialogTitle = computed(() => props.permissionId ? 'Chỉnh sửa quyền' : 'Thêm mới quyền')
+const dialogDescription = computed(() => props.permissionId ? 'Cập nhật thông tin quyền theo nhu cầu vận hành.' : 'Tạo quyền mới và gán cho các vai trò phù hợp.')
 
-const permissionGroupLabelMap = {
-  users: 'Nguoi dung',
-  roles: 'Vai tro',
-  organizations: 'To chuc',
-  permissions: 'Quyen han',
-  settings: 'Cau hinh he thong',
-  'log-activities': 'Nhat ky hoat dong',
-  meetings: 'Cuoc hop',
-  'my-meetings': 'Lich hop cua toi',
-  'meeting-types': 'Loai cuoc hop',
-  'attendee-groups': 'Nhom thanh phan tham du',
-  'attendee-group-members': 'Thanh vien nhom tham du',
-  'meeting-document-types': 'Loai tai lieu hop',
-  'meeting-document-fields': 'Linh vuc tai lieu hop',
-  documents: 'Tai lieu hop',
-  conclusions: 'Ket luan',
-  votings: 'Bieu quyet',
-  reminders: 'Nhac lich hop',
-  checkins: 'Diem danh',
-}
-
-const permissionActionLabelMap = {
-  index: 'Xem danh sach',
-  show: 'Xem chi tiet',
-  store: 'Tao moi',
-  update: 'Cap nhat',
-  destroy: 'Xoa',
-  stats: 'Xem thong ke',
-  import: 'Nhap du lieu',
-  export: 'Xuat du lieu',
-  tree: 'Xem cay quyen',
-  dashboard: 'Xem bang dieu khien',
-  'live-control': 'Dieu hanh truc tiep',
-  'bulk-destroy': 'Xoa hang loat',
-  'bulk-update-status': 'Cap nhat trang thai hang loat',
-  'set-active': 'Dat noi dung dang dien ra',
-  approve: 'Duyet',
-  reject: 'Tu choi',
-  vote: 'Bo phieu',
-  open: 'Mo',
-  close: 'Dong',
-  'qr-checkin': 'Diem danh QR',
-  'self-checkin': 'Tu diem danh',
-}
-
-const humanizePermissionPart = value => {
-  const normalized = String(value || '').trim()
-  if (!normalized)
-    return ''
-
-  return normalized
-    .split(/[-_.]/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-const getPermissionGroupLabel = groupName => permissionGroupLabelMap[groupName] || humanizePermissionPart(groupName)
-
-const displayPermissionName = computed(() => {
-  const permissionName = currentPermission.value.name
-  if (!permissionName)
-    return ''
-
-  if (permissionName.startsWith('group:'))
-    return getPermissionGroupLabel(permissionName.replace('group:', ''))
-
-  const [groupName = permissionName, actionName = ''] = permissionName.split('.')
-  const groupLabel = getPermissionGroupLabel(groupName)
-  const actionLabel = permissionActionLabelMap[actionName] || humanizePermissionPart(actionName)
-
-  return actionName ? `${actionLabel} ${groupLabel}`.trim() : groupLabel
-})
-
-const syncState = () => {
-  currentPermission.value = {
-    id: props.permissionItem?.id ?? null,
-    name: props.permissionItem?.name ?? '',
-    'guard_name': props.permissionItem?.guard_name ?? 'web',
-    description: props.permissionItem?.description ?? '',
-    'sort_order': props.permissionItem?.sort_order ?? 0,
-    'parent_id': props.permissionItem?.parent_id ?? null,
-  }
+const syncFormData = () => {
+  currentPermissionName.value = props.permissionName
+  currentAssignedRoles.value = [...props.assignedRoles]
 }
 
 const onReset = () => {
   emit('update:isDialogVisible', false)
+  nextTick(() => {
+    refForm.value?.resetValidation()
+    syncFormData()
+  })
 }
 
-const onSubmit = async () => {
-  if (isReadonlyMode.value) {
-    onReset()
+const onSubmit = () => {
+  refForm.value?.validate().then(({ valid }) => {
+    if (!valid)
+      return
 
-    return
-  }
-
-  if (!currentPermission.value.name.trim()) {
-    showSnackbar(t('permissions.permissions.dialog.validation.name_required'), 'warning')
-
-    return
-  }
-
-  saving.value = true
-  try {
     const payload = {
-      name: currentPermission.value.name.trim(),
-      'guard_name': currentPermission.value.guard_name?.trim() || 'web',
-      description: currentPermission.value.description || '',
-      'sort_order': Number(currentPermission.value.sort_order || 0),
-      'parent_id': currentPermission.value.parent_id || null,
+      id: props.permissionId,
+      name: currentPermissionName.value.trim(),
+      assignedTo: [...currentAssignedRoles.value],
     }
 
-    if (isEditMode.value) {
-      await $api(`/permissions/${currentPermission.value.id}`, {
-        method: 'PUT',
-        body: payload,
-      })
-      showSuccess(t('permissions.permissions.dialog.messages.update_success'))
-    }
-    else {
-      await $api('/permissions', {
-        method: 'POST',
-        body: payload,
-      })
-      showSuccess(t('permissions.permissions.dialog.messages.create_success'))
-    }
-
-    emit('saved')
-    onReset()
-  }
-  catch (err) {
-    console.error('Save permission error:', err)
-    showError(err, t('permissions.permissions.dialog.messages.save_error'))
-  }
-  finally {
-    saving.value = false
-  }
+    emit('update:permissionName', payload.name)
+    emit('update:assignedRoles', payload.assignedTo)
+    emit('save', payload)
+    emit('update:isDialogVisible', false)
+  })
 }
 
-watch(() => props.isDialogVisible, visible => {
-  if (visible)
-    syncState()
-})
+watch(
+  () => [props.isDialogVisible, props.permissionName, props.permissionId, props.assignedRoles],
+  ([isDialogVisible]) => {
+    if (isDialogVisible)
+      syncFormData()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <VNavigationDrawer
+  <VDialog
+    :width="$vuetify.display.smAndDown ? 'auto' : 600"
     :model-value="props.isDialogVisible"
-    temporary
-    location="end"
-    :width="$vuetify.display.smAndDown ? 360 : 520"
-    class="permission-drawer"
-    @update:model-value="val => emit('update:isDialogVisible', val)"
+    @update:model-value="onReset"
   >
-    <AppDrawerHeaderSection
-      :title="isReadonlyMode ? t('permissions.permissions.dialog.title_detail') : (isEditMode ? t('permissions.permissions.dialog.title_edit') : t('permissions.permissions.dialog.title_create'))"
-      @cancel="onReset"
-    />
+    <DialogCloseBtn @click="onReset" />
 
-    <VDivider />
+    <VCard class="pa-2 pa-sm-10">
+      <VCardText>
+        <h4 class="text-h4 text-center mb-2">
+          {{ dialogTitle }}
+        </h4>
+        <p class="text-body-1 text-center mb-6">
+          {{ dialogDescription }}
+        </p>
 
-    <PerfectScrollbar
-      class="permission-drawer__scroll"
-      :options="{ wheelPropagation: false }"
-    >
-      <VCard flat>
-        <VCardText class="pt-6">
-          <p class="text-body-1 mb-6">
-            {{ isReadonlyMode ? t('permissions.permissions.dialog.subtitle_detail') : (isEditMode ? t('permissions.permissions.dialog.subtitle_edit') : t('permissions.permissions.dialog.subtitle_create')) }}
-          </p>
-
+        <VForm
+          ref="refForm"
+          validate-on="submit"
+        >
           <VAlert
-            v-if="displayPermissionName"
-            type="info"
+            type="warning"
+            title="Lưu ý"
             variant="tonal"
             class="mb-6"
           >
-            <div class="d-flex flex-column gap-1">
-              <span class="text-subtitle-2 font-weight-bold">{{ displayPermissionName }}</span>
-              <span class="text-body-2 text-medium-emphasis">{{ currentPermission.name }}</span>
-            </div>
+            <template #text>
+              Không chỉnh sửa tùy tiện các quyền lõi nếu chưa được duyệt, vì có thể ảnh hưởng luồng phân quyền đang vận hành.
+            </template>
           </VAlert>
 
-          <VForm @submit.prevent="onSubmit">
-            <VRow>
-              <VCol cols="12">
-                <AppTextField
-                  v-model="currentPermission.name"
-                  :label="t('permissions.permissions.dialog.fields.name')"
-                  :placeholder="t('permissions.permissions.dialog.placeholders.name')"
-                  :readonly="isReadonlyMode"
-                />
-              </VCol>
+          <div class="mb-6">
+            <AppTextField
+              v-model="currentPermissionName"
+              label="Tên quyền"
+              placeholder="Nhập tên quyền"
+              :rules="[requiredValidator]"
+            />
+          </div>
 
-              <VCol cols="12">
-                <AppTextField
-                  v-model="currentPermission.guard_name"
-                  :label="t('permissions.permissions.dialog.fields.guard_name')"
-                  :placeholder="t('permissions.permissions.dialog.placeholders.guard_name')"
-                  :readonly="isReadonlyMode"
-                />
-              </VCol>
+          <div class="mb-6">
+            <AppSelect
+              v-model="currentAssignedRoles"
+              label="Vai trò được gán"
+              placeholder="Chọn vai trò"
+              :items="props.roleOptions"
+              :rules="[requiredValidator]"
+              chips
+              closable-chips
+              multiple
+            />
+          </div>
 
-              <VCol cols="12">
-                <AppTextarea
-                  v-model="currentPermission.description"
-                  :label="t('permissions.permissions.dialog.fields.description')"
-                  :placeholder="t('permissions.permissions.dialog.placeholders.description')"
-                  rows="3"
-                  auto-grow
-                  :readonly="isReadonlyMode"
-                />
-              </VCol>
+          <div class="d-flex gap-3 justify-end flex-wrap">
+            <VBtn
+              variant="tonal"
+              color="secondary"
+              @click="onReset"
+            >
+              Đóng
+            </VBtn>
 
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppTextField
-                  v-model="currentPermission.sort_order"
-                  type="number"
-                  :label="t('permissions.permissions.dialog.fields.sort_order')"
-                  :placeholder="t('permissions.permissions.dialog.placeholders.sort_order')"
-                  :readonly="isReadonlyMode"
-                />
-              </VCol>
-
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <AppSelect
-                  v-model="currentPermission.parent_id"
-                  :items="props.parentOptions"
-                  :label="t('permissions.permissions.dialog.fields.parent_id')"
-                  :placeholder="t('permissions.permissions.dialog.placeholders.parent_id')"
-                  clearable
-                  :readonly="isReadonlyMode"
-                  :disabled="isReadonlyMode"
-                />
-              </VCol>
-            </VRow>
-
-            <div class="d-flex gap-4 justify-start mt-6">
-              <VBtn
-                v-if="!isReadonlyMode"
-                type="submit"
-                :loading="saving"
-                color="primary"
-              >
-                {{ isEditMode ? t('permissions.permissions.dialog.actions.update') : t('permissions.permissions.dialog.actions.create') }}
-              </VBtn>
-              <VBtn
-                color="secondary"
-                variant="tonal"
-                @click="onReset"
-              >
-                {{ isReadonlyMode ? t('permissions.permissions.dialog.actions.close') : t('permissions.permissions.dialog.actions.cancel') }}
-              </VBtn>
-            </div>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </PerfectScrollbar>
-
-    <ActionSnackbar
-      v-model="snackbar.show"
-      :message="snackbar.message"
-      :color="snackbar.color"
-    />
-  </VNavigationDrawer>
+            <VBtn @click="onSubmit">
+              {{ props.permissionId ? 'Lưu thay đổi' : 'Tạo quyền' }}
+            </VBtn>
+          </div>
+        </VForm>
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>
-
-<style scoped>
-.permission-drawer :deep(.v-navigation-drawer__content) {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.permission-drawer__scroll {
-  flex: 1 1 auto;
-  min-block-size: 0;
-}
-</style>

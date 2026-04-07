@@ -106,7 +106,7 @@ const computedMoreList = computed(() => {
     {
       title: 'Edit',
       value: 'edit',
-      prependIcon: 'tabler-edit',
+      prependIcon: 'tabler-pencil',
       to: {
         name: 'apps-invoice-edit-id',
         params: { id: paramId },

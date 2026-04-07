@@ -14,32 +14,6 @@ import svgLoader from 'vite-svg-loader'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  server: {
-    host: '0.0.0.0',
-    port: 3001,
-    strictPort: true,
-    hmr: {
-      host: 'hongqh.io',
-      port: 3001,
-    },
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/sanctum': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
-  preview: {
-    host: '0.0.0.0',
-    port: 3001,
-    strictPort: true,
-  },
   plugins: [
     // Docs: https://github.com/posva/unplugin-vue-router
     // ℹ️ This plugin should be placed before vue plugin
@@ -80,7 +54,7 @@ export default defineConfig({
 
     // Docs: https://github.com/antfu/unplugin-vue-components#unplugin-vue-components
     Components({
-      dirs: ['src/@core/components', 'src/views/demos', 'src/components', 'src/modules/*/components'],
+      dirs: ['src/@core/components', 'src/views/demos', 'src/components'],
       dts: true,
       resolvers: [
         componentName => {
@@ -125,13 +99,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@modules': fileURLToPath(new URL('./src/modules', import.meta.url)),
+      '@moduleTemplates': fileURLToPath(new URL('./src/module-templates', import.meta.url)),
       '@themeConfig': fileURLToPath(new URL('./themeConfig.js', import.meta.url)),
       '@core': fileURLToPath(new URL('./src/@core', import.meta.url)),
       '@layouts': fileURLToPath(new URL('./src/@layouts', import.meta.url)),
       '@images': fileURLToPath(new URL('./src/assets/images/', import.meta.url)),
       '@styles': fileURLToPath(new URL('./src/assets/styles/', import.meta.url)),
       '@configured-variables': fileURLToPath(new URL('./src/assets/styles/variables/_template.scss', import.meta.url)),
-      '@modules': fileURLToPath(new URL('./src/modules/', import.meta.url)),
       '@db': fileURLToPath(new URL('./src/plugins/fake-api/handlers/', import.meta.url)),
       '@api-utils': fileURLToPath(new URL('./src/plugins/fake-api/utils/', import.meta.url)),
     },

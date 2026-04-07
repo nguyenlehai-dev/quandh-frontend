@@ -1,131 +1,127 @@
-<script setup lang="ts">
-import { useConfigStore } from '@core/stores/config'
-import type { SearchResults } from '@db/app-bar-search/types'
+<script setup>
 import Shepherd from 'shepherd.js'
 import { withQuery } from 'ufo'
-import type { RouteLocationRaw } from 'vue-router'
-
-interface Suggestion {
-  icon: string
-  title: string
-  url: RouteLocationRaw
-}
+import { useConfigStore } from '@core/stores/config'
 
 defineOptions({
   inheritAttrs: false,
 })
 
 const configStore = useConfigStore()
-const { t } = useI18n({
-  useScope: 'local',
-  messages: {
-    en: {
-      searchBar: {
-        search: 'Search',
-        popularSearches: 'Popular Searches',
-        appsPages: 'Apps & Pages',
-        userInterface: 'User Interface',
-        formsTables: 'Forms & Tables',
-        trySearchingFor: 'Try searching for',
-        analytics: 'Analytics',
-        ecommerce: 'eCommerce',
-        logistics: 'Logistics',
-        calendar: 'Calendar',
-        rolesPermissions: 'Roles & Permissions',
-        accountSettings: 'Account Settings',
-        dialogExamples: 'Dialog Examples',
-        typography: 'Typography',
-        accordion: 'Accordion',
-        alert: 'Alert',
-        cards: 'Cards',
-        radio: 'Radio',
-        formLayouts: 'Form Layouts',
-        table: 'Table',
-        editor: 'Editor',
-      },
-    },
-    vi: {
-      searchBar: {
-        search: 'Tìm kiếm',
-        popularSearches: 'Tìm kiếm phổ biến',
-        appsPages: 'Ứng dụng & Trang',
-        userInterface: 'Giao diện người dùng',
-        formsTables: 'Biểu mẫu & Bảng',
-        trySearchingFor: 'Thử tìm kiếm',
-        analytics: 'Phân tích',
-        ecommerce: 'Thương mại điện tử',
-        logistics: 'Logistics',
-        calendar: 'Lịch',
-        rolesPermissions: 'Vai trò & Quyền hạn',
-        accountSettings: 'Cài đặt tài khoản',
-        dialogExamples: 'Ví dụ dialog',
-        typography: 'Kiểu chữ',
-        accordion: 'Accordion',
-        alert: 'Cảnh báo',
-        cards: 'Thẻ',
-        radio: 'Radio',
-        formLayouts: 'Bố cục biểu mẫu',
-        table: 'Bảng',
-        editor: 'Trình soạn thảo',
-      },
-    },
-  },
-})
-
-interface SuggestionGroup {
-  title: string
-  content: Suggestion[]
-}
-
-// 👉 Is App Search Bar Visible
 const isAppSearchBarVisible = ref(false)
 const isLoading = ref(false)
 
 // 👉 Default suggestions
-
-const suggestionGroups: SuggestionGroup[] = [
+const suggestionGroups = [
   {
-    title: t('searchBar.popularSearches'),
+    title: 'Popular Searches',
     content: [
-      { icon: 'tabler-chart-bar', title: t('searchBar.analytics'), url: { name: 'dashboards-analytics' } },
-      { icon: 'tabler-chart-donut-3', title: 'CRM', url: { name: 'dashboards-crm' } },
-      { icon: 'tabler-shopping-cart', title: t('searchBar.ecommerce'), url: { name: 'dashboards-ecommerce' } },
-      { icon: 'tabler-truck', title: t('searchBar.logistics'), url: { name: 'dashboards-logistics' } },
+      {
+        icon: 'tabler-chart-bar',
+        title: 'Analytics',
+        url: { name: 'dashboards-analytics' },
+      },
+      {
+        icon: 'tabler-chart-donut-3',
+        title: 'CRM',
+        url: { name: 'dashboards-crm' },
+      },
+      {
+        icon: 'tabler-shopping-cart',
+        title: 'eCommerce',
+        url: { name: 'dashboards-ecommerce' },
+      },
+      {
+        icon: 'tabler-truck',
+        title: 'Logistics',
+        url: { name: 'dashboards-logistics' },
+      },
     ],
   },
   {
-    title: t('searchBar.appsPages'),
+    title: 'Apps & Pages',
     content: [
-      { icon: 'tabler-calendar', title: t('searchBar.calendar'), url: { name: 'apps-calendar' } },
-      { icon: 'tabler-lock', title: t('searchBar.rolesPermissions'), url: { name: 'apps-roles' } },
-      { icon: 'tabler-settings', title: t('searchBar.accountSettings'), url: { name: 'pages-account-settings-tab', params: { tab: 'account' } } },
-      { icon: 'tabler-copy', title: t('searchBar.dialogExamples'), url: { name: 'pages-dialog-examples' } },
+      {
+        icon: 'tabler-calendar',
+        title: 'Calendar',
+        url: { name: 'apps-calendar' },
+      },
+      {
+        icon: 'tabler-lock',
+        title: 'Roles & Permissions',
+        url: { name: 'apps-roles' },
+      },
+      {
+        icon: 'tabler-settings',
+        title: 'Account Settings',
+        url: {
+          name: 'pages-account-settings-tab',
+          params: { tab: 'account' },
+        },
+      },
+      {
+        icon: 'tabler-copy',
+        title: 'Dialog Examples',
+        url: { name: 'pages-dialog-examples' },
+      },
     ],
   },
   {
-    title: t('searchBar.userInterface'),
+    title: 'User Interface',
     content: [
-      { icon: 'tabler-typography', title: t('searchBar.typography'), url: { name: 'pages-typography' } },
-      { icon: 'tabler-menu-2', title: t('searchBar.accordion'), url: { name: 'components-expansion-panel' } },
-      { icon: 'tabler-info-triangle', title: t('searchBar.alert'), url: { name: 'components-alert' } },
-      { icon: 'tabler-checkbox', title: t('searchBar.cards'), url: { name: 'pages-cards-card-basic' } },
+      {
+        icon: 'tabler-typography',
+        title: 'Typography',
+        url: { name: 'pages-typography' },
+      },
+      {
+        icon: 'tabler-menu-2',
+        title: 'Accordion',
+        url: { name: 'components-expansion-panel' },
+      },
+      {
+        icon: 'tabler-info-triangle',
+        title: 'Alert',
+        url: { name: 'components-alert' },
+      },
+      {
+        icon: 'tabler-checkbox',
+        title: 'Cards',
+        url: { name: 'pages-cards-card-basic' },
+      },
     ],
   },
   {
-    title: t('searchBar.formsTables'),
+    title: 'Forms & Tables',
     content: [
-      { icon: 'tabler-circle-dot', title: t('searchBar.radio'), url: { name: 'forms-radio' } },
-      { icon: 'tabler-file-invoice', title: t('searchBar.formLayouts'), url: { name: 'forms-form-layouts' } },
-      { icon: 'tabler-table', title: t('searchBar.table'), url: { name: 'tables-data-table' } },
-      { icon: 'tabler-edit', title: t('searchBar.editor'), url: { name: 'forms-editors' } },
+      {
+        icon: 'tabler-circle-dot',
+        title: 'Radio',
+        url: { name: 'forms-radio' },
+      },
+      {
+        icon: 'tabler-file-invoice',
+        title: 'Form Layouts',
+        url: { name: 'forms-form-layouts' },
+      },
+      {
+        icon: 'tabler-table',
+        title: 'Table',
+        url: { name: 'tables-data-table' },
+      },
+      {
+        icon: 'tabler-edit',
+        title: 'Editor',
+        url: { name: 'forms-editors' },
+      },
     ],
   },
 ]
 
 // 👉 No Data suggestion
-const noDataSuggestions: Suggestion[] = [
+const noDataSuggestions = [
   {
-    title: t('searchBar.analytics'),
+    title: 'Analytics',
     icon: 'tabler-chart-bar',
     url: { name: 'dashboards-analytics' },
   },
@@ -135,21 +131,20 @@ const noDataSuggestions: Suggestion[] = [
     url: { name: 'dashboards-crm' },
   },
   {
-    title: t('searchBar.ecommerce'),
+    title: 'eCommerce',
     icon: 'tabler-shopping-cart',
     url: { name: 'dashboards-ecommerce' },
   },
 ]
 
 const searchQuery = ref('')
-
 const router = useRouter()
-const searchResult = ref<SearchResults[]>([])
+const searchResult = ref([])
 
 const fetchResults = async () => {
   isLoading.value = true
 
-  const { data } = await useApi<any>(withQuery('/app-bar/search', { q: searchQuery.value }))
+  const { data } = await useApi(withQuery('/app-bar/search', { q: searchQuery.value }))
 
   searchResult.value = data.value
 
@@ -166,9 +161,8 @@ const closeSearchBar = () => {
   searchQuery.value = ''
 }
 
-// 👉 redirect the selected page
-const redirectToSuggestedPage = (selected: Suggestion) => {
-  router.push(selected.url as string)
+const redirectToSuggestedPage = selected => {
+  router.push(selected.url)
   closeSearchBar()
 }
 
@@ -193,7 +187,7 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
       class="d-none d-md-flex align-center text-disabled ms-2"
       @click="Shepherd.activeTour?.cancel()"
     >
-      <span class="me-2">{{ t('searchBar.search') }}</span>
+      <span class="me-2">Search</span>
       <span class="meta-key">&#8984;K</span>
     </span>
   </div>
@@ -246,7 +240,7 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
     <!-- no data suggestion -->
     <template #noDataSuggestion>
       <div class="mt-9">
-        <span class="d-flex justify-center text-disabled mb-2">{{ t('searchBar.trySearchingFor') }}</span>
+        <span class="d-flex justify-center text-disabled mb-2">Try searching for</span>
         <h6
           v-for="suggestion in noDataSuggestions"
           :key="suggestion.title"
@@ -297,7 +291,7 @@ const LazyAppBarSearch = defineAsyncComponent(() => import('@core/components/App
 </template>
 
 <style lang="scss">
-@use "@styles/variables/vuetify";
+@use "@styles/variables/vuetify.scss";
 
 .meta-key {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));

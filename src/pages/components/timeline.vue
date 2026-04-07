@@ -1,21 +1,7 @@
+<script setup>
+import PageView from '@moduleTemplates/ui-reference/views/components/timeline.vue'
+</script>
+
 <template>
-  <VRow>
-    <VCol
-      cols="12"
-      md="6"
-    >
-      <TimelineBasic />
-    </VCol>
-
-    <VCol
-      cols="12"
-      md="6"
-    >
-      <TimelineOutlined />
-    </VCol>
-
-    <VCol cols="12">
-      <TimelineWithIcons />
-    </VCol>
-  </VRow>
+  <PageView />
 </template>

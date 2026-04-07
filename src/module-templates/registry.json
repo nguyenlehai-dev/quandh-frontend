@@ -1,0 +1,30 @@
+{
+  "activeModules": [
+    "auth",
+    "dashboard",
+    "role-permission",
+    "user-management"
+  ],
+  "baseTemplate": "_base-module",
+  "templates": [
+    "academy",
+    "access-control",
+    "app-shell",
+    "calendar",
+    "charts-reference",
+    "chat",
+    "content-pages",
+    "dashboard",
+    "ecommerce",
+    "email",
+    "extensions-reference",
+    "forms-reference",
+    "invoice",
+    "kanban",
+    "logistics",
+    "profile-settings",
+    "system-pages",
+    "tables-reference",
+    "ui-reference"
+  ]
+}

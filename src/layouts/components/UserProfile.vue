@@ -1,22 +1,29 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { logout as authLogout, redirectToOrganizationSelection } from '@/services/auth'
+import { getStoredUserData } from '@/modules/auth/services/authStorage'
+import { clearAuthSession, logoutWithCore } from '@/modules/auth/services/coreAuth'
 
-const { t } = useI18n()
 const router = useRouter()
-const route = useRoute()
+const ability = useAbility()
 
-// TODO: Get type from backend
-const userData = useCookie('userData')
+const userData = ref(getStoredUserData())
 
 const logout = async () => {
-  await authLogout(router)
-}
+  const authProvider = useCookie('authProvider').value
 
-const clearOrgAndSwitch = async () => {
-  await redirectToOrganizationSelection(router, {
-    to: route.fullPath !== '/' ? route.fullPath : undefined,
-  })
+  if (authProvider === 'core') {
+    try {
+      await logoutWithCore()
+    }
+    catch {
+      // Clear local session even if backend logout fails.
+    }
+  }
+
+  clearAuthSession(ability)
+
+  // Redirect to login page
+  await router.push('/login')
 }
 
 const userProfileList = [
@@ -24,16 +31,45 @@ const userProfileList = [
   {
     type: 'navItem',
     icon: 'tabler-user',
-    title: t('navigation.navigation.user_profile'),
+    title: 'Profile',
     to: {
-      name: 'user-profile',
+      name: 'apps-profile',
     },
   },
   {
     type: 'navItem',
-    icon: 'tabler-building-community',
-    title: t('navigation.navigation.switch_organization'),
-    action: 'switchOrg',
+    icon: 'tabler-settings',
+    title: 'Settings',
+    to: {
+      name: 'pages-account-settings-tab',
+      params: { tab: 'account' },
+    },
+  },
+  {
+    type: 'navItem',
+    icon: 'tabler-file-dollar',
+    title: 'Billing Plan',
+    to: {
+      name: 'pages-account-settings-tab',
+      params: { tab: 'billing-plans' },
+    },
+    badgeProps: {
+      color: 'error',
+      content: '4',
+    },
+  },
+  { type: 'divider' },
+  {
+    type: 'navItem',
+    icon: 'tabler-currency-dollar',
+    title: 'Pricing',
+    to: { name: 'pages-pricing' },
+  },
+  {
+    type: 'navItem',
+    icon: 'tabler-question-mark',
+    title: 'FAQ',
+    to: { name: 'pages-faq' },
   },
 ]
 </script>
@@ -63,6 +99,7 @@ const userProfileList = [
         icon="tabler-user"
       />
 
+      <!-- SECTION Menu -->
       <VMenu
         activator="parent"
         width="240"
@@ -99,13 +136,10 @@ const userProfileList = [
 
               <div>
                 <h6 class="text-h6 font-weight-medium">
-                  {{ userData.name || userData.user_name }}
+                  {{ userData.fullName || userData.username }}
                 </h6>
-                <VListItemSubtitle
-                  class="text-capitalize text-disabled"
-                  style="white-space: normal;"
-                >
-                  {{ userData.assignments?.map(a => a.role_name).join(', ') || t('navigation.navigation.user') }}
+                <VListItemSubtitle class="text-capitalize text-disabled">
+                  {{ userData.role }}
                 </VListItemSubtitle>
               </div>
             </div>
@@ -118,8 +152,7 @@ const userProfileList = [
             >
               <VListItem
                 v-if="item.type === 'navItem'"
-                :to="item.to || undefined"
-                @click="item.action === 'switchOrg' ? clearOrgAndSwitch() : undefined"
+                :to="item.to"
               >
                 <template #prepend>
                   <VIcon
@@ -128,7 +161,18 @@ const userProfileList = [
                   />
                 </template>
 
-                <VListItemTitle>{{ item.title }}</VListItemTitle>
+                <VListItemTitle>{{ $t(item.title) }}</VListItemTitle>
+
+                <template
+                  v-if="item.badgeProps"
+                  #append
+                >
+                  <VBadge
+                    rounded="sm"
+                    class="me-3"
+                    v-bind="item.badgeProps"
+                  />
+                </template>
               </VListItem>
 
               <VDivider
@@ -145,12 +189,13 @@ const userProfileList = [
                 append-icon="tabler-logout"
                 @click="logout"
               >
-                {{ t('navigation.navigation.logout') }}
+                {{ $t('Logout') }}
               </VBtn>
             </div>
           </PerfectScrollbar>
         </VList>
       </VMenu>
+      <!-- !SECTION -->
     </VAvatar>
   </VBadge>
 </template>

@@ -63,8 +63,6 @@ const handleNavScroll = evt => {
 }
 
 const hideTitleAndIcon = configStore.isVerticalNavMini(isHovered)
-const { width: windowWidth } = useWindowSize()
-const useNativeScrollNav = computed(() => windowWidth.value < 1280)
 </script>
 
 <template>
@@ -131,41 +129,25 @@ const useNativeScrollNav = computed(() => windowWidth.value < 1280)
     <slot name="before-nav-items">
       <div class="vertical-nav-items-shadow" />
     </slot>
-    <div class="nav-items-container">
-      <slot
-        name="nav-items"
-        :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled"
+    <slot
+      name="nav-items"
+      :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled"
+    >
+      <PerfectScrollbar
+        :key="configStore.isAppRTL"
+        tag="ul"
+        class="nav-items"
+        :options="{ wheelPropagation: false }"
+        @ps-scroll-y="handleNavScroll"
       >
-        <PerfectScrollbar
-          v-if="!useNativeScrollNav"
-          :key="configStore.isAppRTL"
-          tag="ul"
-          class="nav-items"
-          :options="{ wheelPropagation: false }"
-          @ps-scroll-y="handleNavScroll"
-        >
-          <Component
-            :is="resolveNavItemComponent(item)"
-            v-for="(item, index) in navItems"
-            :key="index"
-            :item="item"
-          />
-        </PerfectScrollbar>
-
-        <ul
-          v-else
-          class="nav-items nav-items--native"
-          @scroll="handleNavScroll"
-        >
-          <Component
-            :is="resolveNavItemComponent(item)"
-            v-for="(item, index) in navItems"
-            :key="index"
-            :item="item"
-          />
-        </ul>
-      </slot>
-    </div>
+        <Component
+          :is="resolveNavItemComponent(item)"
+          v-for="(item, index) in navItems"
+          :key="index"
+          :item="item"
+        />
+      </PerfectScrollbar>
+    </slot>
     <slot name="after-nav-items" />
   </Component>
 </template>
@@ -225,29 +207,14 @@ const useNativeScrollNav = computed(() => windowWidth.value < 1280)
     margin-inline-end: auto;
   }
 
-  .nav-items-container {
-    display: flex;
-    flex: 1 1 auto;
-    min-block-size: 0;
-    overflow: hidden;
-  }
-
   .nav-items {
     block-size: 100%;
-    flex: 1 1 auto;
-    min-block-size: 0;
 
     // ℹ️ We no loner needs this overflow styles as perfect scrollbar applies it
     // overflow-x: hidden;
 
     // // ℹ️ We used `overflow-y` instead of `overflow` to mitigate overflow x. Revert back if any issue found.
     // overflow-y: auto;
-  }
-
-  .nav-items--native {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-block-end: 0.5rem;
   }
 
   .nav-item-title {
@@ -268,22 +235,6 @@ const useNativeScrollNav = computed(() => windowWidth.value < 1280)
 // Small screen vertical nav transition
 @media (max-width: 1279px) {
   .layout-vertical-nav {
-    .nav-items-container {
-      flex: 1 1 auto;
-      min-block-size: 0;
-      overflow: hidden;
-    }
-
-    .nav-items {
-      block-size: auto;
-      flex: 1 1 auto;
-      min-block-size: 0;
-    }
-
-    .nav-items--native {
-      block-size: 100%;
-    }
-
     &:not(.visible) {
       transform: translateX(-#{variables.$layout-vertical-nav-width});
 

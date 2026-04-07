@@ -1,89 +1,41 @@
-<script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-
-const defaultCopyright = `© ${new Date().getFullYear()} Bản quyền thuộc về Sở Nội vụ thành phố Đà Nẵng`
-const copyrightText = ref(localStorage.getItem('app_copyright') || defaultCopyright)
-const designedByText = ref(localStorage.getItem('app_designed_by') || '')
-
-const footerLinks = [
-  { title: 'Hệ thống', href: '#' },
-  { title: 'Chính sách', href: '#' },
-  { title: 'Tài liệu', href: '#' },
-  { title: 'Hỗ trợ', href: '#' },
-]
-
-const syncCopyright = event => {
-  const nextValue = event?.detail?.copyright
-  const nextDesignedBy = event?.detail?.designed_by
-
-  if (typeof nextValue === 'string')
-    copyrightText.value = nextValue || defaultCopyright
-  else
-    copyrightText.value = localStorage.getItem('app_copyright') || defaultCopyright
-
-  if (typeof nextDesignedBy === 'string')
-    designedByText.value = nextDesignedBy
-  else
-    designedByText.value = localStorage.getItem('app_designed_by') || ''
-}
-
-onMounted(() => {
-  window.addEventListener('app-settings-updated', syncCopyright)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('app-settings-updated', syncCopyright)
-})
-</script>
-
 <template>
-  <VContainer class="system-footer py-4 px-0">
-    <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
-      <div class="d-flex align-center min-w-0">
-        <span class="footer-text text-body-2">
-          {{ copyrightText }}
-        </span>
-        <span
-          v-if="designedByText"
-          class="footer-text text-body-2 ms-2"
-        >
-          | Thiết kế bởi {{ designedByText }}
-        </span>
-      </div>
-
-      <div class="d-flex flex-wrap align-center gap-x-6 gap-y-2 justify-start justify-md-end">
-        <a
-          v-for="link in footerLinks"
-          :key="link.title"
-          :href="link.href"
-          class="footer-link text-body-2"
-        >
-          {{ link.title }}
-        </a>
-      </div>
-    </div>
-  </VContainer>
+  <div class="h-100 d-flex align-center justify-md-space-between justify-center">
+    <!-- 👉 Footer: left content -->
+    <span class="d-flex align-center text-medium-emphasis">
+      &copy;
+      {{ new Date().getFullYear() }}
+      Made With
+      <VIcon
+        icon="tabler-heart-filled"
+        color="error"
+        size="1.25rem"
+        class="mx-1"
+      />
+      By <a
+        href="https://pixinvent.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-primary ms-1"
+      >Pixinvent</a>
+    </span>
+    <!-- 👉 Footer: right content -->
+    <span class="d-md-flex gap-x-4 text-primary d-none">
+      <a
+        href="https://themeforest.net/licenses/standard"
+        target="noopener noreferrer"
+      >License</a>
+      <a
+        href="https://1.envato.market/pixinvent_portfolio"
+        target="noopener noreferrer"
+      >More Themes</a>
+      <a
+        href="https://demos.pixinvent.com/vuexy-vuejs-admin-template/documentation/"
+        target="noopener noreferrer"
+      >Documentation</a>
+      <a
+        href="https://pixinvent.ticksy.com/"
+        target="noopener noreferrer"
+      >Support</a>
+    </span>
+  </div>
 </template>
-
-<style scoped>
-.system-footer {
-  inline-size: 100%;
-}
-
-.footer-text {
-  color: rgba(var(--v-theme-on-surface), 0.68);
-  font-weight: 500;
-}
-
-.footer-link {
-  color: rgb(var(--v-theme-primary-darken-1));
-  font-weight: 500;
-  text-decoration: none;
-  transition: color 0.2s ease, opacity 0.2s ease;
-}
-
-.footer-link:hover {
-  color: rgb(var(--v-theme-primary-darken-1));
-  opacity: 0.72;
-}
-</style>

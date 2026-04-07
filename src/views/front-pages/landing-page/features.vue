@@ -121,10 +121,10 @@ const featuresData = [
 .feature {
   .v-avatar {
     &.v-avatar--variant-outlined {
-      border: 2px solid rgba(var(--v-theme-primary-darken-1), 0.32);
+      border: 2px solid rgba(var(--v-theme-primary), 0.32);
 
       &:hover {
-        background: rgba(var(--v-theme-primary-darken-1), 0.16);
+        background: rgba(var(--v-theme-primary), 0.16);
         cursor: pointer;
       }
     }

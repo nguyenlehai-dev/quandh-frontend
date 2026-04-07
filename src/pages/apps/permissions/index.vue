@@ -1,16 +1,7 @@
 <script setup>
-import PermissionsPage from '@/modules/auth/permissions/views/PermissionsPage.vue'
-
-definePage({
-  meta: {
-    action: 'read',
-    subject: 'Permission',
-  },
-})
+import PageView from '@modules/role-permission/views/permissions/index.vue'
 </script>
 
 <template>
-  <div id="permissions-index-wrapper">
-    <PermissionsPage />
-  </div>
+  <PageView />
 </template>

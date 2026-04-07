@@ -16,7 +16,7 @@ export const useCookie = (name, _opts) => {
 
   watch(cookie, () => {
     document.cookie = serializeCookie(name, cookie.value, opts)
-  }, { flush: 'sync' })
+  })
   
   return cookie
 }

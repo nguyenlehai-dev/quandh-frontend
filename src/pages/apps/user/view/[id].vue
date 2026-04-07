@@ -1,14 +1,7 @@
 <script setup>
-import UserPage from '@/modules/auth/user/views/UserEditPage.vue'
-
-definePage({
-  meta: {
-    action: 'read',
-    subject: 'User',
-  },
-})
+import PageView from '@modules/user-management/views/view/[id].vue'
 </script>
 
 <template>
-  <UserPage />
+  <PageView />
 </template>

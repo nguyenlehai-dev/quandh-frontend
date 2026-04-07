@@ -164,7 +164,7 @@ watchEffect(() => {
               >
                 <h5
                   class="text-h5"
-                  style="color: rgb(var(--v-theme-primary-darken-1));"
+                  style="color: rgb(var(--v-theme-primary));"
                 >
                   {{ index + 1 }}
                 </h5>
@@ -229,9 +229,9 @@ watchEffect(() => {
     .stepper-steps-active {
       .stepper-icon-step {
         .stepper-icon {
-          @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+          @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
 
-          background-color: rgb(var(--v-theme-primary-darken-1));
+          background-color: rgb(var(--v-theme-primary));
           color: rgba(var(--v-theme-on-primary));
         }
       }
@@ -240,8 +240,8 @@ watchEffect(() => {
     .stepper-steps-completed {
       .stepper-icon-step {
         .stepper-icon {
-          background: rgba(var(--v-theme-primary-darken-1), var(--v-activated-opacity));
-          color: rgba(var(--v-theme-primary-darken-1));
+          background: rgba(var(--v-theme-primary), var(--v-activated-opacity));
+          color: rgba(var(--v-theme-primary));
         }
       }
     }
@@ -269,7 +269,7 @@ watchEffect(() => {
       .stepper-step-icon,
       .stepper-title,
       .stepper-subtitle {
-        color: rgb(var(--v-theme-primary-darken-1)) !important;
+        color: rgb(var(--v-theme-primary)) !important;
       }
     }
   }
@@ -306,14 +306,14 @@ watchEffect(() => {
       }
 
       .stepper-chevron-indicator {
-        color: rgb(var(--v-theme-primary-darken-1));
+        color: rgb(var(--v-theme-primary));
       }
     }
 
     /* stylelint-disable-next-line no-descending-specificity */
     .stepper-steps-active {
       .v-avatar.bg-primary {
-        @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+        @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
       }
 
       .v-avatar.bg-error {

@@ -229,7 +229,7 @@ const customerData = {
 }
 
 .current-plan {
-  background: linear-gradient(45deg, rgb(var(--v-theme-primary-darken-1)) 0%, #9e95f5 100%);
+  background: linear-gradient(45deg, rgb(var(--v-theme-primary)) 0%, #9e95f5 100%);
   color: #fff;
 }
 </style>

@@ -1,38 +1,18 @@
 import { ofetch } from 'ofetch'
 
-const isAuthRoute = url => url.includes('/auth/')
-
-let isRedirecting = false
-
 export const $api = ofetch.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-
-  async onRequest({ request, options }) {
+  async onRequest({ options }) {
     const accessToken = useCookie('accessToken').value
+    const currentOrganizationId = useCookie('currentOrganizationId').value
+    const headers = new Headers(options.headers ?? {})
+
     if (accessToken)
-      options.headers.set('Authorization', `Bearer ${accessToken}`)
+      headers.set('Authorization', `Bearer ${accessToken}`)
 
-    const orgId = useCookie('currentOrganizationId').value
-    if (orgId && !isAuthRoute(String(request)))
-      options.headers.set('X-Organization-Id', String(orgId))
-  },
+    if (currentOrganizationId)
+      headers.set('X-Organization-Id', String(currentOrganizationId))
 
-  async onResponseError({ request, response }) {
-    if (isAuthRoute(String(request)))
-      return
-
-    if (response.status === 401 && !isRedirecting) {
-      isRedirecting = true
-
-      useCookie('accessToken').value = null
-      useCookie('userData').value = null
-      useCookie('currentOrganizationId').value = null
-      localStorage.removeItem('userAbilityRules')
-      localStorage.removeItem('availableOrganizations')
-
-      if (window.location.pathname !== '/login') {
-        window.location.href = `/login?to=${encodeURIComponent(window.location.pathname)}`
-      }
-    }
+    options.headers = headers
   },
 })

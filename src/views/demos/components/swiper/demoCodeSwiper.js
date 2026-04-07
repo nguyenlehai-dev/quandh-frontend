@@ -153,7 +153,7 @@ register()
       :injectStyles="[
         \`
         .swiper-button-next, .swiper-button-prev{
-          background: rgb(var(--v-theme-primary-darken-1)) !important;
+          background: rgb(var(--v-theme-primary)) !important;
           color: #fff !important;
           padding-inline: 0.45rem !important;
           padding-block: 0.45rem !important;
@@ -210,10 +210,10 @@ swiper-slide {
 
   &.swiper-slide-active {
     .v-card {
-      border: 1px solid rgb(var(--v-theme-primary-darken-1));
+      border: 1px solid rgb(var(--v-theme-primary));
 
       .v-icon {
-        color: rgb(var(--v-theme-primary-darken-1));
+        color: rgb(var(--v-theme-primary));
       }
     }
   }
@@ -237,7 +237,7 @@ register()
       :injectStyles="[
         \`
         .swiper-button-next, .swiper-button-prev{
-          background: rgb(var(--v-theme-primary-darken-1)) !important;
+          background: rgb(var(--v-theme-primary)) !important;
           color: #fff !important;
           padding-inline: 0.45rem !important;
           padding-block: 0.45rem !important;
@@ -294,10 +294,10 @@ swiper-slide {
 
   &.swiper-slide-active {
     .v-card {
-      border: 1px solid rgb(var(--v-theme-primary-darken-1));
+      border: 1px solid rgb(var(--v-theme-primary));
 
       .v-icon {
-        color: rgb(var(--v-theme-primary-darken-1));
+        color: rgb(var(--v-theme-primary));
       }
     }
   }
@@ -363,8 +363,8 @@ swiper-slide {
 
   &.swiper-slide-active {
     .v-card {
-      border: 1px solid rgb(var(--v-theme-primary-darken-1));
-      background: rgb(var(--v-theme-primary-darken-1));
+      border: 1px solid rgb(var(--v-theme-primary));
+      background: rgb(var(--v-theme-primary));
       color: rgb(var(--v-theme-on-primary));
     }
   }
@@ -428,8 +428,8 @@ swiper-slide {
 
   &.swiper-slide-active {
     .v-card {
-      border: 1px solid rgb(var(--v-theme-primary-darken-1));
-      background: rgb(var(--v-theme-primary-darken-1));
+      border: 1px solid rgb(var(--v-theme-primary));
+      background: rgb(var(--v-theme-primary));
       color: rgb(var(--v-theme-on-primary));
     }
   }

@@ -221,7 +221,7 @@ watch(() => props.isDialogVisible, () => {
 .app-bar-search-suggestions {
   .app-bar-search-suggestion {
     &:hover {
-      color: rgb(var(--v-theme-primary-darken-1));
+      color: rgb(var(--v-theme-primary));
     }
   }
 }

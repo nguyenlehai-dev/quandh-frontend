@@ -35,7 +35,7 @@ const aliases = {
   menu: 'tabler-menu-2',
   subgroup: 'tabler-caret-down',
   dropdown: 'tabler-chevron-down',
-  edit: 'tabler-edit',
+  edit: 'tabler-pencil',
   loading: 'tabler-refresh',
   first: 'tabler-player-skip-back',
   last: 'tabler-player-skip-forward',

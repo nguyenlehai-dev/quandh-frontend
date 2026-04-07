@@ -1,7 +1,9 @@
 <script setup>
 import FlatPickr from 'vue-flatpickr-component'
-import { Vietnamese } from 'flatpickr/dist/l10n/vn.js'
+import { Arabic } from 'flatpickr/dist/l10n/ar.js'
 import { english } from 'flatpickr/dist/l10n/default.js'
+import { French } from 'flatpickr/dist/l10n/fr.js'
+import { Vietnamese } from 'flatpickr/dist/l10n/vn.js'
 import { useTheme } from 'vuetify'
 import {
   VField,
@@ -65,24 +67,22 @@ const fieldProps = ref(VField.filterProps(props))
 const refFlatPicker = ref()
 const { focused } = useFocus(refFlatPicker)
 const isCalendarOpen = ref(false)
-const isInlinePicker = ref(false)
-
-// flat picker prop manipulation
-if (compAttrs.config && compAttrs.config.inline) {
-  isInlinePicker.value = compAttrs.config.inline
-  Object.assign(compAttrs, { altInputClass: 'inlinePicker' })
+const flatPickrLocaleMap = {
+  ar: Arabic,
+  en: english,
+  fr: French,
+  vi: Vietnamese,
 }
-compAttrs.config = {
-  ...compAttrs.config,
-  prevArrow: '<i class="tabler-chevron-left v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
-  nextArrow: '<i class="tabler-chevron-right v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
-}
-
-const localizedCompAttrs = computed(() => ({
+const isInlinePicker = computed(() => Boolean(compAttrs.config?.inline))
+const resolvedFlatPickrLocale = computed(() => flatPickrLocaleMap[locale.value] ?? english)
+const flatPickrAttrs = computed(() => ({
   ...compAttrs,
+  ...(isInlinePicker.value ? { altInputClass: 'inlinePicker' } : {}),
   config: {
     ...compAttrs.config,
-    locale: compAttrs.config?.locale ?? (locale.value === 'vi' ? Vietnamese : english),
+    locale: compAttrs.config?.locale ?? resolvedFlatPickrLocale.value,
+    nextArrow: '<i class="tabler-chevron-right v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
+    prevArrow: '<i class="tabler-chevron-left v-icon" style="font-size: 20px; height: 20px; width: 20px;"></i>',
   },
 }))
 
@@ -174,7 +174,7 @@ const elementId = computed(() => {
               <!-- flat-picker  -->
               <FlatPickr
                 v-if="!isInlinePicker"
-                v-bind="localizedCompAttrs"
+                v-bind="flatPickrAttrs"
                 ref="refFlatPicker"
                 :model-value="modelValue"
                 :placeholder="props.placeholder"
@@ -204,7 +204,7 @@ const elementId = computed(() => {
     <!-- flat picker for inline props -->
     <FlatPickr
       v-if="isInlinePicker"
-      v-bind="localizedCompAttrs"
+      v-bind="flatPickrAttrs"
       ref="refFlatPicker"
       :model-value="modelValue"
       @update:model-value="emitModelValue"
@@ -287,55 +287,55 @@ input[altinputclass="inlinePicker"] {
     &.today {
       &:not(.selected) {
         border: none !important;
-        background: rgba(var(--v-theme-primary-darken-1), 0.24);
-        color: rgb(var(--v-theme-primary-darken-1));
+        background: rgba(var(--v-theme-primary), 0.24);
+        color: rgb(var(--v-theme-primary));
       }
 
       &:hover {
         border: none !important;
-        background: rgba(var(--v-theme-primary-darken-1), 0.24);
-        color: rgb(var(--v-theme-primary-darken-1));
+        background: rgba(var(--v-theme-primary), 0.24);
+        color: rgb(var(--v-theme-primary));
       }
     }
 
     &.selected,
     &.selected:hover {
-      border-color: rgb(var(--v-theme-primary-darken-1));
-      background: rgb(var(--v-theme-primary-darken-1));
+      border-color: rgb(var(--v-theme-primary));
+      background: rgb(var(--v-theme-primary));
       color: rgb(var(--v-theme-on-primary));
 
-      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
     }
 
     &.inRange,
     &.inRange:hover {
       border: none;
-      background: rgba(var(--v-theme-primary-darken-1), var(--v-activated-opacity)) !important;
+      background: rgba(var(--v-theme-primary), var(--v-activated-opacity)) !important;
       box-shadow: none !important;
-      color: rgb(var(--v-theme-primary-darken-1));
+      color: rgb(var(--v-theme-primary));
     }
 
     &.startRange {
-      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
     }
 
     &.endRange {
-      @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+      @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
     }
 
     &.startRange,
     &.endRange,
     &.startRange:hover,
     &.endRange:hover {
-      border-color: rgb(var(--v-theme-primary-darken-1));
-      background: rgb(var(--v-theme-primary-darken-1));
+      border-color: rgb(var(--v-theme-primary));
+      background: rgb(var(--v-theme-primary));
       color: rgb(var(--v-theme-on-primary));
     }
 
     &.selected.startRange + .endRange:not(:nth-child(7n + 1)),
     &.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
     &.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-      box-shadow: -10px 0 0 rgb(var(--v-theme-primary-darken-1));
+      box-shadow: -10px 0 0 rgb(var(--v-theme-primary));
     }
 
     &.flatpickr-disabled,

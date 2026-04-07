@@ -95,9 +95,9 @@ const isChatContactActive = computed(() => {
   @include vuetifyStates.states($active: false);
 
   &.chat-contact-active {
-    @include templateMixins.custom-elevation(var(--v-theme-primary-darken-1), "sm");
+    @include templateMixins.custom-elevation(var(--v-theme-primary), "sm");
 
-    background: rgb(var(--v-theme-primary-darken-1));
+    background: rgb(var(--v-theme-primary));
     color: #fff;
 
     --v-theme-on-background: #fff;

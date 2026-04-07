@@ -222,7 +222,7 @@ const shipmentConfig = {
 @use "@core/scss/template/libs/apex-chart.scss";
 
 .v-btn-group--divided .v-btn:not(:last-child) {
-  border-inline-end-color: rgba(var(--v-theme-primary-darken-1), 0.5);
+  border-inline-end-color: rgba(var(--v-theme-primary), 0.5);
 }
 
 #shipment-statistics {

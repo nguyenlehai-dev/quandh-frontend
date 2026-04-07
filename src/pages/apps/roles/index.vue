@@ -1,16 +1,7 @@
 <script setup>
-import RolesPage from '@/modules/auth/roles/views/RolesPageMain.vue'
-
-definePage({
-  meta: {
-    action: 'read',
-    subject: 'Role',
-  },
-})
+import PageView from '@modules/role-permission/views/roles/index.vue'
 </script>
 
 <template>
-  <div id="roles-index-root">
-    <RolesPage />
-  </div>
+  <PageView />
 </template>

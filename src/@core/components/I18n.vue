@@ -1,6 +1,4 @@
 <script setup>
-import { setAppLanguage } from '@/plugins/i18n'
-
 const props = defineProps({
   languages: {
     type: Array,
@@ -14,10 +12,6 @@ const props = defineProps({
 })
 
 const { locale } = useI18n({ useScope: 'global' })
-
-const handleChangeLanguage = language => {
-  setAppLanguage(language)
-}
 </script>
 
 <template>
@@ -41,7 +35,7 @@ const handleChangeLanguage = language => {
           v-for="lang in props.languages"
           :key="lang.i18nLang"
           :value="lang.i18nLang"
-          @click="handleChangeLanguage(lang.i18nLang)"
+          @click="locale = lang.i18nLang"
         >
           <!-- Language label -->
           <VListItemTitle>
