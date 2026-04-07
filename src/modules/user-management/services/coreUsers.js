@@ -56,8 +56,13 @@ export const downloadCoreUsersExport = query => downloadCoreFile({
   fileName: `users-${new Date().toISOString().slice(0, 10)}.xlsx`,
 })
 
-export const downloadCoreUsersTemplate = () => downloadCoreFile({
-  path: '/users/template',
-  fileName: 'users_template.xlsx',
-})
+export const downloadCoreUsersTemplate = () => {
+  const link = document.createElement('a')
+
+  link.href = `${window.location.origin}/templates/users_template.xlsx`
+  link.setAttribute('download', 'users_template.xlsx')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
 

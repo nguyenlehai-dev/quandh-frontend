@@ -68,7 +68,12 @@ export const downloadCoreOrganizationsExport = query => downloadCoreFile({
   fileName: `organizations-${new Date().toISOString().slice(0, 10)}.xlsx`,
 })
 
-export const downloadCoreOrganizationsTemplate = () => downloadCoreFile({
-  path: '/organizations/template',
-  fileName: 'organizations_template.xlsx',
-})
+export const downloadCoreOrganizationsTemplate = () => {
+  const link = document.createElement('a')
+
+  link.href = `${window.location.origin}/templates/organizations_template.xlsx`
+  link.setAttribute('download', 'organizations_template.xlsx')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
