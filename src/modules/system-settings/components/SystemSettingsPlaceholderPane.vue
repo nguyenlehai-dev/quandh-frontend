@@ -6,9 +6,11 @@ defineProps({
   },
   description: {
     type: String,
-    default: 'Khu vực này đã được scaffold sẵn để tiếp tục áp business rule và form chi tiết.',
+    default: '',
   },
 })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -31,7 +33,7 @@ defineProps({
       </h5>
 
       <p class="text-body-1 text-medium-emphasis mb-0">
-        {{ description }}
+        {{ description || t('settings.placeholder_description') }}
       </p>
     </VCardText>
   </VCard>

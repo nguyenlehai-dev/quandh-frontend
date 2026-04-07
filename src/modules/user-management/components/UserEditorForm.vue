@@ -50,6 +50,7 @@ const createDefaultFormState = () => ({
 })
 
 const formData = ref(createDefaultFormState())
+const originalFormData = ref(createDefaultFormState())
 const selectedRoles = ref([])
 const roleOrganizations = ref(createEmptyRoleOrganizations())
 const storedAuthUserData = computed(() => getStoredUserData() ?? {})
@@ -136,6 +137,7 @@ const syncFormData = user => {
     billing: user.billing ?? 'Auto Debit',
     avatar: user.avatar ?? '',
   }
+  originalFormData.value = JSON.parse(JSON.stringify(formData.value))
   selectedRoles.value = nextSelectedRoles
   roleOrganizations.value = nextOrganizations
   refForm.value?.resetValidation()
@@ -268,10 +270,20 @@ const buildPayload = () => {
   })
   const payload = {
     assignments,
-    email: formData.value.email,
     name: formData.value.fullName,
     status: formData.value.status,
-    user_name: formData.value.username,
+  }
+
+  // Chỉ gửi email và user_name nếu thực sự có thay đổi để tránh lỗi SQL UNIQUE trên backend core
+  if (isEditMode.value) {
+    if (formData.value.email !== originalFormData.value.email)
+      payload.email = formData.value.email
+
+    if (formData.value.username !== originalFormData.value.username)
+      payload.user_name = formData.value.username
+  } else {
+    payload.email = formData.value.email
+    payload.user_name = formData.value.username
   }
 
   if (!isEditMode.value || formData.value.password) {
@@ -300,50 +312,60 @@ const saveForm = async action => {
     return
   }
 
-  const payload = buildPayload()
+  isLoading.value = true
 
-  if (isEditMode.value && props.userId) {
-    const response = await updateCoreUser(props.userId, payload)
-    const updatedUser = mapCoreUserToViewModel(response.data)
+  try {
+    const payload = buildPayload()
+
+    if (isEditMode.value && props.userId) {
+      const response = await updateCoreUser(props.userId, payload)
+      const updatedUser = mapCoreUserToViewModel(response.data)
+
+      if (action === 'exit') {
+        queueSnackbar('Đã cập nhật người dùng thành công.')
+        await router.push({ name: 'apps-user-list' })
+
+        return
+      }
+
+      if (action === 'stay') {
+        syncFormData(updatedUser)
+        showSnackbar('Đã cập nhật người dùng thành công.')
+      }
+
+      return
+    }
+
+    const response = await createCoreUser(payload)
+    const createdUser = response.data
+
+    if (action === 'add-another') {
+      resetForm()
+      showSnackbar('Đã tạo người dùng mới thành công.')
+
+      return
+    }
 
     if (action === 'exit') {
-      queueSnackbar('Đã cập nhật người dùng thành công.')
+      queueSnackbar('Đã tạo người dùng mới thành công.')
       await router.push({ name: 'apps-user-list' })
 
       return
     }
 
-    if (action === 'stay') {
-      syncFormData(updatedUser)
-      showSnackbar('Đã cập nhật người dùng thành công.')
+    if (createdUser?.id) {
+      queueSnackbar('Đã tạo người dùng mới thành công.')
+      await router.push({
+        name: 'apps-user-view-id',
+        params: { id: createdUser.id },
+      })
     }
-
-    return
   }
-
-  const response = await createCoreUser(payload)
-  const createdUser = response.data
-
-  if (action === 'add-another') {
-    resetForm()
-    showSnackbar('Đã tạo người dùng mới thành công.')
-
-    return
+  catch (error) {
+    showSnackbar(getCoreErrorMessage(error, 'Không thể lưu thông tin người dùng.'), 'error')
   }
-
-  if (action === 'exit') {
-    queueSnackbar('Đã tạo người dùng mới thành công.')
-    await router.push({ name: 'apps-user-list' })
-
-    return
-  }
-
-  if (createdUser?.id) {
-    queueSnackbar('Đã tạo người dùng mới thành công.')
-    await router.push({
-      name: 'apps-user-view-id',
-      params: { id: createdUser.id },
-    })
+  finally {
+    isLoading.value = false
   }
 }
 

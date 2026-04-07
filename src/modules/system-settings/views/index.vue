@@ -3,12 +3,17 @@ import { useOperationSnackbar } from '@/composables/useOperationSnackbar'
 import SystemSettingsGroupPane from '@/modules/system-settings/components/SystemSettingsGroupPane.vue'
 import { coreSettingGroups, createEmptySettingState } from '@/modules/system-settings/configs/setting-groups'
 import { getCoreSetting, getCoreSettings, updateCoreSettings } from '@/modules/system-settings/services/coreSettings'
+import { useCoreSettingsStore } from '@/modules/system-settings/stores/useCoreSettingsStore'
+
+const { locale } = useI18n({ useScope: 'global' })
+const { t } = useI18n()
 
 const activeTab = ref(0)
 const isSaving = ref(false)
 const isLoading = ref(false)
 const settingsState = ref(createEmptySettingState())
 const { hydratePendingSnackbar, isSnackbarVisible, snackbarColor, snackbarText, showSnackbar } = useOperationSnackbar()
+const coreSettingsStore = useCoreSettingsStore()
 
 const tabsData = coreSettingGroups
 const activeGroup = computed(() => tabsData[activeTab.value] ?? tabsData[0])
@@ -42,6 +47,12 @@ const loadSettings = async () => {
     const response = await getCoreSettings()
 
     applyCoreSettings(response?.data ?? {})
+
+    // Sync language from API to i18n locale
+    const apiLang = response?.data?.general?.language
+
+    if (apiLang && locale.value !== apiLang)
+      locale.value = apiLang
   }
   finally {
     isLoading.value = false
@@ -86,16 +97,34 @@ const saveSystemSettings = async () => {
   try {
     const response = await updateCoreSettings(buildGroupPayload(activeGroup.value))
 
-    showSnackbar(response?.message || 'Đã lưu cấu hình hệ thống thành công.')
+    showSnackbar(response?.message || t('settings.saved_success'))
     await loadSettings()
+
+    // Sync saved general settings to the global store so Footer/Sidebar update
+    if (activeGroup.value.key === 'general') {
+      const generalState = settingsState.value.general ?? {}
+
+      coreSettingsStore.applySettings(generalState)
+      coreSettingsStore.applyFavicon()
+
+      // Sync language to i18n
+      if (generalState.language && locale.value !== generalState.language)
+        locale.value = generalState.language
+    }
   }
   catch (error) {
-    showSnackbar(error?.data?.message || 'Không thể lưu cấu hình hệ thống.', 'error')
+    showSnackbar(error?.data?.message || t('settings.saved_error'), 'error')
   }
   finally {
     isSaving.value = false
   }
 }
+
+// Watch header i18n locale changes -> sync to settings language field
+watch(locale, newLocale => {
+  if (settingsState.value.general)
+    settingsState.value.general.language = newLocale
+})
 
 onMounted(() => {
   hydratePendingSnackbar()
@@ -149,7 +178,7 @@ watch(activeTab, () => {
                 :prepend-icon="tabItem.icon"
                 class="justify-start"
               >
-                {{ tabItem.title }}
+                {{ tabItem.titleKey ? $t(tabItem.titleKey) : tabItem.title }}
               </VTab>
             </VTabs>
           </VCardText>

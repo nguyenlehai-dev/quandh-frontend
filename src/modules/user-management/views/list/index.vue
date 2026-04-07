@@ -681,69 +681,30 @@ onMounted(async () => {
 
         <!-- Status -->
         <template #item.status="{ item }">
-          <VChip
-            :color="resolveUserStatusVariant(item.status)"
-            size="small"
-            label
-            class="text-capitalize"
-          >
-            {{ item.status }}
-          </VChip>
+          <VSwitch
+            :model-value="item.status === 'active'"
+            color="primary"
+            density="compact"
+            class="mt-0"
+            @update:model-value="toggleUserStatus(item)"
+          />
         </template>
 
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <IconBtn @click="requestDeleteUser(item.id)">
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
+          <div class="d-flex align-center">
+            <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
+              <VIcon icon="tabler-eye" />
+            </IconBtn>
 
-          <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
-            <VIcon icon="tabler-eye" />
-          </IconBtn>
+            <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
+              <VIcon icon="tabler-pencil" />
+            </IconBtn>
 
-          <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
-            <VIcon icon="tabler-edit" />
-          </IconBtn>
-
-          <VBtn
-            icon
-            variant="text"
-            color="medium-emphasis"
-          >
-            <VIcon icon="tabler-dots-vertical" />
-            <VMenu activator="parent">
-              <VList>
-                <VListItem :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
-                  <template #prepend>
-                    <VIcon icon="tabler-eye" />
-                  </template>
-
-                  <VListItemTitle>{{ $t('View') }}</VListItemTitle>
-                </VListItem>
-
-                <VListItem :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
-                  <template #prepend>
-                    <VIcon icon="tabler-pencil" />
-                  </template>
-                  <VListItemTitle>{{ $t('Edit') }}</VListItemTitle>
-                </VListItem>
-
-                <VListItem @click="requestDeleteUser(item.id)">
-                  <template #prepend>
-                    <VIcon icon="tabler-trash" />
-                  </template>
-                  <VListItemTitle>{{ $t('Delete') }}</VListItemTitle>
-                </VListItem>
-
-                <VListItem @click="toggleUserStatus(item)">
-                  <template #prepend>
-                    <VIcon :icon="item.status === 'active' ? 'tabler-user-off' : 'tabler-user-check'" />
-                  </template>
-                  <VListItemTitle>{{ item.status === 'active' ? $t('Deactivate') : $t('Activate') }}</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </VBtn>
+            <IconBtn @click="requestDeleteUser(item.id)">
+              <VIcon icon="tabler-trash" />
+            </IconBtn>
+          </div>
         </template>
 
         <!-- pagination -->

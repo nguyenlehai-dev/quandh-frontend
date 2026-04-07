@@ -1,4 +1,6 @@
 <script setup>
+const { t } = useI18n()
+
 const props = defineProps({
   group: {
     type: Object,
@@ -65,6 +67,8 @@ const resolveInputType = field => {
 
   return 'text'
 }
+
+const resolveLabel = field => field.labelKey ? t(field.labelKey) : field.label ?? field.key
 </script>
 
 <template>
@@ -74,11 +78,11 @@ const resolveInputType = field => {
         <template #title>
           <div class="d-flex align-center gap-x-2">
             <VIcon :icon="group.icon" />
-            <span>{{ group.title }}</span>
+            <span>{{ group.titleKey ? $t(group.titleKey) : group.title }}</span>
           </div>
         </template>
         <template #subtitle>
-          {{ group.subtitle }}
+          {{ group.subtitleKey ? $t(group.subtitleKey) : group.subtitle }}
         </template>
       </VCardItem>
 
@@ -93,14 +97,14 @@ const resolveInputType = field => {
             <AppSelect
               v-if="field.type === 'select'"
               :model-value="modelValue[field.key]"
-              :label="field.label"
+              :label="resolveLabel(field)"
               :items="field.items"
               :loading="isLoading"
               @update:model-value="updateFieldValue(field.key, $event)"
             />
 
             <div v-else-if="field.type === 'switch'" class="d-flex flex-column gap-y-2">
-              <span class="text-body-1 font-weight-medium">{{ field.label }}</span>
+              <span class="text-body-1 font-weight-medium">{{ resolveLabel(field) }}</span>
               <VSwitch
                 :model-value="Boolean(modelValue[field.key])"
                 color="primary"
@@ -113,7 +117,7 @@ const resolveInputType = field => {
             <AppTextarea
               v-else-if="field.type === 'textarea'"
               :model-value="modelValue[field.key]"
-              :label="field.label"
+              :label="resolveLabel(field)"
               :rows="field.rows ?? 3"
               :loading="isLoading"
               @update:model-value="updateFieldValue(field.key, $event)"
@@ -123,7 +127,7 @@ const resolveInputType = field => {
               v-else
               :model-value="modelValue[field.key]"
               :type="resolveInputType(field)"
-              :label="field.label"
+              :label="resolveLabel(field)"
               :loading="isLoading"
               @update:model-value="updateFieldValue(field.key, $event)"
             />
@@ -137,7 +141,7 @@ const resolveInputType = field => {
         <template #title>
           <div class="d-flex align-center gap-x-2">
             <VIcon icon="tabler-photo" />
-            <span>Tài nguyên hình ảnh</span>
+            <span>{{ $t('settings.image_assets') }}</span>
           </div>
         </template>
       </VCardItem>
@@ -159,7 +163,7 @@ const resolveInputType = field => {
 
             <div class="d-flex flex-column gap-y-2">
               <div class="text-body-1 font-weight-medium">
-                {{ field.label }}
+                {{ resolveLabel(field) }}
               </div>
 
               <div class="d-flex gap-3 flex-wrap">
@@ -170,7 +174,7 @@ const resolveInputType = field => {
                   prepend-icon="tabler-upload"
                   @click="openFilePicker(field.key)"
                 >
-                  Tải lên ảnh mới
+                  {{ $t('settings.upload_image') }}
                 </VBtn>
 
                 <VBtn
@@ -180,7 +184,7 @@ const resolveInputType = field => {
                   prepend-icon="tabler-refresh"
                   @click="resetAsset(field.key)"
                 >
-                  Đặt lại
+                  {{ $t('settings.reset') }}
                 </VBtn>
               </div>
 

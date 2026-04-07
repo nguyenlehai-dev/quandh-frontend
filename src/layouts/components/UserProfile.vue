@@ -1,12 +1,16 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { getStoredUserData } from '@/modules/auth/services/authStorage'
-import { clearAuthSession, logoutWithCore } from '@/modules/auth/services/coreAuth'
+import { getStoredUserData, getStoredAvailableOrganizations } from '@/modules/auth/services/authStorage'
+import { clearAuthSession, logoutWithCore, switchOrganizationWithCore } from '@/modules/auth/services/coreAuth'
 
 const router = useRouter()
 const ability = useAbility()
 
 const userData = ref(getStoredUserData())
+const availableOrganizations = ref(getStoredAvailableOrganizations() ?? [])
+const isOrganizationDialogVisible = ref(false)
+const selectedOrganizationId = ref(userData.value?.currentOrganizationId ?? null)
+const isSwitchingOrganization = ref(false)
 
 const logout = async () => {
   const authProvider = useCookie('authProvider').value
@@ -24,6 +28,26 @@ const logout = async () => {
 
   // Redirect to login page
   await router.push('/login')
+}
+
+const handleOrganizationSelection = async () => {
+  if (!selectedOrganizationId.value) return
+
+  isSwitchingOrganization.value = true
+
+  try {
+    const accessToken = useCookie('accessToken').value
+    await switchOrganizationWithCore(selectedOrganizationId.value, accessToken)
+    
+    // Switch successful, reload location to hydrate session securely
+    window.location.reload()
+  }
+  catch (error) {
+    console.error('Failed to switch organization', error)
+  }
+  finally {
+    isSwitchingOrganization.value = false
+  }
 }
 
 const userProfileList = [
@@ -181,7 +205,18 @@ const userProfileList = [
               />
             </template>
 
-            <div class="px-4 py-2">
+            <div class="px-4 py-2 d-flex flex-column gap-y-2">
+              <VBtn
+                v-if="availableOrganizations.length > 1"
+                block
+                size="small"
+                color="secondary"
+                variant="tonal"
+                append-icon="tabler-building-community"
+                @click="isOrganizationDialogVisible = true"
+              >
+                {{ $t('Switch Organization') }}
+              </VBtn>
               <VBtn
                 block
                 size="small"
@@ -197,5 +232,40 @@ const userProfileList = [
       </VMenu>
       <!-- !SECTION -->
     </VAvatar>
+
+    <!-- Dialog switch organization -->
+    <VDialog
+      v-model="isOrganizationDialogVisible"
+      max-width="520"
+      persistent
+    >
+      <VCard :title="$t('Select working organization')">
+        <VCardText>
+          <AppSelect
+            v-model="selectedOrganizationId"
+            :label="$t('Organization field')"
+            :placeholder="$t('Choose organization')"
+            :items="availableOrganizations.map(item => ({ title: item.name, value: item.id }))"
+          />
+        </VCardText>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap pt-0">
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            @click="isOrganizationDialogVisible = false"
+          >
+            {{ $t('Cancel') }}
+          </VBtn>
+
+          <VBtn
+            :loading="isSwitchingOrganization"
+            @click="handleOrganizationSelection"
+          >
+            {{ $t('Continue') }}
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
   </VBadge>
 </template>
