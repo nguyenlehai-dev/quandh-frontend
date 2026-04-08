@@ -12,6 +12,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  isReadOnly: {
+    type: Boolean,
+    default: false,
+  },
   isDialogVisible: {
     type: Boolean,
     required: true,
@@ -26,7 +30,12 @@ const emit = defineEmits([
 const refForm = ref()
 const formData = ref({})
 const isEditMode = computed(() => Boolean(props.childItem?.id))
-const dialogTitle = computed(() => `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.childConfig.title.toLowerCase()}`)
+const dialogTitle = computed(() => {
+  if (props.isReadOnly)
+    return `Xem ${props.childConfig.title.toLowerCase()}`
+
+  return `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.childConfig.title.toLowerCase()}`
+})
 
 const createDefaultForm = () => props.childConfig.fields.reduce((acc, field) => {
   acc[field] = field === 'status' ? props.childConfig.statusOptions?.[0]?.value ?? '' : ''
@@ -67,6 +76,12 @@ const closeDialog = () => {
 }
 
 const handleSave = () => {
+  if (props.isReadOnly) {
+    closeDialog()
+
+    return
+  }
+
   refForm.value?.validate().then(({ valid }) => {
     if (!valid)
       return
@@ -110,6 +125,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 v-model="formData[field]"
                 :label="fieldLabel(field)"
                 :items="props.childConfig.statusOptions"
+                :readonly="props.isReadOnly"
               />
 
               <AppSelect
@@ -120,6 +136,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                   { title: 'Công khai', value: 'public' },
                   { title: 'Ẩn danh', value: 'anonymous' },
                 ]"
+                :readonly="props.isReadOnly"
               />
 
               <AppSelect
@@ -128,6 +145,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 :label="fieldLabel(field)"
                 :items="props.selectItems[field]"
                 :rules="isRequired(field) ? [requiredValidator] : []"
+                :readonly="props.isReadOnly"
               />
 
               <AppDateTimePicker
@@ -137,6 +155,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 :placeholder="fieldLabel(field)"
                 :rules="isRequired(field) ? [requiredValidator] : []"
                 :config="{ enableTime: field === 'remind_at', altFormat: field === 'remind_at' ? 'd/m/Y H:i' : 'd/m/Y', altInput: true, dateFormat: field === 'remind_at' ? 'Y-m-d H:i:S' : 'Y-m-d' }"
+                :readonly="props.isReadOnly"
               />
 
               <AppTextarea
@@ -145,6 +164,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 :label="fieldLabel(field)"
                 :rules="isRequired(field) ? [requiredValidator] : []"
                 rows="3"
+                :readonly="props.isReadOnly"
               />
 
               <AppTextField
@@ -152,6 +172,7 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 v-model="formData[field]"
                 :label="fieldLabel(field)"
                 :rules="isRequired(field) ? [requiredValidator] : []"
+                :readonly="props.isReadOnly"
               />
             </VCol>
           </VRow>
@@ -167,7 +188,10 @@ watch(() => props.childItem, syncForm, { immediate: true })
           Đóng
         </VBtn>
 
-        <VBtn @click="handleSave">
+        <VBtn
+          v-if="!props.isReadOnly"
+          @click="handleSave"
+        >
           Lưu
         </VBtn>
       </VCardText>

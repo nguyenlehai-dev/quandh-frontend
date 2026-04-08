@@ -33,6 +33,7 @@ const isEditorDialogVisible = ref(false)
 const isImportDialogVisible = ref(false)
 const isExportDialogVisible = ref(false)
 const isChildDialogVisible = ref(false)
+const isChildViewMode = ref(false)
 const isChildDeleteDialogVisible = ref(false)
 const editedChildItem = ref(null)
 const pendingChildDelete = ref(null)
@@ -181,11 +182,19 @@ const handleRegenerateQrToken = async () => {
 
 const openCreateChildDialog = () => {
   editedChildItem.value = null
+  isChildViewMode.value = false
   isChildDialogVisible.value = true
 }
 
 const openEditChildDialog = item => {
   editedChildItem.value = { ...item }
+  isChildViewMode.value = false
+  isChildDialogVisible.value = true
+}
+
+const openViewChildDialog = item => {
+  editedChildItem.value = { ...item }
+  isChildViewMode.value = true
   isChildDialogVisible.value = true
 }
 
@@ -199,6 +208,12 @@ const sanitizeChildPayload = payload => Object.entries(payload).reduce((acc, [ke
 }, {})
 
 const handleSaveChild = async formData => {
+  if (isChildViewMode.value) {
+    isChildDialogVisible.value = false
+
+    return
+  }
+
   const payload = sanitizeChildPayload(formData)
 
   if (formData.id)
@@ -667,6 +682,10 @@ onMounted(async () => {
 
             <template #item.actions="{ item }">
               <div class="d-flex align-center justify-center">
+                <IconBtn @click="openViewChildDialog(item)">
+                  <VIcon icon="tabler-eye" />
+                </IconBtn>
+
                 <IconBtn @click="openEditChildDialog(item)">
                   <VIcon icon="tabler-pencil" />
                 </IconBtn>
@@ -693,6 +712,7 @@ onMounted(async () => {
       v-model:is-dialog-visible="isChildDialogVisible"
       :child-config="activeChildConfig"
       :child-item="editedChildItem"
+      :is-read-only="isChildViewMode"
       :select-items="childSelectItems"
       @save="handleSaveChild"
     />
