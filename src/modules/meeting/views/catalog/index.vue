@@ -40,7 +40,7 @@ const collectionMeta = ref({ total: 0 })
 const stats = ref({ total: 0, active: 0, inactive: 0 })
 const meetingTypes = ref([])
 
-const resource = computed(() => String(route.params.resource ?? 'meeting-types'))
+const resource = computed(() => String(route.params.resource ?? route.meta.meetingCatalogResource ?? 'meeting-types'))
 const catalogConfig = computed(() => MEETING_CATALOGS[resource.value] ?? MEETING_CATALOGS['meeting-types'])
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 const catalogItems = computed(() => rawItems.value)
@@ -335,7 +335,7 @@ onMounted(async () => {
     <VCard>
       <VCardItem class="pb-4">
         <VCardTitle>{{ catalogConfig.title }}</VCardTitle>
-        <VCardSubtitle>Danh mục nền phục vụ module Họp không giấy.</VCardSubtitle>
+        <VCardSubtitle>Danh mục nền phục vụ module Quản lý cuộc họp.</VCardSubtitle>
       </VCardItem>
 
       <VCardText>

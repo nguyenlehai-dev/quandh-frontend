@@ -12,6 +12,7 @@ const currentProfileComponent = () => import('@/modules/auth/views/profile.vue')
 const meetingListComponent = () => import('@/modules/meeting/views/list/index.vue')
 const meetingDetailComponent = () => import('@/modules/meeting/views/detail/index.vue')
 const meetingCatalogComponent = () => import('@/modules/meeting/views/catalog/index.vue')
+const meetingPlaceholderComponent = () => import('@/modules/meeting/views/placeholder/index.vue')
 
 // 👉 Redirects
 export const redirects = [
@@ -102,6 +103,28 @@ export const routes = [
     component: systemSettingsComponent,
   },
   {
+    path: '/apps/system-settings/general',
+    name: 'apps-system-settings-general',
+    component: systemSettingsComponent,
+    meta: {
+      activeSettingGroup: 'general',
+      navActiveLink: 'apps-system-settings-general',
+      action: 'read',
+      subject: 'Setting',
+    },
+  },
+  {
+    path: '/apps/system-settings/notification',
+    name: 'apps-system-settings-notification',
+    component: systemSettingsComponent,
+    meta: {
+      activeSettingGroup: 'email',
+      navActiveLink: 'apps-system-settings-notification',
+      action: 'read',
+      subject: 'Setting',
+    },
+  },
+  {
     path: '/apps/profile',
     name: 'apps-profile',
     component: currentProfileComponent,
@@ -126,11 +149,88 @@ export const routes = [
     },
   },
   {
+    path: '/apps/meeting/votings',
+    name: 'apps-meeting-votings',
+    component: meetingPlaceholderComponent,
+    meta: {
+      title: 'Danh sách Biểu quyết',
+      description: 'Biểu quyết được tạo và quản lý trong chi tiết từng cuộc họp.',
+      icon: 'tabler-chart-bar',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/documents',
+    name: 'apps-meeting-documents',
+    component: meetingPlaceholderComponent,
+    meta: {
+      title: 'Danh sách Tài liệu',
+      description: 'Tài liệu được quản lý theo từng cuộc họp để gắn đúng ngữ cảnh phát hành và sử dụng.',
+      icon: 'tabler-files',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/conclusions',
+    name: 'apps-meeting-conclusions',
+    component: meetingPlaceholderComponent,
+    meta: {
+      title: 'Danh sách Kết luận',
+      description: 'Kết luận được quản lý trong chi tiết cuộc họp để theo dõi đúng nội dung phiên họp.',
+      icon: 'tabler-checklist',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/attendees',
+    name: 'apps-meeting-attendees',
+    component: meetingPlaceholderComponent,
+    meta: {
+      title: 'Người dự họp',
+      description: 'Người dự họp được thêm và theo dõi trong từng cuộc họp cụ thể.',
+      icon: 'tabler-users',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/attendee-groups',
+    name: 'apps-meeting-catalog-attendee-groups',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'attendee-groups',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/meeting-document-types',
+    name: 'apps-meeting-catalog-meeting-document-types',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'meeting-document-types',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/meeting-types',
+    name: 'apps-meeting-catalog-meeting-types',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'meeting-types',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
     path: '/apps/meeting/catalog/:resource',
     name: 'apps-meeting-catalog',
     component: meetingCatalogComponent,
     meta: {
-      navActiveLink: 'apps-meetings',
       action: 'read',
       subject: 'Meeting',
     },

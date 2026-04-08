@@ -12,56 +12,49 @@ export default [
       { title: 'Business Overview', to: 'dashboards-business' },
     ],
   },
-  { heading: 'System management' },
   {
-    title: 'Organization',
-    icon: { icon: 'tabler-building-community' },
-    to: 'apps-organizations',
-    action: 'read',
-    subject: 'Organization',
-  },
-  {
-    title: 'User Management',
-    icon: { icon: 'tabler-user-cog' },
-    to: 'apps-user-list',
-    action: 'read',
-    subject: 'User',
-  },
-  {
-    title: 'Activity log',
-    icon: { icon: 'tabler-history' },
-    to: 'apps-activity-log',
-    action: 'read',
-    subject: 'LogActivity',
-  },
-  {
-    title: 'Roles & Permissions',
-    icon: { icon: 'tabler-shield-lock' },
-    children: [
-      { title: 'Roles', to: 'apps-roles', action: 'read', subject: 'Role' },
-      { title: 'Permissions', to: 'apps-permissions', action: 'read', subject: 'Permission' },
-    ],
-  },
-  {
-    title: 'Cấu hình hệ thống',
-    icon: { icon: 'tabler-settings-cog' },
-    to: 'apps-system-settings',
-    action: 'read',
-    subject: 'Setting',
-  },
-  {
-    title: 'Họp không giấy',
+    title: 'Quản lý cuộc họp',
     icon: { icon: 'tabler-calendar-event' },
     action: 'read',
     subject: 'Meeting',
     children: [
       { title: 'Danh sách Cuộc họp', to: 'apps-meetings', action: 'read', subject: 'Meeting' },
-      { title: 'Loại cuộc họp', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-types' } }, action: 'read', subject: 'Meeting' },
-      { title: 'Thành viên nhóm', to: { name: 'apps-meeting-catalog', params: { resource: 'attendee-groups' } }, action: 'read', subject: 'Meeting' },
-      { title: 'Loại tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-types' } }, action: 'read', subject: 'Meeting' },
-      { title: 'Lĩnh vực tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-fields' } }, action: 'read', subject: 'Meeting' },
-      { title: 'Người ký tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-signers' } }, action: 'read', subject: 'Meeting' },
-      { title: 'Cơ quan ban hành', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-issuing-agencies' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Danh sách Biểu quyết', to: 'apps-meeting-votings', action: 'read', subject: 'Meeting' },
+      { title: 'Danh sách Tài liệu', to: 'apps-meeting-documents', action: 'read', subject: 'Meeting' },
+      { title: 'Danh sách Kết luận', to: 'apps-meeting-conclusions', action: 'read', subject: 'Meeting' },
+      {
+        title: 'Danh mục',
+        icon: { icon: 'tabler-category' },
+        children: [
+          { title: 'Người dự họp', to: 'apps-meeting-attendees', action: 'read', subject: 'Meeting' },
+          { title: 'Nhóm người dự họp', to: 'apps-meeting-catalog-attendee-groups', action: 'read', subject: 'Meeting' },
+          { title: 'Loại tài liệu', to: 'apps-meeting-catalog-meeting-document-types', action: 'read', subject: 'Meeting' },
+          { title: 'Loại cuộc họp', to: 'apps-meeting-catalog-meeting-types', action: 'read', subject: 'Meeting' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Quản lý hệ thống',
+    icon: { icon: 'tabler-settings-cog' },
+    children: [
+      { title: 'Tổ chức', to: 'apps-organizations', action: 'read', subject: 'Organization' },
+      { title: 'Người dùng', to: 'apps-user-list', action: 'read', subject: 'User' },
+      { title: 'Nhật ký hoạt động', to: 'apps-activity-log', action: 'read', subject: 'LogActivity' },
+      {
+        title: 'Vai trò & Quyền hạn',
+        children: [
+          { title: 'Vai trò', to: 'apps-roles', action: 'read', subject: 'Role' },
+          { title: 'Quyền hạn', to: 'apps-permissions', action: 'read', subject: 'Permission' },
+        ],
+      },
+      {
+        title: 'Cấu hình hệ thống',
+        children: [
+          { title: 'Cấu hình chung', to: 'apps-system-settings-general', action: 'read', subject: 'Setting' },
+          { title: 'Cấu hình thông báo', to: 'apps-system-settings-notification', action: 'read', subject: 'Setting' },
+        ],
+      },
     ],
   },
 ]

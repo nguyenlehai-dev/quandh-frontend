@@ -7,6 +7,7 @@ import { useCoreSettingsStore } from '@/modules/system-settings/stores/useCoreSe
 
 const { locale } = useI18n({ useScope: 'global' })
 const { t } = useI18n()
+const route = useRoute()
 
 const activeTab = ref(0)
 const isSaving = ref(false)
@@ -17,6 +18,18 @@ const coreSettingsStore = useCoreSettingsStore()
 
 const tabsData = coreSettingGroups
 const activeGroup = computed(() => tabsData[activeTab.value] ?? tabsData[0])
+
+const syncActiveTabFromRoute = () => {
+  const groupKey = route.meta.activeSettingGroup
+
+  if (!groupKey)
+    return
+
+  const groupIndex = tabsData.findIndex(group => group.key === groupKey)
+
+  if (groupIndex >= 0)
+    activeTab.value = groupIndex
+}
 
 const normalizeIncomingGroup = group => Object.fromEntries(
   group.fields.map(field => {
@@ -128,11 +141,16 @@ watch(locale, newLocale => {
 
 onMounted(() => {
   hydratePendingSnackbar()
+  syncActiveTabFromRoute()
   loadSettings()
 })
 
 watch(activeTab, () => {
   refreshActiveGroupLeadField()
+})
+
+watch(() => route.meta.activeSettingGroup, () => {
+  syncActiveTabFromRoute()
 })
 </script>
 
