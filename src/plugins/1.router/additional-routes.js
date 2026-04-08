@@ -9,6 +9,9 @@ const organizationsComponent = () => import('@/modules/organization/views/list/i
 const activityLogComponent = () => import('@/modules/activity-log/views/index.vue')
 const systemSettingsComponent = () => import('@/modules/system-settings/views/index.vue')
 const currentProfileComponent = () => import('@/modules/auth/views/profile.vue')
+const meetingListComponent = () => import('@/modules/meeting/views/list/index.vue')
+const meetingDetailComponent = () => import('@/modules/meeting/views/detail/index.vue')
+const meetingCatalogComponent = () => import('@/modules/meeting/views/catalog/index.vue')
 
 // 👉 Redirects
 export const redirects = [
@@ -102,5 +105,34 @@ export const routes = [
     path: '/apps/profile',
     name: 'apps-profile',
     component: currentProfileComponent,
+  },
+  {
+    path: '/apps/meetings',
+    name: 'apps-meetings',
+    component: meetingListComponent,
+    meta: {
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meetings/:id',
+    name: 'apps-meetings-detail',
+    component: meetingDetailComponent,
+    meta: {
+      navActiveLink: 'apps-meetings',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/:resource',
+    name: 'apps-meeting-catalog',
+    component: meetingCatalogComponent,
+    meta: {
+      navActiveLink: 'apps-meetings',
+      action: 'read',
+      subject: 'Meeting',
+    },
   },
 ]

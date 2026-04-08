@@ -49,4 +49,19 @@ export default [
     action: 'read',
     subject: 'Setting',
   },
+  {
+    title: 'Họp không giấy',
+    icon: { icon: 'tabler-calendar-event' },
+    action: 'read',
+    subject: 'Meeting',
+    children: [
+      { title: 'Danh sách Cuộc họp', to: 'apps-meetings', action: 'read', subject: 'Meeting' },
+      { title: 'Loại cuộc họp', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-types' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Thành viên nhóm', to: { name: 'apps-meeting-catalog', params: { resource: 'attendee-groups' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Loại tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-types' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Lĩnh vực tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-fields' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Người ký tài liệu', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-document-signers' } }, action: 'read', subject: 'Meeting' },
+      { title: 'Cơ quan ban hành', to: { name: 'apps-meeting-catalog', params: { resource: 'meeting-issuing-agencies' } }, action: 'read', subject: 'Meeting' },
+    ],
+  },
 ]
