@@ -11,6 +11,7 @@ const systemSettingsComponent = () => import('@/modules/system-settings/views/in
 const currentProfileComponent = () => import('@/modules/auth/views/profile.vue')
 const meetingListComponent = () => import('@/modules/meeting/views/list/index.vue')
 const meetingDetailComponent = () => import('@/modules/meeting/views/detail/index.vue')
+const meetingCheckInComponent = () => import('@/modules/meeting/views/check-in/index.vue')
 const meetingCatalogComponent = () => import('@/modules/meeting/views/catalog/index.vue')
 const meetingChildListComponent = () => import('@/modules/meeting/views/child-list/index.vue')
 
@@ -147,6 +148,11 @@ export const routes = [
       action: 'read',
       subject: 'Meeting',
     },
+  },
+  {
+    path: '/apps/meeting/check-in',
+    name: 'apps-meeting-check-in',
+    component: meetingCheckInComponent,
   },
   {
     path: '/apps/meeting/votings',

@@ -139,6 +139,15 @@ const meetingCheckInPayload = computed(() => {
   if (!meeting.value?.qrToken)
     return ''
 
+  if (typeof window !== 'undefined') {
+    const nextUrl = new URL('/apps/meeting/check-in', window.location.origin)
+
+    nextUrl.searchParams.set('meeting_id', meeting.value.id)
+    nextUrl.searchParams.set('qr_token', meeting.value.qrToken)
+
+    return nextUrl.toString()
+  }
+
   return JSON.stringify({
     meeting_id: meeting.value.id,
     qr_token: meeting.value.qrToken,
@@ -263,6 +272,15 @@ const stopQrScanner = () => {
 const extractQrToken = rawValue => {
   if (!rawValue)
     return ''
+
+  try {
+    const parsedUrl = new URL(rawValue)
+
+    return parsedUrl.searchParams.get('qr_token') ?? rawValue
+  }
+  catch {
+    // Keep parsing fallback below.
+  }
 
   try {
     const parsedValue = JSON.parse(rawValue)
@@ -824,7 +842,7 @@ onBeforeUnmount(() => {
               </VAlert>
 
               <div class="text-center text-body-2 text-medium-emphasis">
-                Quét mã để lấy payload check-in của cuộc họp hiện tại.
+                Quét mã bằng điện thoại để mở trang xác nhận tham gia cuộc họp.
               </div>
             </div>
 
