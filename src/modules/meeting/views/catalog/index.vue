@@ -2,6 +2,8 @@
 import { useOperationSnackbar } from '@/composables/useOperationSnackbar'
 import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/coreErrors'
 import MeetingCatalogEditorDialog from '@/modules/meeting/components/MeetingCatalogEditorDialog.vue'
+import MeetingExportDialog from '@/modules/meeting/components/MeetingExportDialog.vue'
+import MeetingImportDialog from '@/modules/meeting/components/MeetingImportDialog.vue'
 import { CATALOG_STATUS_OPTIONS, MEETING_CATALOGS } from '@/modules/meeting/configs/meetingOptions'
 import {
   bulkDeleteMeetingCatalog,
@@ -15,6 +17,7 @@ import {
   updateMeetingCatalog,
 } from '@/modules/meeting/services/meetingApi'
 import { mapCatalogToViewModel, normalizeCollectionResponse, toCatalogPayload } from '@/modules/meeting/utils/meetingAdapters'
+import * as XLSX from 'xlsx'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +26,8 @@ const { hydratePendingSnackbar, isSnackbarVisible, snackbarColor, snackbarText, 
 const searchQuery = ref('')
 const selectedStatus = ref()
 const selectedMeetingType = ref()
+const isImportDialogVisible = ref(false)
+const isExportDialogVisible = ref(false)
 const isEditorDialogVisible = ref(false)
 const isViewMode = ref(false)
 const isDeleteDialogVisible = ref(false)
@@ -65,6 +70,18 @@ const bulkActions = [
   { title: 'Tạm tắt', value: 'inactive' },
   { title: 'Xóa', value: 'delete' },
 ]
+
+const exportScopeOptions = computed(() => {
+  const options = [
+    { title: 'Toàn bộ dữ liệu đã lọc', value: 'filtered' },
+    { title: 'Trang hiện tại', value: 'page' },
+  ]
+
+  if (selectedRows.value.length)
+    options.unshift({ title: `Dòng đang chọn (${selectedRows.value.length})`, value: 'selected' })
+
+  return options
+})
 
 const widgetData = computed(() => [
   {
@@ -126,6 +143,15 @@ const fetchCatalog = async () => {
   finally {
     isLoading.value = false
   }
+}
+
+const fetchCatalogForExport = async () => {
+  const response = await getMeetingCatalog(resource.value, buildQuery({
+    limit: totalItems.value || undefined,
+    page: 1,
+  }))
+
+  return normalizeCollectionResponse(response).data.map(mapCatalogToViewModel)
 }
 
 const fetchCatalogStats = async () => {
@@ -287,6 +313,101 @@ const handleBulkAction = action => {
     isStatusDialogVisible.value = true
 }
 
+const exportRowsToWorkbook = (rows, fileName) => {
+  const worksheet = XLSX.utils.json_to_sheet(rows.map(item => ({
+    name: item.name,
+    description: item.description,
+    meeting_type_id: item.meetingTypeId,
+    meeting_type_name: item.meetingTypeName,
+    position: item.position,
+    status: item.status,
+    created_at: item.createdAt,
+    created_by: item.createdBy,
+    updated_at: item.updatedAt,
+    updated_by: item.updatedBy,
+  })))
+  const workbook = XLSX.utils.book_new()
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Catalog')
+  XLSX.writeFileXLSX(workbook, fileName)
+}
+
+const handleExportCatalog = async scope => {
+  if (scope === 'selected') {
+    exportRowsToWorkbook(catalogItems.value.filter(item => selectedRows.value.includes(item.id)), `${resource.value}-selected-${new Date().toISOString().slice(0, 10)}.xlsx`)
+    showSnackbar('Đã xuất dữ liệu danh mục.')
+
+    return
+  }
+
+  if (scope === 'page') {
+    exportRowsToWorkbook(catalogItems.value, `${resource.value}-page-${new Date().toISOString().slice(0, 10)}.xlsx`)
+    showSnackbar('Đã xuất dữ liệu danh mục.')
+
+    return
+  }
+
+  const allRows = await fetchCatalogForExport()
+
+  exportRowsToWorkbook(allRows, `${resource.value}-filtered-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  showSnackbar('Đã xuất dữ liệu danh mục.')
+}
+
+const readWorkbookRows = async file => {
+  const buffer = await file.arrayBuffer()
+  const workbook = XLSX.read(buffer, { type: 'array' })
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+
+  return XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+}
+
+const resolveMeetingTypeId = value => {
+  if (!value)
+    return null
+
+  if (typeof value === 'number')
+    return value
+
+  const normalizedValue = String(value).trim().toLowerCase()
+  const matchedOption = meetingTypes.value.find(item => String(item.id) === normalizedValue || String(item.name ?? item.title ?? '').trim().toLowerCase() === normalizedValue)
+
+  return matchedOption?.id ?? (Number(normalizedValue) || null)
+}
+
+const handleImportCatalog = async file => {
+  const rows = await readWorkbookRows(file)
+
+  if (!rows.length) {
+    showSnackbar('Tệp nhập không có dữ liệu.', 'warning')
+
+    return
+  }
+
+  for (const row of rows) {
+    const payload = {
+      name: row.name || row.title || row.ten || row.module,
+      description: row.description || row.mo_ta || null,
+      position: row.position || row.chuc_vu || null,
+      status: row.status || 'active',
+      meeting_type_id: resolveMeetingTypeId(row.meeting_type_id || row.meeting_type_name || row.loai_cuoc_hop),
+    }
+
+    if (!payload.name)
+      continue
+
+    if (!catalogConfig.value.usesMeetingType)
+      delete payload.meeting_type_id
+
+    if (!catalogConfig.value.usesPosition)
+      delete payload.position
+
+    await createMeetingCatalog(resource.value, payload)
+  }
+
+  await refreshCatalog()
+  showSnackbar('Đã nhập dữ liệu danh mục.')
+}
+
 const refreshCatalogDebounced = useDebounceFn(async () => {
   page.value = 1
   await refreshCatalog()
@@ -410,6 +531,26 @@ onMounted(async () => {
         <VSpacer />
 
         <div class="d-flex align-center flex-wrap gap-4">
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
+            @click="isImportDialogVisible = true"
+          >
+            <span v-if="!$vuetify.display.smAndDown">Nhập dữ liệu</span>
+          </VBtn>
+
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
+            @click="isExportDialogVisible = true"
+          >
+            <span v-if="!$vuetify.display.smAndDown">Xuất dữ liệu</span>
+          </VBtn>
+
           <VBtn
             variant="tonal"
             color="secondary"
@@ -542,6 +683,22 @@ onMounted(async () => {
         :is-read-only="isViewMode"
         :meeting-types="meetingTypeItems"
         @save="handleSaveItem"
+      />
+
+      <MeetingImportDialog
+        v-model:is-dialog-visible="isImportDialogVisible"
+        :dialog-title="`Nhập dữ liệu ${catalogConfig.title.toLowerCase()}`"
+        :alert-text="`Hỗ trợ .xlsx, .xls, .csv. Cột bắt buộc: name. Cột hỗ trợ: description, status${catalogConfig.usesPosition ? ', position' : ''}${catalogConfig.usesMeetingType ? ', meeting_type_id hoặc meeting_type_name' : ''}.`"
+        @import="handleImportCatalog"
+      />
+
+      <MeetingExportDialog
+        v-model:is-dialog-visible="isExportDialogVisible"
+        :dialog-title="`Xuất dữ liệu ${catalogConfig.title.toLowerCase()}`"
+        alert-text="Dữ liệu danh mục sẽ được xuất dưới dạng tệp Excel .xlsx."
+        :selected-count="selectedRows.length"
+        :scope-options="exportScopeOptions"
+        @export="handleExportCatalog"
       />
 
     <ConfirmDialog

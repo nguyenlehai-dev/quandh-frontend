@@ -1,5 +1,13 @@
 <script setup>
 const props = defineProps({
+  alertText: {
+    type: String,
+    default: 'Hệ thống hỗ trợ `.xlsx`, `.xls`, `.csv`. Cột tối thiểu: `title`, `start_at`; các cột khuyến nghị: `code`, `location`, `status`, `description`.',
+  },
+  dialogTitle: {
+    type: String,
+    default: 'Nhập dữ liệu cuộc họp',
+  },
   isDialogVisible: {
     type: Boolean,
     required: true,
@@ -39,7 +47,7 @@ const handleImport = () => {
   >
     <DialogCloseBtn @click="closeDialog" />
 
-    <VCard title="Nhập dữ liệu cuộc họp">
+    <VCard :title="props.dialogTitle">
       <VCardText>
         <VForm
           ref="refForm"
@@ -65,15 +73,15 @@ const handleImport = () => {
             </VCol>
 
             <VCol cols="12">
-              <VAlert
-                variant="tonal"
-                color="info"
-                icon="tabler-info-circle"
-              >
-                Hệ thống hỗ trợ `.xlsx`, `.xls`, `.csv`. Cột tối thiểu: `title`, `start_at`; các cột khuyến nghị: `code`, `location`, `status`, `description`.
-              </VAlert>
-            </VCol>
-          </VRow>
+            <VAlert
+              variant="tonal"
+              color="info"
+              icon="tabler-info-circle"
+            >
+                {{ props.alertText }}
+            </VAlert>
+          </VCol>
+        </VRow>
         </VForm>
       </VCardText>
 

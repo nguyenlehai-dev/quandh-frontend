@@ -3,6 +3,8 @@ import { useOperationSnackbar } from '@/composables/useOperationSnackbar'
 import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/coreErrors'
 import MeetingChildEditorDialog from '@/modules/meeting/components/MeetingChildEditorDialog.vue'
 import MeetingEditorDialog from '@/modules/meeting/components/MeetingEditorDialog.vue'
+import MeetingExportDialog from '@/modules/meeting/components/MeetingExportDialog.vue'
+import MeetingImportDialog from '@/modules/meeting/components/MeetingImportDialog.vue'
 import { MEETING_CHILD_TABS, MEETING_STATUS_OPTIONS, getOptionColor, getOptionTitle } from '@/modules/meeting/configs/meetingOptions'
 import { getCoreUsers } from '@/modules/user-management/services/coreUsers'
 import {
@@ -15,6 +17,7 @@ import {
   updateMeetingChild,
 } from '@/modules/meeting/services/meetingApi'
 import { mapMeetingToViewModel, toMeetingPayload } from '@/modules/meeting/utils/meetingAdapters'
+import * as XLSX from 'xlsx'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +30,8 @@ const userOptions = ref([])
 const activeTab = ref('participants')
 const isLoading = ref(false)
 const isEditorDialogVisible = ref(false)
+const isImportDialogVisible = ref(false)
+const isExportDialogVisible = ref(false)
 const isChildDialogVisible = ref(false)
 const isChildDeleteDialogVisible = ref(false)
 const editedChildItem = ref(null)
@@ -103,6 +108,17 @@ const childBulkActions = computed(() => {
     ...statusActions,
     { title: 'Xóa', value: 'delete' },
   ]
+})
+
+const childExportScopeOptions = computed(() => {
+  const options = [
+    { title: 'Toàn bộ dữ liệu đang hiển thị', value: 'page' },
+  ]
+
+  if (selectedChildRows.value.length)
+    options.unshift({ title: `Dòng đang chọn (${selectedChildRows.value.length})`, value: 'selected' })
+
+  return options
 })
 
 const loadMeeting = async () => {
@@ -233,6 +249,92 @@ const handleChildBulkAction = async action => {
   selectedChildRows.value = []
   selectedChildBulkAction.value = undefined
   await loadMeeting()
+}
+
+const exportChildRowsToWorkbook = (rows, fileName) => {
+  const worksheet = XLSX.utils.json_to_sheet(rows.map(item => {
+    const baseRow = {
+      id: item.id,
+      title: item.title ?? item.name ?? '',
+      content: item.content ?? '',
+      description: item.description ?? '',
+      status: item.status ?? '',
+      created_at: item.createdAt,
+      created_by: item.createdBy,
+      updated_at: item.updatedAt,
+      updated_by: item.updatedBy,
+    }
+
+    activeChildConfig.value.fields.forEach(field => {
+      const rawValue = item[field]
+
+      baseRow[field] = typeof rawValue === 'object' ? JSON.stringify(rawValue) : rawValue
+    })
+
+    return baseRow
+  }))
+  const workbook = XLSX.utils.book_new()
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, activeChildConfig.value.key)
+  XLSX.writeFileXLSX(workbook, fileName)
+}
+
+const handleExportChildren = async scope => {
+  const rows = scope === 'selected'
+    ? childRows.value.filter(item => selectedChildRows.value.includes(item.id))
+    : childRows.value
+
+  exportChildRowsToWorkbook(rows, `${activeChildConfig.value.key}-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  showSnackbar('Đã xuất dữ liệu chi tiết cuộc họp.')
+}
+
+const readWorkbookRows = async file => {
+  const buffer = await file.arrayBuffer()
+  const workbook = XLSX.read(buffer, { type: 'array' })
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+
+  return XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+}
+
+const normalizeImportedChildValue = value => {
+  if (value === '')
+    return undefined
+
+  return value
+}
+
+const handleImportChildren = async file => {
+  const rows = await readWorkbookRows(file)
+
+  if (!rows.length) {
+    showSnackbar('Tệp nhập không có dữ liệu.', 'warning')
+
+    return
+  }
+
+  for (const row of rows) {
+    const payload = activeChildConfig.value.fields.reduce((acc, field) => {
+      const importedValue = normalizeImportedChildValue(row[field])
+
+      if (importedValue !== undefined)
+        acc[field] = importedValue
+
+      return acc
+    }, {})
+
+    const fallbackValue = row.title || row.name || row.content || row.position
+
+    if (!payload[activeChildConfig.value.requiredField] && fallbackValue)
+      payload[activeChildConfig.value.requiredField] = fallbackValue
+
+    if (!payload[activeChildConfig.value.requiredField])
+      continue
+
+    await createMeetingChild(meetingId.value, activeChildConfig.value.key, payload)
+  }
+
+  await loadMeeting()
+  showSnackbar('Đã nhập dữ liệu chi tiết cuộc họp.')
 }
 
 watch(activeTab, () => {
@@ -488,6 +590,24 @@ onMounted(async () => {
               />
 
               <VBtn
+                variant="tonal"
+                color="secondary"
+                prepend-icon="tabler-download"
+                @click="isImportDialogVisible = true"
+              >
+                Nhập dữ liệu
+              </VBtn>
+
+              <VBtn
+                variant="tonal"
+                color="secondary"
+                prepend-icon="tabler-upload"
+                @click="isExportDialogVisible = true"
+              >
+                Xuất dữ liệu
+              </VBtn>
+
+              <VBtn
                 prepend-icon="tabler-plus"
                 @click="openCreateChildDialog"
               >
@@ -575,6 +695,22 @@ onMounted(async () => {
       :child-item="editedChildItem"
       :select-items="childSelectItems"
       @save="handleSaveChild"
+    />
+
+    <MeetingImportDialog
+      v-model:is-dialog-visible="isImportDialogVisible"
+      :dialog-title="`Nhập dữ liệu ${activeChildConfig.title.toLowerCase()}`"
+      :alert-text="`Hỗ trợ .xlsx, .xls, .csv. Cột bắt buộc: ${activeChildConfig.requiredField}. Có thể dùng các cột: ${activeChildConfig.fields.join(', ')}.`"
+      @import="handleImportChildren"
+    />
+
+    <MeetingExportDialog
+      v-model:is-dialog-visible="isExportDialogVisible"
+      :dialog-title="`Xuất dữ liệu ${activeChildConfig.title.toLowerCase()}`"
+      alert-text="Dữ liệu chi tiết cuộc họp sẽ được xuất dưới dạng tệp Excel .xlsx."
+      :selected-count="selectedChildRows.length"
+      :scope-options="childExportScopeOptions"
+      @export="handleExportChildren"
     />
 
     <ConfirmDialog

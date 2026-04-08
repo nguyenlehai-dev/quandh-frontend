@@ -1,5 +1,13 @@
 <script setup>
 const props = defineProps({
+  alertText: {
+    type: String,
+    default: 'Dữ liệu sẽ được xuất dưới dạng tệp Excel `.xlsx`.',
+  },
+  dialogTitle: {
+    type: String,
+    default: 'Xuất dữ liệu cuộc họp',
+  },
   isDialogVisible: {
     type: Boolean,
     required: true,
@@ -7,6 +15,10 @@ const props = defineProps({
   selectedCount: {
     type: Number,
     default: 0,
+  },
+  scopeOptions: {
+    type: Array,
+    default: () => [],
   },
 })
 
@@ -18,6 +30,9 @@ const emit = defineEmits([
 const exportScope = ref('filtered')
 
 const exportScopeOptions = computed(() => {
+  if (props.scopeOptions.length)
+    return props.scopeOptions
+
   const options = [
     { title: 'Toàn bộ dữ liệu đã lọc', value: 'filtered' },
     { title: 'Trang hiện tại', value: 'page' },
@@ -56,7 +71,7 @@ watch(
   >
     <DialogCloseBtn @click="closeDialog" />
 
-    <VCard title="Xuất dữ liệu cuộc họp">
+    <VCard :title="props.dialogTitle">
       <VCardText>
         <VRow>
           <VCol cols="12">
@@ -74,7 +89,7 @@ watch(
               color="success"
               icon="tabler-file-spreadsheet"
             >
-              Dữ liệu sẽ được xuất dưới dạng tệp Excel `.xlsx`.
+              {{ props.alertText }}
             </VAlert>
           </VCol>
         </VRow>
