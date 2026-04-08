@@ -2,11 +2,11 @@
 const props = defineProps({
   alertText: {
     type: String,
-    default: 'Hệ thống hỗ trợ `.xlsx`, `.xls`, `.csv`. Cột tối thiểu: `title`, `start_at`; các cột khuyến nghị: `code`, `location`, `status`, `description`.',
+    default: '',
   },
   dialogTitle: {
     type: String,
-    default: 'Nhập dữ liệu cuộc họp',
+    default: '',
   },
   isDialogVisible: {
     type: Boolean,
@@ -19,8 +19,12 @@ const emit = defineEmits([
   'update:isDialogVisible',
 ])
 
+const { t } = useI18n()
+
 const refForm = ref()
 const importFile = ref([])
+const resolvedAlertText = computed(() => props.alertText || t('meeting.dialogs.import.defaultAlert'))
+const resolvedDialogTitle = computed(() => props.dialogTitle || t('meeting.dialogs.import.defaultTitle'))
 
 const closeDialog = () => {
   emit('update:isDialogVisible', false)
@@ -47,7 +51,7 @@ const handleImport = () => {
   >
     <DialogCloseBtn @click="closeDialog" />
 
-    <VCard :title="props.dialogTitle">
+    <VCard :title="resolvedDialogTitle">
       <VCardText>
         <VForm
           ref="refForm"
@@ -59,29 +63,29 @@ const handleImport = () => {
               <VFileInput
                 v-model="importFile"
                 accept=".xlsx,.xls,.csv"
-                label="Tệp dữ liệu"
-                placeholder="Chọn tệp Excel hoặc CSV"
+                :label="t('meeting.dialogs.import.fileLabel')"
+                :placeholder="t('meeting.dialogs.import.filePlaceholder')"
                 prepend-icon=""
                 :rules="[requiredValidator]"
               >
                 <template #append>
                   <VBtn variant="tonal">
-                    Chọn tệp
+                    {{ t('meeting.dialogs.import.chooseFile') }}
                   </VBtn>
                 </template>
               </VFileInput>
             </VCol>
 
             <VCol cols="12">
-            <VAlert
-              variant="tonal"
-              color="info"
-              icon="tabler-info-circle"
-            >
-                {{ props.alertText }}
-            </VAlert>
-          </VCol>
-        </VRow>
+              <VAlert
+                variant="tonal"
+                color="info"
+                icon="tabler-info-circle"
+              >
+                {{ resolvedAlertText }}
+              </VAlert>
+            </VCol>
+          </VRow>
         </VForm>
       </VCardText>
 
@@ -91,11 +95,11 @@ const handleImport = () => {
           color="secondary"
           @click="closeDialog"
         >
-          Đóng
+          {{ t('meeting.common.close') }}
         </VBtn>
 
         <VBtn @click="handleImport">
-          Nhập dữ liệu
+          {{ t('meeting.common.importData') }}
         </VBtn>
       </VCardText>
     </VCard>

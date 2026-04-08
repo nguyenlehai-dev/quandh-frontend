@@ -29,14 +29,17 @@ const emit = defineEmits([
   'update:isDialogVisible',
 ])
 
+const { t } = useI18n()
+
 const refForm = ref()
 const formData = ref({})
 const isEditMode = computed(() => Boolean(props.catalogItem?.id))
+
 const dialogTitle = computed(() => {
   if (props.isReadOnly)
-    return `Xem ${props.catalogConfig.singularTitle}`
+    return t('meeting.common.viewItem', { item: props.catalogConfig.singularTitle })
 
-  return `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.catalogConfig.singularTitle}`
+  return t(isEditMode.value ? 'meeting.common.updateItem' : 'meeting.common.createItem', { item: props.catalogConfig.singularTitle })
 })
 
 const createDefaultForm = () => ({
@@ -98,7 +101,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
             >
               <AppTextField
                 v-model="formData.name"
-                label="Tên module"
+                :label="t('meeting.fields.module_name')"
                 :placeholder="props.catalogConfig.title"
                 :rules="[requiredValidator]"
                 :readonly="props.isReadOnly"
@@ -112,8 +115,8 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
             >
               <AppTextField
                 v-model="formData.position"
-                label="Chức vụ"
-                placeholder="Ví dụ: Giám đốc"
+                :label="t('meeting.fields.position')"
+                :placeholder="t('meeting.placeholders.positionExample')"
                 :readonly="props.isReadOnly"
               />
             </VCol>
@@ -124,7 +127,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
             >
               <AppSelect
                 v-model="formData.status"
-                label="Trạng thái"
+                :label="t('meeting.fields.status')"
                 :items="CATALOG_STATUS_OPTIONS"
                 :readonly="props.isReadOnly"
               />
@@ -137,8 +140,8 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
             >
               <AppSelect
                 v-model="formData.meetingTypeId"
-                label="Loại cuộc họp"
-                placeholder="Chọn loại cuộc họp"
+                :label="t('meeting.fields.meeting_type')"
+                :placeholder="t('meeting.placeholders.selectMeetingType')"
                 :items="props.meetingTypes"
                 clearable
                 clear-icon="tabler-x"
@@ -149,7 +152,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
             <VCol cols="12">
               <AppTextarea
                 v-model="formData.description"
-                label="Mô tả"
+                :label="t('meeting.fields.description')"
                 rows="3"
                 :readonly="props.isReadOnly"
               />
@@ -164,14 +167,14 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
           color="secondary"
           @click="closeDialog"
         >
-          Đóng
+          {{ t('meeting.common.close') }}
         </VBtn>
 
         <VBtn
           v-if="!props.isReadOnly"
           @click="handleSave"
         >
-          Lưu
+          {{ t('meeting.common.save') }}
         </VBtn>
       </VCardText>
     </VCard>

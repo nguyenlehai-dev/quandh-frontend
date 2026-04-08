@@ -1,4 +1,7 @@
 import { isStoredLoggedIn } from '@/modules/auth/services/authStorage'
+import { getI18n } from '@/plugins/i18n'
+
+const t = key => getI18n().global.t(key)
 
 const emailRouteComponent = () => import('@/pages/apps/email/index.vue')
 const logisticsDashboardComponent = () => import('@/pages/apps/logistics/dashboard.vue')
@@ -159,8 +162,8 @@ export const routes = [
     name: 'apps-meeting-votings',
     component: meetingChildListComponent,
     meta: {
-      title: 'Danh sách Biểu quyết',
-      description: 'Quản trị tập trung danh sách biểu quyết theo toàn bộ cuộc họp.',
+      title: t('meeting.routes.votings.title'),
+      description: t('meeting.routes.votings.description'),
       icon: 'tabler-chart-bar',
       meetingChildKey: 'votings',
       action: 'read',
@@ -172,8 +175,8 @@ export const routes = [
     name: 'apps-meeting-documents',
     component: meetingChildListComponent,
     meta: {
-      title: 'Danh sách Tài liệu',
-      description: 'Quản trị tập trung danh sách tài liệu theo toàn bộ cuộc họp.',
+      title: t('meeting.routes.documents.title'),
+      description: t('meeting.routes.documents.description'),
       icon: 'tabler-files',
       meetingChildKey: 'documents',
       action: 'read',
@@ -185,8 +188,8 @@ export const routes = [
     name: 'apps-meeting-conclusions',
     component: meetingChildListComponent,
     meta: {
-      title: 'Danh sách Kết luận',
-      description: 'Quản trị tập trung danh sách kết luận theo toàn bộ cuộc họp.',
+      title: t('meeting.routes.conclusions.title'),
+      description: t('meeting.routes.conclusions.description'),
       icon: 'tabler-checklist',
       meetingChildKey: 'conclusions',
       action: 'read',
@@ -198,8 +201,8 @@ export const routes = [
     name: 'apps-meeting-attendees',
     component: meetingChildListComponent,
     meta: {
-      title: 'Người dự họp',
-      description: 'Quản trị tập trung danh sách người dự họp theo toàn bộ cuộc họp.',
+      title: t('meeting.routes.attendees.title'),
+      description: t('meeting.routes.attendees.description'),
       icon: 'tabler-users',
       meetingChildKey: 'participants',
       action: 'read',

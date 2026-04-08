@@ -21,6 +21,8 @@ import {
 import { mapMeetingToViewModel, normalizeCollectionResponse, toMeetingPayload } from '@/modules/meeting/utils/meetingAdapters'
 import * as XLSX from 'xlsx'
 
+const { t } = useI18n()
+
 const searchQuery = ref('')
 const selectedStatus = ref()
 const selectedMeetingType = ref()
@@ -46,6 +48,7 @@ const isLoading = ref(false)
 
 const rawMeetings = ref([])
 const meetingTypes = ref([])
+
 const meetingStats = ref({
   total: 0,
   draft: 0,
@@ -57,19 +60,19 @@ const meetingStats = ref({
 
 const headers = [
   { title: 'STT', key: 'stt', sortable: false, align: 'center' },
-  { title: 'TÊN MODULE', key: 'module' },
-  { title: 'NGÀY TẠO', key: 'createdAt' },
-  { title: 'CẬP NHẬT', key: 'updatedAt' },
-  { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
-  { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center' },
+  { title: t('meeting.table.module'), key: 'module' },
+  { title: t('meeting.table.created_at'), key: 'createdAt' },
+  { title: t('meeting.table.updated_at'), key: 'updatedAt' },
+  { title: t('meeting.table.status'), key: 'status', align: 'center' },
+  { title: t('meeting.table.actions'), key: 'actions', sortable: false, align: 'center' },
 ]
 
 const bulkActions = [
-  { title: 'Chuyển hoạt động', value: 'active' },
-  { title: 'Chuyển bản nháp', value: 'draft' },
-  { title: 'Chuyển hoàn thành', value: 'completed' },
-  { title: 'Chuyển đã hủy', value: 'cancelled' },
-  { title: 'Xóa', value: 'delete' },
+  { title: t('meeting.bulk.active'), value: 'active' },
+  { title: t('meeting.bulk.draft'), value: 'draft' },
+  { title: t('meeting.bulk.completed'), value: 'completed' },
+  { title: t('meeting.bulk.cancelled'), value: 'cancelled' },
+  { title: t('meeting.bulk.delete'), value: 'delete' },
 ]
 
 const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
@@ -81,30 +84,30 @@ const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCas
 
 const widgetData = computed(() => [
   {
-    title: 'Tổng cuộc họp',
+    title: t('meeting.list.widgets.total.title'),
     value: `${meetingStats.value.total ?? 0}`,
-    desc: 'Tất cả cuộc họp',
+    desc: t('meeting.list.widgets.total.desc'),
     icon: 'tabler-calendar-event',
     iconColor: 'primary',
   },
   {
-    title: 'Hoạt động',
+    title: t('meeting.list.widgets.active.title'),
     value: `${meetingStats.value.active ?? 0}`,
-    desc: 'Đang bật quản trị',
+    desc: t('meeting.list.widgets.active.desc'),
     icon: 'tabler-toggle-right',
     iconColor: 'success',
   },
   {
-    title: 'Đang diễn ra',
+    title: t('meeting.list.widgets.in_progress.title'),
     value: `${meetingStats.value.in_progress ?? 0}`,
-    desc: 'Cuộc họp đang họp',
+    desc: t('meeting.list.widgets.in_progress.desc'),
     icon: 'tabler-player-play',
     iconColor: 'info',
   },
   {
-    title: 'Hoàn thành',
+    title: t('meeting.list.widgets.completed.title'),
     value: `${meetingStats.value.completed ?? 0}`,
-    desc: 'Đã kết thúc',
+    desc: t('meeting.list.widgets.completed.desc'),
     icon: 'tabler-circle-check',
     iconColor: 'warning',
   },
@@ -175,7 +178,7 @@ const loadReferenceData = async () => {
   }
   catch (error) {
     meetingTypes.value = []
-    showSnackbar(getCoreErrorMessage(error, 'Không thể tải loại cuộc họp.'), 'error')
+    showSnackbar(getCoreErrorMessage(error, t('meeting.messages.loadMeetingTypesError')), 'error')
   }
 }
 
@@ -184,13 +187,14 @@ const refreshMeetings = async () => {
     fetchMeetings(),
     fetchMeetingStats(),
   ])
+
   const failedResult = results.find(result => result.status === 'rejected')
 
   if (failedResult?.reason) {
     showSnackbar(
       isCoreForbiddenError(failedResult.reason)
-        ? 'Tài khoản hiện tại không có quyền truy cập module Meeting.'
-        : getCoreErrorMessage(failedResult.reason, 'Không thể tải danh sách cuộc họp.'),
+        ? t('meeting.messages.forbiddenModule')
+        : getCoreErrorMessage(failedResult.reason, t('meeting.messages.loadMeetingListError')),
       'error',
     )
   }
@@ -216,7 +220,7 @@ const handleSaveMeeting = async formData => {
 
   isEditorDialogVisible.value = false
   await refreshMeetings()
-  showSnackbar(formData.id ? 'Đã cập nhật cuộc họp.' : 'Đã thêm mới cuộc họp.')
+  showSnackbar(t(formData.id ? 'meeting.messages.updatedMeeting' : 'meeting.messages.createdMeeting'))
 }
 
 const requestDeleteMeeting = id => {
@@ -232,7 +236,7 @@ const confirmDeleteMeeting = async isConfirmed => {
   selectedRows.value = selectedRows.value.filter(id => id !== pendingDeleteMeetingId.value)
   pendingDeleteMeetingId.value = null
   await refreshMeetings()
-  showSnackbar('Đã xóa cuộc họp.')
+  showSnackbar(t('meeting.messages.deletedMeeting'))
 }
 
 const requestStatusChange = (item, status = null) => {
@@ -259,7 +263,7 @@ const confirmStatusChange = async isConfirmed => {
   selectedRows.value = []
   selectedBulkAction.value = undefined
   await refreshMeetings()
-  showSnackbar('Đã cập nhật trạng thái cuộc họp.')
+  showSnackbar(t('meeting.messages.updatedMeetingStatus'))
 }
 
 const handleBulkAction = action => {
@@ -292,7 +296,7 @@ const confirmBulkDelete = async isConfirmed => {
     selectedRows.value = []
     selectedBulkAction.value = undefined
     await refreshMeetings()
-    showSnackbar('Đã xóa các cuộc họp đã chọn.')
+    showSnackbar(t('meeting.messages.deletedSelectedMeetings'))
 
     return
   }
@@ -314,6 +318,7 @@ const exportRowsToWorkbook = (rows, fileName) => {
     updatedAt: item.updatedAt,
     updatedBy: item.updatedBy,
   })))
+
   const workbook = XLSX.utils.book_new()
 
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Meetings')
@@ -323,26 +328,26 @@ const exportRowsToWorkbook = (rows, fileName) => {
 const handleExportMeetings = async scope => {
   if (scope === 'selected') {
     exportRowsToWorkbook(meetings.value.filter(item => selectedRows.value.includes(item.id)), `meetings-selected-${new Date().toISOString().slice(0, 10)}.xlsx`)
-    showSnackbar('Đã xuất dữ liệu cuộc họp.')
+    showSnackbar(t('meeting.messages.exportedMeetings'))
 
     return
   }
 
   if (scope === 'page') {
     exportRowsToWorkbook(meetings.value, `meetings-page-${new Date().toISOString().slice(0, 10)}.xlsx`)
-    showSnackbar('Đã xuất dữ liệu cuộc họp.')
+    showSnackbar(t('meeting.messages.exportedMeetings'))
 
     return
   }
 
   await downloadMeetingsExport(buildQuery({ limit: undefined, page: undefined }))
-  showSnackbar('Đã xuất dữ liệu cuộc họp.')
+  showSnackbar(t('meeting.messages.exportedMeetings'))
 }
 
 const handleImportMeetings = async file => {
   await importMeetings(file)
   await refreshMeetings()
-  showSnackbar('Đã nhập dữ liệu cuộc họp.')
+  showSnackbar(t('meeting.messages.importedMeetings'))
 }
 
 const refreshMeetingsDebounced = useDebounceFn(async () => {
@@ -403,8 +408,8 @@ onMounted(async () => {
 
     <VCard class="mb-6">
       <VCardItem class="pb-4">
-        <VCardTitle>Họp không giấy</VCardTitle>
-        <VCardSubtitle>Danh sách Cuộc họp -> Chi tiết để quản lý tổng quan từng cuộc họp.</VCardSubtitle>
+        <VCardTitle>{{ t('meeting.navigation.module') }}</VCardTitle>
+        <VCardSubtitle>{{ t('meeting.list.subtitle') }}</VCardSubtitle>
       </VCardItem>
 
       <VCardText>
@@ -415,7 +420,7 @@ onMounted(async () => {
           >
             <AppTextField
               v-model="searchQuery"
-              placeholder="Tìm kiếm cuộc họp"
+              :placeholder="t('meeting.list.searchPlaceholder')"
               prepend-inner-icon="tabler-search"
             />
           </VCol>
@@ -427,7 +432,7 @@ onMounted(async () => {
           >
             <AppSelect
               v-model="selectedMeetingType"
-              placeholder="Loại cuộc họp"
+              :placeholder="t('meeting.fields.meeting_type')"
               :items="meetingTypeItems"
               clearable
               clear-icon="tabler-x"
@@ -441,7 +446,7 @@ onMounted(async () => {
           >
             <AppSelect
               v-model="selectedStatus"
-              placeholder="Trạng thái"
+              :placeholder="t('meeting.fields.status')"
               :items="MEETING_STATUS_OPTIONS"
               clearable
               clear-icon="tabler-x"
@@ -454,7 +459,7 @@ onMounted(async () => {
           >
             <AppDateTimePicker
               v-model="fromDate"
-              placeholder="Từ ngày"
+              :placeholder="t('meeting.list.fromDate')"
               :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
             />
           </VCol>
@@ -465,7 +470,7 @@ onMounted(async () => {
           >
             <AppDateTimePicker
               v-model="toDate"
-              placeholder="Đến ngày"
+              :placeholder="t('meeting.list.toDate')"
               :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
             />
           </VCol>
@@ -478,7 +483,7 @@ onMounted(async () => {
         <AppSelect
           v-if="selectedRows.length"
           v-model="selectedBulkAction"
-          placeholder="Hành động"
+          :placeholder="t('meeting.common.action')"
           :items="bulkActions"
           style="inline-size: 13rem;"
           @update:model-value="handleBulkAction"
@@ -494,7 +499,7 @@ onMounted(async () => {
             :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
             @click="isImportDialogVisible = true"
           >
-            <span v-if="!$vuetify.display.smAndDown">Nhập dữ liệu</span>
+            <span v-if="!$vuetify.display.smAndDown">{{ t('meeting.common.importData') }}</span>
           </VBtn>
 
           <VBtn
@@ -504,7 +509,7 @@ onMounted(async () => {
             :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
             @click="isExportDialogVisible = true"
           >
-            <span v-if="!$vuetify.display.smAndDown">Xuất dữ liệu</span>
+            <span v-if="!$vuetify.display.smAndDown">{{ t('meeting.common.exportData') }}</span>
           </VBtn>
 
           <VBtn
@@ -514,7 +519,7 @@ onMounted(async () => {
             :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
             @click="resetFilters"
           >
-            <span v-if="!$vuetify.display.smAndDown">Đặt lại</span>
+            <span v-if="!$vuetify.display.smAndDown">{{ t('meeting.common.reset') }}</span>
           </VBtn>
 
           <VBtn
@@ -522,7 +527,7 @@ onMounted(async () => {
             :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
             @click="openCreateDialog"
           >
-            <span v-if="!$vuetify.display.smAndDown">Thêm mới</span>
+            <span v-if="!$vuetify.display.smAndDown">{{ t('meeting.common.addNew') }}</span>
           </VBtn>
         </div>
       </VCardText>
@@ -557,10 +562,10 @@ onMounted(async () => {
               {{ item.title }}
             </RouterLink>
             <span class="text-sm text-medium-emphasis">
-              {{ item.code || 'Chưa có mã' }} · {{ item.meetingTypeName }} · {{ item.location || 'Chưa có địa điểm' }}
+              {{ item.code || t('meeting.common.noCode') }} · {{ item.meetingTypeName }} · {{ item.location || t('meeting.common.noLocation') }}
             </span>
             <span class="text-sm text-medium-emphasis">
-              {{ item.startAt || 'N/A' }} -> {{ item.endAt || 'N/A' }}
+              {{ item.startAt || t('meeting.common.na') }} -> {{ item.endAt || t('meeting.common.na') }}
             </span>
           </div>
         </template>
@@ -661,21 +666,21 @@ onMounted(async () => {
 
     <ConfirmDialog
       v-model:is-dialog-visible="isDeleteDialogVisible"
-      confirmation-question="Bạn chắc chắn muốn xóa dữ liệu cuộc họp đã chọn?"
-      confirm-title="Đã xóa"
-      confirm-msg="Dữ liệu cuộc họp đã được xóa."
-      cancel-title="Đã hủy"
-      cancel-msg="Dữ liệu cuộc họp được giữ nguyên."
+      :confirmation-question="t('meeting.list.confirmDelete.question')"
+      :confirm-title="t('meeting.list.confirmDelete.confirmTitle')"
+      :confirm-msg="t('meeting.list.confirmDelete.confirmMsg')"
+      :cancel-title="t('meeting.common.cancelledTitle')"
+      :cancel-msg="t('meeting.list.confirmDelete.cancelMsg')"
       @confirm="confirmBulkDelete"
     />
 
     <ConfirmDialog
       v-model:is-dialog-visible="isStatusDialogVisible"
-      confirmation-question="Bạn chắc chắn muốn cập nhật trạng thái cuộc họp?"
-      confirm-title="Đã cập nhật"
-      confirm-msg="Trạng thái cuộc họp đã được cập nhật."
-      cancel-title="Đã hủy"
-      cancel-msg="Trạng thái cuộc họp được giữ nguyên."
+      :confirmation-question="t('meeting.list.confirmStatus.question')"
+      :confirm-title="t('meeting.common.updatedTitle')"
+      :confirm-msg="t('meeting.list.confirmStatus.confirmMsg')"
+      :cancel-title="t('meeting.common.cancelledTitle')"
+      :cancel-msg="t('meeting.list.confirmStatus.cancelMsg')"
       @confirm="confirmStatusChange"
     />
 

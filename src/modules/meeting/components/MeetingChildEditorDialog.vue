@@ -35,14 +35,17 @@ const emit = defineEmits([
   'update:isDialogVisible',
 ])
 
+const { t } = useI18n()
+
 const refForm = ref()
 const formData = ref({})
 const isEditMode = computed(() => Boolean(props.childItem?.id))
+
 const dialogTitle = computed(() => {
   if (props.isReadOnly)
-    return `Xem ${props.childConfig.title.toLowerCase()}`
+    return t('meeting.common.viewItem', { item: props.childConfig.title.toLowerCase() })
 
-  return `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.childConfig.title.toLowerCase()}`
+  return t(isEditMode.value ? 'meeting.common.updateItem' : 'meeting.common.createItem', { item: props.childConfig.title.toLowerCase() })
 })
 
 const createDefaultForm = () => props.childConfig.fields.reduce((acc, field) => {
@@ -55,21 +58,21 @@ const createDefaultForm = () => props.childConfig.fields.reduce((acc, field) => 
 })
 
 const fieldLabel = field => ({
-  content: 'Nội dung',
-  description: 'Mô tả',
-  document_number: 'Số văn bản',
-  duration_minutes: 'Thời lượng',
-  issued_at: 'Ngày ban hành',
-  meetingId: 'Cuộc họp',
-  position: 'Chức vụ',
-  remind_at: 'Thời gian nhắc',
-  review_note: 'Ghi chú duyệt',
-  role: 'Vai trò',
-  sort_order: 'Thứ tự',
-  status: 'Trạng thái',
-  title: 'Tiêu đề',
-  type: 'Loại biểu quyết',
-  user_id: 'Người dùng',
+  content: t('meeting.fields.content'),
+  description: t('meeting.fields.description'),
+  document_number: t('meeting.fields.document_number'),
+  duration_minutes: t('meeting.fields.duration_minutes'),
+  issued_at: t('meeting.fields.issued_at'),
+  meetingId: t('meeting.fields.meeting'),
+  position: t('meeting.fields.position'),
+  remind_at: t('meeting.fields.remind_at'),
+  review_note: t('meeting.fields.review_note'),
+  role: t('meeting.fields.role'),
+  sort_order: t('meeting.fields.sort_order'),
+  status: t('meeting.fields.status'),
+  title: t('meeting.fields.title'),
+  type: t('meeting.fields.voting_type'),
+  user_id: t('meeting.fields.user_id'),
 }[field] ?? field)
 
 const isLongField = field => ['content', 'description', 'review_note'].includes(field)
@@ -162,8 +165,8 @@ watch(() => props.childItem, syncForm, { immediate: true })
                 v-model="formData[field]"
                 :label="fieldLabel(field)"
                 :items="[
-                  { title: 'Công khai', value: 'public' },
-                  { title: 'Ẩn danh', value: 'anonymous' },
+                  { title: t('meeting.votingType.public'), value: 'public' },
+                  { title: t('meeting.votingType.anonymous'), value: 'anonymous' },
                 ]"
                 :readonly="props.isReadOnly"
               />
@@ -214,14 +217,14 @@ watch(() => props.childItem, syncForm, { immediate: true })
           color="secondary"
           @click="closeDialog"
         >
-          Đóng
+          {{ t('meeting.common.close') }}
         </VBtn>
 
         <VBtn
           v-if="!props.isReadOnly"
           @click="handleSave"
         >
-          Lưu
+          {{ t('meeting.common.save') }}
         </VBtn>
       </VCardText>
     </VCard>

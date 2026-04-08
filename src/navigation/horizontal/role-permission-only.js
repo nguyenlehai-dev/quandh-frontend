@@ -1,3 +1,7 @@
+import { getI18n } from '@/plugins/i18n'
+
+const t = key => getI18n().global.t(key)
+
 export default [
   {
     title: 'Hồ sơ cá nhân',
@@ -12,25 +16,21 @@ export default [
     ],
   },
   {
-    title: 'Họp không giấy',
+    title: t('meeting.navigation.module'),
     icon: { icon: 'tabler-calendar-event' },
     action: 'read',
     subject: 'Meeting',
     children: [
-      { title: 'Danh sách Cuộc họp', to: 'apps-meetings', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Biểu quyết', to: 'apps-meeting-votings', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Tài liệu', to: 'apps-meeting-documents', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Kết luận', to: 'apps-meeting-conclusions', action: 'read', subject: 'Meeting' },
       {
-        title: 'Danh mục',
+        title: t('meeting.navigation.catalog'),
         children: [
-          { title: 'Người dự họp', to: 'apps-meeting-attendees', action: 'read', subject: 'Meeting' },
-          { title: 'Nhóm người dự họp', to: 'apps-meeting-catalog-attendee-groups', action: 'read', subject: 'Meeting' },
-          { title: 'Loại tài liệu', to: 'apps-meeting-catalog-meeting-document-types', action: 'read', subject: 'Meeting' },
-          { title: 'Lĩnh vực tài liệu', to: 'apps-meeting-catalog-meeting-document-fields', action: 'read', subject: 'Meeting' },
-          { title: 'Loại cuộc họp', to: 'apps-meeting-catalog-meeting-types', action: 'read', subject: 'Meeting' },
-          { title: 'Người ký tài liệu', to: 'apps-meeting-catalog-meeting-document-signers', action: 'read', subject: 'Meeting' },
-          { title: 'Cơ quan ban hành', to: 'apps-meeting-catalog-meeting-issuing-agencies', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.childTabs.participants'), to: 'apps-meeting-attendees', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.attendee_groups.title'), to: 'apps-meeting-catalog-attendee-groups', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.meeting_document_types.title'), to: 'apps-meeting-catalog-meeting-document-types', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.meeting_document_fields.title'), to: 'apps-meeting-catalog-meeting-document-fields', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.meeting_types.title'), to: 'apps-meeting-catalog-meeting-types', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.meeting_document_signers.title'), to: 'apps-meeting-catalog-meeting-document-signers', action: 'read', subject: 'Meeting' },
+          { title: t('meeting.catalogs.meeting_issuing_agencies.title'), to: 'apps-meeting-catalog-meeting-issuing-agencies', action: 'read', subject: 'Meeting' },
         ],
       },
     ],

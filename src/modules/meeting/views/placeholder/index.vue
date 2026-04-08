@@ -1,8 +1,9 @@
 <script setup>
+const { t } = useI18n()
 const route = useRoute()
 
-const pageTitle = computed(() => route.meta.title ?? 'Chức năng cuộc họp')
-const pageDescription = computed(() => route.meta.description ?? 'Chức năng này được quản lý trong chi tiết từng cuộc họp.')
+const pageTitle = computed(() => route.meta.title ?? t('meeting.placeholder.title'))
+const pageDescription = computed(() => route.meta.description ?? t('meeting.placeholder.description'))
 const pageIcon = computed(() => route.meta.icon ?? 'tabler-calendar-event')
 </script>
 
@@ -38,7 +39,7 @@ const pageIcon = computed(() => route.meta.icon ?? 'tabler-calendar-event')
             :to="{ name: 'apps-meetings' }"
             prepend-icon="tabler-list-details"
           >
-            Mở danh sách cuộc họp
+            {{ t('meeting.placeholder.openMeetingList') }}
           </VBtn>
         </div>
 
@@ -47,7 +48,7 @@ const pageIcon = computed(() => route.meta.icon ?? 'tabler-calendar-event')
           variant="tonal"
           border="start"
         >
-          Dữ liệu đã seed cho biểu quyết, tài liệu, kết luận và người dự họp nằm trong chi tiết từng cuộc họp. Hãy mở Danh sách Cuộc họp, chọn cuộc họp mẫu để quản trị các dữ liệu này.
+          {{ t('meeting.placeholder.seedHint') }}
         </VAlert>
       </VCardText>
     </VCard>

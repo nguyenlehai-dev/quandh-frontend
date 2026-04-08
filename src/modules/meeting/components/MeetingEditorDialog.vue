@@ -21,10 +21,12 @@ const emit = defineEmits([
   'update:isDialogVisible',
 ])
 
+const { t } = useI18n()
+
 const refForm = ref()
 const formData = ref({})
 const isEditMode = computed(() => Boolean(props.meeting?.id))
-const dialogTitle = computed(() => isEditMode.value ? 'Cập nhật cuộc họp' : 'Thêm mới cuộc họp')
+const dialogTitle = computed(() => t(isEditMode.value ? 'meeting.common.updateMeeting' : 'meeting.common.createMeeting'))
 
 const createDefaultForm = () => ({
   id: null,
@@ -88,8 +90,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppTextField
                 v-model="formData.title"
-                label="Tên module"
-                placeholder="Ví dụ: Họp không giấy"
+                :label="t('meeting.fields.module_name')"
+                :placeholder="t('meeting.placeholders.meetingExample')"
                 :rules="[requiredValidator]"
               />
             </VCol>
@@ -100,7 +102,7 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppTextField
                 v-model="formData.code"
-                label="Mã cuộc họp"
+                :label="t('meeting.fields.meeting_code')"
                 placeholder="HOP-2026-001"
               />
             </VCol>
@@ -111,8 +113,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppSelect
                 v-model="formData.meetingTypeId"
-                label="Loại cuộc họp"
-                placeholder="Chọn loại cuộc họp"
+                :label="t('meeting.fields.meeting_type')"
+                :placeholder="t('meeting.placeholders.selectMeetingType')"
                 :items="props.meetingTypes"
                 clearable
                 clear-icon="tabler-x"
@@ -125,8 +127,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppTextField
                 v-model="formData.location"
-                label="Địa điểm"
-                placeholder="Phòng họp A"
+                :label="t('meeting.fields.location')"
+                :placeholder="t('meeting.placeholders.locationExample')"
               />
             </VCol>
 
@@ -136,8 +138,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppDateTimePicker
                 v-model="formData.startAt"
-                label="Thời gian bắt đầu"
-                placeholder="Chọn thời gian"
+                :label="t('meeting.fields.start_time')"
+                :placeholder="t('meeting.placeholders.selectTime')"
                 :rules="[requiredValidator]"
                 :config="{ enableTime: true, altFormat: 'd/m/Y H:i', altInput: true, dateFormat: 'Y-m-d H:i:S' }"
               />
@@ -149,8 +151,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppDateTimePicker
                 v-model="formData.endAt"
-                label="Thời gian kết thúc"
-                placeholder="Chọn thời gian"
+                :label="t('meeting.fields.end_time')"
+                :placeholder="t('meeting.placeholders.selectTime')"
                 :config="{ enableTime: true, altFormat: 'd/m/Y H:i', altInput: true, dateFormat: 'Y-m-d H:i:S' }"
               />
             </VCol>
@@ -161,7 +163,7 @@ watch(() => props.meeting, syncForm, { immediate: true })
             >
               <AppSelect
                 v-model="formData.status"
-                label="Trạng thái"
+                :label="t('meeting.fields.status')"
                 :items="MEETING_STATUS_OPTIONS"
               />
             </VCol>
@@ -169,8 +171,8 @@ watch(() => props.meeting, syncForm, { immediate: true })
             <VCol cols="12">
               <AppTextarea
                 v-model="formData.description"
-                label="Mô tả"
-                placeholder="Nội dung tổng quan cuộc họp"
+                :label="t('meeting.fields.description')"
+                :placeholder="t('meeting.placeholders.meetingDescription')"
                 rows="3"
               />
             </VCol>
@@ -184,11 +186,11 @@ watch(() => props.meeting, syncForm, { immediate: true })
           color="secondary"
           @click="closeDialog"
         >
-          Đóng
+          {{ t('meeting.common.close') }}
         </VBtn>
 
         <VBtn @click="handleSave">
-          Lưu
+          {{ t('meeting.common.save') }}
         </VBtn>
       </VCardText>
     </VCard>

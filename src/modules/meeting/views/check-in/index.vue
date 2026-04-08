@@ -5,6 +5,8 @@ import { checkInMeetingByQr, getMeeting } from '@/modules/meeting/services/meeti
 import { mapMeetingToViewModel } from '@/modules/meeting/utils/meetingAdapters'
 import { getCoreErrorMessage } from '@/modules/core/utils/coreErrors'
 
+const { t } = useI18n()
+
 const route = useRoute()
 const router = useRouter()
 const { hydratePendingSnackbar, isSnackbarVisible, snackbarColor, snackbarText, showSnackbar } = useOperationSnackbar()
@@ -17,18 +19,19 @@ const isCheckedIn = ref(false)
 
 const meetingId = computed(() => route.query.meeting_id ? String(route.query.meeting_id) : '')
 const qrToken = computed(() => route.query.qr_token ? String(route.query.qr_token) : '')
+
 const meetingTimeRange = computed(() => {
   if (!meeting.value)
-    return 'N/A'
+    return t('meeting.common.na')
 
   return `${meeting.value.startAt || 'N/A'} -> ${meeting.value.endAt || 'N/A'}`
 })
 
 const currentUserLabel = computed(() => {
   if (!currentUser.value)
-    return 'Chưa xác định người dùng'
+    return t('meeting.checkIn.unknownUser')
 
-  return currentUser.value.fullName || currentUser.value.name || currentUser.value.username || currentUser.value.email || 'Người dùng hiện tại'
+  return currentUser.value.fullName || currentUser.value.name || currentUser.value.username || currentUser.value.email || t('meeting.checkIn.currentUser')
 })
 
 const ensureAuthenticated = async () => {
@@ -47,7 +50,7 @@ const ensureAuthenticated = async () => {
 
 const loadMeeting = async () => {
   if (!meetingId.value || !qrToken.value) {
-    showSnackbar('Mã QR không hợp lệ hoặc đã thiếu dữ liệu.', 'error')
+    showSnackbar(t('meeting.checkIn.invalidQr'), 'error')
 
     return
   }
@@ -60,7 +63,7 @@ const loadMeeting = async () => {
     meeting.value = mapMeetingToViewModel(response.data)
   }
   catch (error) {
-    showSnackbar(getCoreErrorMessage(error, 'Không thể tải thông tin cuộc họp từ QR.'), 'error')
+    showSnackbar(getCoreErrorMessage(error, t('meeting.checkIn.loadMeetingError')), 'error')
   }
   finally {
     isLoading.value = false
@@ -79,10 +82,10 @@ const handleJoinMeeting = async () => {
       user_id: currentUser.value?.id ?? undefined,
     })
     isCheckedIn.value = true
-    showSnackbar('Đã ghi nhận tham gia cuộc họp thành công.')
+    showSnackbar(t('meeting.checkIn.joinSuccess'))
   }
   catch (error) {
-    showSnackbar(getCoreErrorMessage(error, 'Không thể xác nhận tham gia cuộc họp.'), 'error')
+    showSnackbar(getCoreErrorMessage(error, t('meeting.checkIn.joinError')), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -122,13 +125,13 @@ onMounted(async () => {
         <VCard>
           <VCardText class="pa-6">
             <div class="text-overline text-medium-emphasis mb-2">
-              Xác nhận tham gia
+              {{ t('meeting.checkIn.overline') }}
             </div>
             <h4 class="text-h4 mb-2">
-              {{ meeting?.title || 'Cuộc họp từ mã QR' }}
+              {{ meeting?.title || t('meeting.checkIn.titleFallback') }}
             </h4>
             <p class="text-body-1 text-medium-emphasis mb-6">
-              Hệ thống đang nhận diện người tham gia từ tài khoản đang đăng nhập trên điện thoại.
+              {{ t('meeting.checkIn.subtitle') }}
             </p>
 
             <VProgressLinear
@@ -144,7 +147,7 @@ onMounted(async () => {
               variant="tonal"
               class="mb-6"
             >
-              Đã xác nhận tham gia cho <strong>{{ currentUserLabel }}</strong>.
+              {{ t('meeting.checkIn.checkedInPrefix') }} <strong>{{ currentUserLabel }}</strong>.
             </VAlert>
 
             <VList
@@ -156,14 +159,14 @@ onMounted(async () => {
                   <VIcon icon="tabler-user" />
                 </template>
                 <VListItemTitle>{{ currentUserLabel }}</VListItemTitle>
-                <VListItemSubtitle>{{ currentUser?.email || 'Không có email' }}</VListItemSubtitle>
+                <VListItemSubtitle>{{ currentUser?.email || t('meeting.checkIn.noEmail') }}</VListItemSubtitle>
               </VListItem>
 
               <VListItem>
                 <template #prepend>
                   <VIcon icon="tabler-calendar-event" />
                 </template>
-                <VListItemTitle>{{ meeting?.code || 'Chưa có mã cuộc họp' }}</VListItemTitle>
+                <VListItemTitle>{{ meeting?.code || t('meeting.common.noMeetingCode') }}</VListItemTitle>
                 <VListItemSubtitle>{{ meetingTimeRange }}</VListItemSubtitle>
               </VListItem>
 
@@ -171,8 +174,8 @@ onMounted(async () => {
                 <template #prepend>
                   <VIcon icon="tabler-map-pin" />
                 </template>
-                <VListItemTitle>{{ meeting?.location || 'Chưa có địa điểm' }}</VListItemTitle>
-                <VListItemSubtitle>{{ meeting?.meetingTypeName || 'Cuộc họp' }}</VListItemSubtitle>
+                <VListItemTitle>{{ meeting?.location || t('meeting.common.noLocation') }}</VListItemTitle>
+                <VListItemSubtitle>{{ meeting?.meetingTypeName || t('meeting.common.meeting') }}</VListItemSubtitle>
               </VListItem>
             </VList>
 
@@ -181,7 +184,7 @@ onMounted(async () => {
               variant="tonal"
               class="mb-6"
             >
-              Nếu đây không phải tên của bạn, bấm <strong>Hủy</strong> rồi dùng điện thoại đúng tài khoản để quét lại mã.
+              {{ t('meeting.checkIn.cancelHint') }}
             </VAlert>
 
             <div class="d-flex justify-end flex-wrap gap-3">
@@ -190,7 +193,7 @@ onMounted(async () => {
                 color="secondary"
                 @click="handleCancel"
               >
-                Hủy
+                {{ t('meeting.common.cancel') }}
               </VBtn>
 
               <VBtn
@@ -199,7 +202,7 @@ onMounted(async () => {
                 :disabled="!meeting || isCheckedIn"
                 @click="handleJoinMeeting"
               >
-                Tham gia
+                {{ t('meeting.checkIn.joinButton') }}
               </VBtn>
             </div>
           </VCardText>

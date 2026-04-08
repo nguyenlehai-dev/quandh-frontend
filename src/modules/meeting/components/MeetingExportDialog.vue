@@ -1,12 +1,14 @@
 <script setup>
+const { t } = useI18n()
+
 const props = defineProps({
   alertText: {
     type: String,
-    default: 'Dữ liệu sẽ được xuất dưới dạng tệp Excel `.xlsx`.',
+    default: '',
   },
   dialogTitle: {
     type: String,
-    default: 'Xuất dữ liệu cuộc họp',
+    default: '',
   },
   isDialogVisible: {
     type: Boolean,
@@ -28,18 +30,20 @@ const emit = defineEmits([
 ])
 
 const exportScope = ref('filtered')
+const resolvedAlertText = computed(() => props.alertText || t('meeting.dialogs.export.defaultAlert'))
+const resolvedDialogTitle = computed(() => props.dialogTitle || t('meeting.dialogs.export.defaultTitle'))
 
 const exportScopeOptions = computed(() => {
   if (props.scopeOptions.length)
     return props.scopeOptions
 
   const options = [
-    { title: 'Toàn bộ dữ liệu đã lọc', value: 'filtered' },
-    { title: 'Trang hiện tại', value: 'page' },
+    { title: t('meeting.exportScope.filtered'), value: 'filtered' },
+    { title: t('meeting.exportScope.page'), value: 'page' },
   ]
 
   if (props.selectedCount)
-    options.unshift({ title: `Dòng đang chọn (${props.selectedCount})`, value: 'selected' })
+    options.unshift({ title: t('meeting.exportScope.selected', { count: props.selectedCount }), value: 'selected' })
 
   return options
 })
@@ -71,14 +75,14 @@ watch(
   >
     <DialogCloseBtn @click="closeDialog" />
 
-    <VCard :title="props.dialogTitle">
+    <VCard :title="resolvedDialogTitle">
       <VCardText>
         <VRow>
           <VCol cols="12">
             <AppSelect
               v-model="exportScope"
-              label="Phạm vi xuất"
-              placeholder="Chọn phạm vi"
+              :label="t('meeting.dialogs.export.scopeLabel')"
+              :placeholder="t('meeting.dialogs.export.scopePlaceholder')"
               :items="exportScopeOptions"
             />
           </VCol>
@@ -89,7 +93,7 @@ watch(
               color="success"
               icon="tabler-file-spreadsheet"
             >
-              {{ props.alertText }}
+              {{ resolvedAlertText }}
             </VAlert>
           </VCol>
         </VRow>
@@ -101,14 +105,14 @@ watch(
           color="secondary"
           @click="closeDialog"
         >
-          Đóng
+          {{ t('meeting.common.close') }}
         </VBtn>
 
         <VBtn
           prepend-icon="tabler-download"
           @click="handleExport"
         >
-          Xuất dữ liệu
+          {{ t('meeting.common.exportData') }}
         </VBtn>
       </VCardText>
     </VCard>
