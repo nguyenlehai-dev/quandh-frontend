@@ -19,8 +19,8 @@ export const MEETING_CATALOGS = {
     subject: 'MeetingType',
   },
   'attendee-groups': {
-    title: 'Thành viên nhóm',
-    singularTitle: 'nhóm tham dự',
+    title: 'Nhóm người dự họp',
+    singularTitle: 'nhóm người dự họp',
     icon: 'tabler-users-group',
     subject: 'AttendeeGroup',
     usesMeetingType: true,

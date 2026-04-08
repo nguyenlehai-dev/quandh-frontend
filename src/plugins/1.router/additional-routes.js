@@ -217,11 +217,41 @@ export const routes = [
     },
   },
   {
+    path: '/apps/meeting/catalog/meeting-document-fields',
+    name: 'apps-meeting-catalog-meeting-document-fields',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'meeting-document-fields',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
     path: '/apps/meeting/catalog/meeting-types',
     name: 'apps-meeting-catalog-meeting-types',
     component: meetingCatalogComponent,
     meta: {
       meetingCatalogResource: 'meeting-types',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/meeting-document-signers',
+    name: 'apps-meeting-catalog-meeting-document-signers',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'meeting-document-signers',
+      action: 'read',
+      subject: 'Meeting',
+    },
+  },
+  {
+    path: '/apps/meeting/catalog/meeting-issuing-agencies',
+    name: 'apps-meeting-catalog-meeting-issuing-agencies',
+    component: meetingCatalogComponent,
+    meta: {
+      meetingCatalogResource: 'meeting-issuing-agencies',
       action: 'read',
       subject: 'Meeting',
     },
