@@ -4,6 +4,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  selectItems: {
+    type: Object,
+    default: () => ({}),
+  },
   childItem: {
     type: Object,
     default: null,
@@ -44,7 +48,7 @@ const fieldLabel = field => ({
   status: 'Trạng thái',
   title: 'Tiêu đề',
   type: 'Loại biểu quyết',
-  user_id: 'ID người dùng',
+  user_id: 'Người dùng',
 }[field] ?? field)
 
 const isLongField = field => ['content', 'description', 'review_note'].includes(field)
@@ -116,6 +120,14 @@ watch(() => props.childItem, syncForm, { immediate: true })
                   { title: 'Công khai', value: 'public' },
                   { title: 'Ẩn danh', value: 'anonymous' },
                 ]"
+              />
+
+              <AppSelect
+                v-else-if="props.selectItems[field]"
+                v-model="formData[field]"
+                :label="fieldLabel(field)"
+                :items="props.selectItems[field]"
+                :rules="isRequired(field) ? [requiredValidator] : []"
               />
 
               <AppDateTimePicker

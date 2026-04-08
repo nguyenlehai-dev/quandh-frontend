@@ -4,6 +4,7 @@ import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/
 import MeetingChildEditorDialog from '@/modules/meeting/components/MeetingChildEditorDialog.vue'
 import MeetingEditorDialog from '@/modules/meeting/components/MeetingEditorDialog.vue'
 import { MEETING_CHILD_TABS, MEETING_STATUS_OPTIONS, getOptionColor, getOptionTitle } from '@/modules/meeting/configs/meetingOptions'
+import { getCoreUsers } from '@/modules/user-management/services/coreUsers'
 import {
   createMeetingChild,
   deleteMeetingChild,
@@ -22,6 +23,7 @@ const { hydratePendingSnackbar, isSnackbarVisible, snackbarColor, snackbarText, 
 const meetingId = computed(() => route.params.id)
 const meeting = ref(null)
 const meetingTypes = ref([])
+const userOptions = ref([])
 const activeTab = ref('participants')
 const isLoading = ref(false)
 const isEditorDialogVisible = ref(false)
@@ -35,6 +37,10 @@ const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
   title: item.name ?? item.title,
   value: item.id ?? item.value,
 })))
+
+const childSelectItems = computed(() => ({
+  user_id: userOptions.value,
+}))
 
 const childRows = computed(() => {
   if (!meeting.value)
@@ -107,14 +113,27 @@ const loadMeeting = async () => {
 }
 
 const loadReferenceData = async () => {
-  try {
-    const response = await getMeetingPublicOptions('meeting-types')
+  const [meetingTypesResult, usersResult] = await Promise.allSettled([
+    getMeetingPublicOptions('meeting-types'),
+    getCoreUsers({
+      limit: 100,
+      page: 1,
+      sortBy: 'name',
+      sortOrder: 'asc',
+      status: 'active',
+    }),
+  ])
 
-    meetingTypes.value = response.data ?? []
-  }
-  catch {
-    meetingTypes.value = []
-  }
+  meetingTypes.value = meetingTypesResult.status === 'fulfilled'
+    ? (meetingTypesResult.value.data ?? [])
+    : []
+
+  userOptions.value = usersResult.status === 'fulfilled'
+    ? (usersResult.value.data ?? []).map(item => ({
+        title: `${item.name} (${item.email})`,
+        value: item.id,
+      }))
+    : []
 }
 
 const handleSaveMeeting = async formData => {
@@ -497,6 +516,7 @@ onMounted(async () => {
       v-model:is-dialog-visible="isChildDialogVisible"
       :child-config="activeChildConfig"
       :child-item="editedChildItem"
+      :select-items="childSelectItems"
       @save="handleSaveChild"
     />
 
