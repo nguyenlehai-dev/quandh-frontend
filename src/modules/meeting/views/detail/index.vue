@@ -40,7 +40,13 @@ const childRows = computed(() => {
   if (!meeting.value)
     return []
 
-  return meeting.value[activeChildConfig.value.responseKey] ?? []
+  return (meeting.value[activeChildConfig.value.responseKey] ?? []).map(item => ({
+    ...item,
+    createdAt: item.createdAt ?? item.created_at ?? 'N/A',
+    updatedAt: item.updatedAt ?? item.updated_at ?? 'N/A',
+    createdBy: item.createdBy ?? item.created_by_name ?? item.created_by ?? 'N/A',
+    updatedBy: item.updatedBy ?? item.updated_by_name ?? item.updated_by ?? 'N/A',
+  }))
 })
 
 const overviewCards = computed(() => [
@@ -73,6 +79,8 @@ const overviewCards = computed(() => [
 const childHeaders = [
   { title: 'STT', key: 'stt', sortable: false, align: 'center' },
   { title: 'TÊN MODULE', key: 'module' },
+  { title: 'NGÀY TẠO', key: 'createdAt' },
+  { title: 'CẬP NHẬT', key: 'updatedAt' },
   { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center' },
 ]
@@ -444,6 +452,20 @@ onMounted(async () => {
                 >
                   {{ resolveChildStatusTitle(item) }}
                 </VChip>
+              </div>
+            </template>
+
+            <template #item.createdAt="{ item }">
+              <div class="d-flex flex-column">
+                <span class="text-body-2 text-primary font-weight-medium">{{ item.createdBy }}</span>
+                <span class="text-body-2 text-medium-emphasis">{{ item.createdAt }}</span>
+              </div>
+            </template>
+
+            <template #item.updatedAt="{ item }">
+              <div class="d-flex flex-column">
+                <span class="text-body-2 text-primary font-weight-medium">{{ item.updatedBy }}</span>
+                <span class="text-body-2 text-medium-emphasis">{{ item.updatedAt }}</span>
               </div>
             </template>
 

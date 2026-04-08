@@ -4,7 +4,7 @@ import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/
 import MeetingEditorDialog from '@/modules/meeting/components/MeetingEditorDialog.vue'
 import MeetingExportDialog from '@/modules/meeting/components/MeetingExportDialog.vue'
 import MeetingImportDialog from '@/modules/meeting/components/MeetingImportDialog.vue'
-import { MEETING_STATUS_OPTIONS, getOptionColor, getOptionTitle } from '@/modules/meeting/configs/meetingOptions'
+import { MEETING_STATUS_OPTIONS } from '@/modules/meeting/configs/meetingOptions'
 import {
   bulkDeleteMeetings,
   bulkUpdateMeetingStatus,
@@ -58,9 +58,9 @@ const meetingStats = ref({
 const headers = [
   { title: 'STT', key: 'stt', sortable: false, align: 'center' },
   { title: 'TÊN MODULE', key: 'module' },
-  { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'NGÀY TẠO', key: 'createdAt' },
-  { title: 'NGÀY CẬP NHẬT', key: 'updatedAt' },
+  { title: 'CẬP NHẬT', key: 'updatedAt' },
+  { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center' },
 ]
 
@@ -127,9 +127,6 @@ const resetFilters = () => {
   toDate.value = ''
   page.value = 1
 }
-
-const resolveStatusColor = status => getOptionColor(MEETING_STATUS_OPTIONS, status)
-const resolveStatusTitle = status => getOptionTitle(MEETING_STATUS_OPTIONS, status)
 
 const buildQuery = extra => ({
   fromDate: fromDate.value,
@@ -569,7 +566,7 @@ onMounted(async () => {
         </template>
 
         <template #item.status="{ item }">
-          <div class="d-flex align-center justify-center gap-2">
+          <div class="d-flex align-center justify-center">
             <VSwitch
               :model-value="item.status === 'active'"
               color="primary"
@@ -577,13 +574,6 @@ onMounted(async () => {
               class="mt-0"
               @update:model-value="requestStatusChange(item)"
             />
-            <VChip
-              size="small"
-              label
-              :color="resolveStatusColor(item.status)"
-            >
-              {{ resolveStatusTitle(item.status) }}
-            </VChip>
           </div>
         </template>
 

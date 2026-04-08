@@ -53,9 +53,9 @@ const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
 const headers = [
   { title: 'STT', key: 'stt', sortable: false, align: 'center' },
   { title: 'TÊN MODULE', key: 'module' },
-  { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'NGÀY TẠO', key: 'createdAt' },
-  { title: 'NGÀY CẬP NHẬT', key: 'updatedAt' },
+  { title: 'CẬP NHẬT', key: 'updatedAt' },
+  { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center' },
 ]
 
