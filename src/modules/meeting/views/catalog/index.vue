@@ -2,7 +2,7 @@
 import { useOperationSnackbar } from '@/composables/useOperationSnackbar'
 import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/coreErrors'
 import MeetingCatalogEditorDialog from '@/modules/meeting/components/MeetingCatalogEditorDialog.vue'
-import { CATALOG_STATUS_OPTIONS, MEETING_CATALOGS, getOptionColor, getOptionTitle } from '@/modules/meeting/configs/meetingOptions'
+import { CATALOG_STATUS_OPTIONS, MEETING_CATALOGS } from '@/modules/meeting/configs/meetingOptions'
 import {
   bulkDeleteMeetingCatalog,
   bulkUpdateMeetingCatalogStatus,
@@ -24,6 +24,7 @@ const searchQuery = ref('')
 const selectedStatus = ref()
 const selectedMeetingType = ref()
 const isEditorDialogVisible = ref(false)
+const isViewMode = ref(false)
 const isDeleteDialogVisible = ref(false)
 const isStatusDialogVisible = ref(false)
 const editedItem = ref(null)
@@ -172,15 +173,29 @@ const resetFilters = () => {
 
 const openCreateDialog = () => {
   editedItem.value = null
+  isViewMode.value = false
   isEditorDialogVisible.value = true
 }
 
 const openEditDialog = item => {
   editedItem.value = { ...item }
+  isViewMode.value = false
+  isEditorDialogVisible.value = true
+}
+
+const openViewDialog = item => {
+  editedItem.value = { ...item }
+  isViewMode.value = true
   isEditorDialogVisible.value = true
 }
 
 const handleSaveItem = async formData => {
+  if (isViewMode.value) {
+    isEditorDialogVisible.value = false
+
+    return
+  }
+
   const payload = toCatalogPayload(formData)
 
   if (!catalogConfig.value.usesMeetingType)
@@ -445,7 +460,7 @@ onMounted(async () => {
         </template>
 
         <template #item.status="{ item }">
-          <div class="d-flex align-center justify-center gap-2">
+          <div class="d-flex align-center justify-center">
             <VSwitch
               :model-value="item.status === 'active'"
               color="primary"
@@ -453,13 +468,6 @@ onMounted(async () => {
               class="mt-0"
               @update:model-value="requestStatusChange(item)"
             />
-            <VChip
-              size="small"
-              label
-              :color="getOptionColor(CATALOG_STATUS_OPTIONS, item.status)"
-            >
-              {{ getOptionTitle(CATALOG_STATUS_OPTIONS, item.status) }}
-            </VChip>
           </div>
         </template>
 
@@ -479,6 +487,10 @@ onMounted(async () => {
 
         <template #item.actions="{ item }">
           <div class="d-flex align-center justify-center">
+            <IconBtn @click="openViewDialog(item)">
+              <VIcon icon="tabler-eye" />
+            </IconBtn>
+
             <IconBtn @click="openEditDialog(item)">
               <VIcon icon="tabler-pencil" />
             </IconBtn>
@@ -523,13 +535,14 @@ onMounted(async () => {
       </VDataTableServer>
     </VCard>
 
-    <MeetingCatalogEditorDialog
-      v-model:is-dialog-visible="isEditorDialogVisible"
-      :catalog-config="catalogConfig"
-      :catalog-item="editedItem"
-      :meeting-types="meetingTypeItems"
-      @save="handleSaveItem"
-    />
+      <MeetingCatalogEditorDialog
+        v-model:is-dialog-visible="isEditorDialogVisible"
+        :catalog-config="catalogConfig"
+        :catalog-item="editedItem"
+        :is-read-only="isViewMode"
+        :meeting-types="meetingTypeItems"
+        @save="handleSaveItem"
+      />
 
     <ConfirmDialog
       v-model:is-dialog-visible="isDeleteDialogVisible"

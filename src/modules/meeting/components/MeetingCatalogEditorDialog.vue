@@ -14,6 +14,10 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
+  isReadOnly: {
+    type: Boolean,
+    default: false,
+  },
   meetingTypes: {
     type: Array,
     default: () => [],
@@ -28,7 +32,12 @@ const emit = defineEmits([
 const refForm = ref()
 const formData = ref({})
 const isEditMode = computed(() => Boolean(props.catalogItem?.id))
-const dialogTitle = computed(() => `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.catalogConfig.singularTitle}`)
+const dialogTitle = computed(() => {
+  if (props.isReadOnly)
+    return `Xem ${props.catalogConfig.singularTitle}`
+
+  return `${isEditMode.value ? 'Cập nhật' : 'Thêm mới'} ${props.catalogConfig.singularTitle}`
+})
 
 const createDefaultForm = () => ({
   id: null,
@@ -92,6 +101,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
                 label="Tên module"
                 :placeholder="props.catalogConfig.title"
                 :rules="[requiredValidator]"
+                :readonly="props.isReadOnly"
               />
             </VCol>
 
@@ -104,6 +114,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
                 v-model="formData.position"
                 label="Chức vụ"
                 placeholder="Ví dụ: Giám đốc"
+                :readonly="props.isReadOnly"
               />
             </VCol>
 
@@ -115,6 +126,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
                 v-model="formData.status"
                 label="Trạng thái"
                 :items="CATALOG_STATUS_OPTIONS"
+                :readonly="props.isReadOnly"
               />
             </VCol>
 
@@ -130,6 +142,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
                 :items="props.meetingTypes"
                 clearable
                 clear-icon="tabler-x"
+                :readonly="props.isReadOnly"
               />
             </VCol>
 
@@ -138,6 +151,7 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
                 v-model="formData.description"
                 label="Mô tả"
                 rows="3"
+                :readonly="props.isReadOnly"
               />
             </VCol>
           </VRow>
@@ -153,7 +167,10 @@ watch(() => props.catalogItem, syncForm, { immediate: true })
           Đóng
         </VBtn>
 
-        <VBtn @click="handleSave">
+        <VBtn
+          v-if="!props.isReadOnly"
+          @click="handleSave"
+        >
           Lưu
         </VBtn>
       </VCardText>
