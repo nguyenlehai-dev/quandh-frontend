@@ -4,6 +4,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  meetingItems: {
+    type: Array,
+    default: () => [],
+  },
   selectItems: {
     type: Object,
     default: () => ({}),
@@ -19,6 +23,10 @@ const props = defineProps({
   isDialogVisible: {
     type: Boolean,
     required: true,
+  },
+  lockMeeting: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -41,7 +49,10 @@ const createDefaultForm = () => props.childConfig.fields.reduce((acc, field) => 
   acc[field] = field === 'status' ? props.childConfig.statusOptions?.[0]?.value ?? '' : ''
 
   return acc
-}, { id: null })
+}, {
+  id: null,
+  meetingId: null,
+})
 
 const fieldLabel = field => ({
   content: 'Nội dung',
@@ -49,6 +60,7 @@ const fieldLabel = field => ({
   document_number: 'Số văn bản',
   duration_minutes: 'Thời lượng',
   issued_at: 'Ngày ban hành',
+  meetingId: 'Cuộc họp',
   position: 'Chức vụ',
   remind_at: 'Thời gian nhắc',
   review_note: 'Ghi chú duyệt',
@@ -68,6 +80,10 @@ const syncForm = () => {
   formData.value = props.childItem
     ? { ...createDefaultForm(), ...props.childItem }
     : createDefaultForm()
+
+  if (!formData.value.meetingId && props.meetingItems.length === 1)
+    formData.value.meetingId = props.meetingItems[0]?.value ?? null
+
   refForm.value?.resetValidation()
 }
 
@@ -114,6 +130,19 @@ watch(() => props.childItem, syncForm, { immediate: true })
           @submit.prevent="handleSave"
         >
           <VRow>
+            <VCol
+              v-if="props.meetingItems.length"
+              cols="12"
+            >
+              <AppSelect
+                v-model="formData.meetingId"
+                :label="fieldLabel('meetingId')"
+                :items="props.meetingItems"
+                :rules="[requiredValidator]"
+                :readonly="props.isReadOnly || props.lockMeeting"
+              />
+            </VCol>
+
             <VCol
               v-for="field in props.childConfig.fields"
               :key="field"

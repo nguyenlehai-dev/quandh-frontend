@@ -12,7 +12,7 @@ const currentProfileComponent = () => import('@/modules/auth/views/profile.vue')
 const meetingListComponent = () => import('@/modules/meeting/views/list/index.vue')
 const meetingDetailComponent = () => import('@/modules/meeting/views/detail/index.vue')
 const meetingCatalogComponent = () => import('@/modules/meeting/views/catalog/index.vue')
-const meetingPlaceholderComponent = () => import('@/modules/meeting/views/placeholder/index.vue')
+const meetingChildListComponent = () => import('@/modules/meeting/views/child-list/index.vue')
 
 // 👉 Redirects
 export const redirects = [
@@ -151,11 +151,12 @@ export const routes = [
   {
     path: '/apps/meeting/votings',
     name: 'apps-meeting-votings',
-    component: meetingPlaceholderComponent,
+    component: meetingChildListComponent,
     meta: {
       title: 'Danh sách Biểu quyết',
-      description: 'Biểu quyết được tạo và quản lý trong chi tiết từng cuộc họp.',
+      description: 'Quản trị tập trung danh sách biểu quyết theo toàn bộ cuộc họp.',
       icon: 'tabler-chart-bar',
+      meetingChildKey: 'votings',
       action: 'read',
       subject: 'Meeting',
     },
@@ -163,11 +164,12 @@ export const routes = [
   {
     path: '/apps/meeting/documents',
     name: 'apps-meeting-documents',
-    component: meetingPlaceholderComponent,
+    component: meetingChildListComponent,
     meta: {
       title: 'Danh sách Tài liệu',
-      description: 'Tài liệu được quản lý theo từng cuộc họp để gắn đúng ngữ cảnh phát hành và sử dụng.',
+      description: 'Quản trị tập trung danh sách tài liệu theo toàn bộ cuộc họp.',
       icon: 'tabler-files',
+      meetingChildKey: 'documents',
       action: 'read',
       subject: 'Meeting',
     },
@@ -175,11 +177,12 @@ export const routes = [
   {
     path: '/apps/meeting/conclusions',
     name: 'apps-meeting-conclusions',
-    component: meetingPlaceholderComponent,
+    component: meetingChildListComponent,
     meta: {
       title: 'Danh sách Kết luận',
-      description: 'Kết luận được quản lý trong chi tiết cuộc họp để theo dõi đúng nội dung phiên họp.',
+      description: 'Quản trị tập trung danh sách kết luận theo toàn bộ cuộc họp.',
       icon: 'tabler-checklist',
+      meetingChildKey: 'conclusions',
       action: 'read',
       subject: 'Meeting',
     },
@@ -187,11 +190,12 @@ export const routes = [
   {
     path: '/apps/meeting/attendees',
     name: 'apps-meeting-attendees',
-    component: meetingPlaceholderComponent,
+    component: meetingChildListComponent,
     meta: {
       title: 'Người dự họp',
-      description: 'Người dự họp được thêm và theo dõi trong từng cuộc họp cụ thể.',
+      description: 'Quản trị tập trung danh sách người dự họp theo toàn bộ cuộc họp.',
       icon: 'tabler-users',
+      meetingChildKey: 'participants',
       action: 'read',
       subject: 'Meeting',
     },
