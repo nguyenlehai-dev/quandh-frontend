@@ -13,7 +13,7 @@ export default [
     ],
   },
   {
-    title: 'Quản lý cuộc họp',
+    title: 'Họp không giấy',
     icon: { icon: 'tabler-calendar-event' },
     action: 'read',
     subject: 'Meeting',

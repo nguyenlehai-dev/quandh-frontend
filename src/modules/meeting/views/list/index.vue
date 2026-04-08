@@ -406,7 +406,7 @@ onMounted(async () => {
 
     <VCard class="mb-6">
       <VCardItem class="pb-4">
-        <VCardTitle>Quản lý cuộc họp</VCardTitle>
+        <VCardTitle>Họp không giấy</VCardTitle>
         <VCardSubtitle>Danh sách Cuộc họp -> Chi tiết để quản lý tổng quan từng cuộc họp.</VCardSubtitle>
       </VCardItem>
 

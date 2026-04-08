@@ -335,7 +335,7 @@ onMounted(async () => {
     <VCard>
       <VCardItem class="pb-4">
         <VCardTitle>{{ catalogConfig.title }}</VCardTitle>
-        <VCardSubtitle>Danh mục nền phục vụ module Quản lý cuộc họp.</VCardSubtitle>
+        <VCardSubtitle>Danh mục nền phục vụ module Họp không giấy.</VCardSubtitle>
       </VCardItem>
 
       <VCardText>
