@@ -47,7 +47,7 @@ const pageIcon = computed(() => route.meta.icon ?? 'tabler-calendar-event')
           variant="tonal"
           border="start"
         >
-          Các dữ liệu như biểu quyết, tài liệu, kết luận và người dự họp hiện được quản trị trong màn chi tiết của từng cuộc họp để giữ đúng mô hình nghiệp vụ backend.
+          Dữ liệu đã seed cho biểu quyết, tài liệu, kết luận và người dự họp nằm trong chi tiết từng cuộc họp. Hãy mở Danh sách Cuộc họp, chọn cuộc họp mẫu để quản trị các dữ liệu này.
         </VAlert>
       </VCardText>
     </VCard>
