@@ -17,6 +17,7 @@ import {
   updateMeetingChild,
 } from '@/modules/meeting/services/meetingApi'
 import { mapMeetingToViewModel, toMeetingPayload } from '@/modules/meeting/utils/meetingAdapters'
+import QRCode from 'qrcode'
 import * as XLSX from 'xlsx'
 
 const route = useRoute()
@@ -39,6 +40,8 @@ const editedChildItem = ref(null)
 const pendingChildDelete = ref(null)
 const selectedChildRows = ref([])
 const selectedChildBulkAction = ref()
+const qrCodeDataUrl = ref('')
+const isGeneratingQr = ref(false)
 
 const activeChildConfig = computed(() => MEETING_CHILD_TABS.find(item => item.key === activeTab.value) ?? MEETING_CHILD_TABS[0])
 const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
@@ -122,6 +125,24 @@ const childExportScopeOptions = computed(() => {
   return options
 })
 
+const meetingCheckInPayload = computed(() => {
+  if (!meeting.value?.qrToken)
+    return ''
+
+  return JSON.stringify({
+    meeting_id: meeting.value.id,
+    qr_token: meeting.value.qrToken,
+    type: 'meeting-check-in',
+  })
+})
+
+const meetingTimeRange = computed(() => {
+  if (!meeting.value)
+    return 'N/A'
+
+  return `${meeting.value.startAt || 'N/A'} -> ${meeting.value.endAt || 'N/A'}`
+})
+
 const loadMeeting = async () => {
   isLoading.value = true
 
@@ -178,6 +199,43 @@ const handleRegenerateQrToken = async () => {
   await regenerateMeetingQrToken(meetingId.value)
   await loadMeeting()
   showSnackbar('Đã tạo lại QR token.')
+}
+
+const generateQrCode = async () => {
+  if (!meetingCheckInPayload.value) {
+    qrCodeDataUrl.value = ''
+
+    return
+  }
+
+  isGeneratingQr.value = true
+
+  try {
+    qrCodeDataUrl.value = await QRCode.toDataURL(meetingCheckInPayload.value, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 220,
+    })
+  }
+  catch {
+    qrCodeDataUrl.value = ''
+  }
+  finally {
+    isGeneratingQr.value = false
+  }
+}
+
+const handleCopyQrToken = async () => {
+  if (!meeting.value?.qrToken)
+    return
+
+  try {
+    await navigator.clipboard.writeText(meeting.value.qrToken)
+    showSnackbar('Đã sao chép QR token.')
+  }
+  catch {
+    showSnackbar('Không thể sao chép QR token.', 'error')
+  }
 }
 
 const openCreateChildDialog = () => {
@@ -352,10 +410,18 @@ const handleImportChildren = async file => {
   showSnackbar('Đã nhập dữ liệu chi tiết cuộc họp.')
 }
 
+const resetChildToolbar = async () => {
+  selectedChildRows.value = []
+  selectedChildBulkAction.value = undefined
+  await loadMeeting()
+}
+
 watch(activeTab, () => {
   selectedChildRows.value = []
   selectedChildBulkAction.value = undefined
 })
+
+watch(meetingCheckInPayload, generateQrCode, { immediate: true })
 
 const resolveChildPrimaryText = item => item.title
   || item.name
@@ -421,19 +487,21 @@ onMounted(async () => {
         <VBtn
           variant="tonal"
           color="secondary"
-          prepend-icon="tabler-qrcode"
+          :icon="$vuetify.display.smAndDown ? 'tabler-qrcode' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-qrcode'"
           :disabled="!meeting"
           @click="handleRegenerateQrToken"
         >
-          Tạo lại QR
+          <span v-if="!$vuetify.display.smAndDown">Tạo lại QR</span>
         </VBtn>
 
         <VBtn
-          prepend-icon="tabler-pencil"
+          :icon="$vuetify.display.smAndDown ? 'tabler-pencil' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-pencil'"
           :disabled="!meeting"
           @click="isEditorDialogVisible = true"
         >
-          Cập nhật
+          <span v-if="!$vuetify.display.smAndDown">Cập nhật</span>
         </VBtn>
       </div>
     </div>
@@ -498,7 +566,7 @@ onMounted(async () => {
                   Thời gian
                 </div>
                 <div class="text-body-1 text-high-emphasis">
-                  {{ meeting.startAt || 'N/A' }} -> {{ meeting.endAt || 'N/A' }}
+                  {{ meetingTimeRange }}
                 </div>
               </VCol>
 
@@ -536,7 +604,54 @@ onMounted(async () => {
       >
         <VCard class="mb-6">
           <VCardText>
-            <div class="text-sm text-medium-emphasis mb-2">
+            <div class="d-flex align-center justify-space-between gap-3 mb-3">
+              <div class="text-sm text-medium-emphasis">
+                QR check-in
+              </div>
+
+              <VBtn
+                variant="tonal"
+                color="secondary"
+                size="small"
+                prepend-icon="tabler-copy"
+                :disabled="!meeting.qrToken"
+                @click="handleCopyQrToken"
+              >
+                Sao chép token
+              </VBtn>
+            </div>
+
+            <div class="d-flex flex-column align-center gap-3">
+              <VProgressCircular
+                v-if="isGeneratingQr"
+                indeterminate
+                color="primary"
+              />
+
+              <VImg
+                v-else-if="qrCodeDataUrl"
+                :src="qrCodeDataUrl"
+                width="220"
+                height="220"
+                cover
+                class="rounded border-sm"
+              />
+
+              <VAlert
+                v-else
+                color="warning"
+                variant="tonal"
+                density="comfortable"
+              >
+                Chưa có QR để quét.
+              </VAlert>
+
+              <div class="text-center text-body-2 text-medium-emphasis">
+                Quét mã để lấy payload check-in của cuộc họp hiện tại.
+              </div>
+            </div>
+
+            <div class="text-sm text-medium-emphasis mt-4 mb-2">
               QR token
             </div>
             <code class="text-wrap">{{ meeting.qrToken || 'Chưa có QR token' }}</code>
@@ -607,26 +722,39 @@ onMounted(async () => {
               <VBtn
                 variant="tonal"
                 color="secondary"
-                prepend-icon="tabler-download"
+                :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+                :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
                 @click="isImportDialogVisible = true"
               >
-                Nhập dữ liệu
+                <span v-if="!$vuetify.display.smAndDown">Nhập dữ liệu</span>
               </VBtn>
 
               <VBtn
                 variant="tonal"
                 color="secondary"
-                prepend-icon="tabler-upload"
+                :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+                :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
                 @click="isExportDialogVisible = true"
               >
-                Xuất dữ liệu
+                <span v-if="!$vuetify.display.smAndDown">Xuất dữ liệu</span>
               </VBtn>
 
               <VBtn
-                prepend-icon="tabler-plus"
+                variant="tonal"
+                color="secondary"
+                :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+                :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+                @click="resetChildToolbar"
+              >
+                <span v-if="!$vuetify.display.smAndDown">Đặt lại</span>
+              </VBtn>
+
+              <VBtn
+                :icon="$vuetify.display.smAndDown ? 'tabler-plus' : undefined"
+                :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
                 @click="openCreateChildDialog"
               >
-                Thêm mới
+                <span v-if="!$vuetify.display.smAndDown">Thêm mới</span>
               </VBtn>
             </div>
           </VCardText>

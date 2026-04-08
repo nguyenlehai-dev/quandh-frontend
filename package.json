@@ -39,6 +39,7 @@
     "ofetch": "1.4.1",
     "pinia": "3.0.2",
     "prismjs": "1.30.0",
+    "qrcode": "^1.5.4",
     "roboto-fontface": "0.10.0",
     "shepherd.js": "13.0.3",
     "swiper": "11.2.7",
