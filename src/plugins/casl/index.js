@@ -1,17 +1,9 @@
 import { abilitiesPlugin } from '@casl/vue'
+import { getStoredAbilityRules } from '@/modules/auth/services/authStorage'
 import { ability } from './ability'
 
 export default function (app) {
-  let userAbilityRules = []
-  try {
-    const raw = localStorage.getItem('userAbilityRules')
-    if (raw) userAbilityRules = JSON.parse(raw)
-  }
-  catch {
-    userAbilityRules = []
-  }
-
-  ability.update(userAbilityRules)
+  ability.update(getStoredAbilityRules())
 
   app.use(abilitiesPlugin, ability, {
     useGlobalProperties: true,

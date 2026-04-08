@@ -1,8 +1,9 @@
 import { createFetch } from '@vueuse/core'
 import { destr } from 'destr'
+import { resolveCoreApiBaseUrl } from '@/modules/core/services/coreApi'
 
 export const useApi = createFetch({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseUrl: import.meta.env.VITE_API_BASE_URL || resolveCoreApiBaseUrl(),
   fetchOptions: {
     headers: {
       Accept: 'application/json',
@@ -10,20 +11,20 @@ export const useApi = createFetch({
   },
   options: {
     refetch: true,
-    async beforeFetch({ url, options }) {
+    async beforeFetch({ options }) {
       const accessToken = useCookie('accessToken').value
+      const currentOrganizationId = useCookie('currentOrganizationId').value
       if (accessToken) {
         options.headers = {
           ...options.headers,
           Authorization: `Bearer ${accessToken}`,
         }
       }
-      
-      const orgId = useCookie('currentOrganizationId').value
-      if (orgId && !url.includes('/auth/')) {
+
+      if (currentOrganizationId) {
         options.headers = {
           ...options.headers,
-          'X-Organization-Id': String(orgId),
+          'X-Organization-Id': String(currentOrganizationId),
         }
       }
       
@@ -42,26 +43,6 @@ export const useApi = createFetch({
       }
       
       return { data: parsedData, response }
-    },
-    onFetchError(ctx) {
-      const { response } = ctx
-
-      if (response && response.status === 401) {
-        // Token expired or invalid, clear auth and redirect
-        useCookie('accessToken').value = null
-        useCookie('userData').value = null
-        localStorage.removeItem('userAbilityRules')
-        useCookie('currentOrganizationId').value = null
-        localStorage.removeItem('availableOrganizations')
-        
-        // Prevent infinite reload loop if already on login
-        if (window.location.pathname !== '/login') {
-          localStorage.setItem('history_link', window.location.pathname)
-          window.location.href = '/login'
-        }
-      }
-
-      return ctx
     },
   },
 })

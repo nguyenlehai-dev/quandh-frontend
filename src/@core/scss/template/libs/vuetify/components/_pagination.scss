@@ -92,7 +92,7 @@
     .v-pagination__item--is-active {
       .v-btn {
         &:not([class*="text-"]) {
-          color: rgb(var(--v-theme-primary-darken-1));
+          color: rgb(var(--v-theme-primary));
 
           &:not(.v-btn--variant-outlined) {
             .v-btn__underlay {
@@ -101,7 +101,7 @@
           }
 
           &.v-btn--variant-outlined {
-            border-color: rgb(var(--v-theme-primary-darken-1));
+            border-color: rgb(var(--v-theme-primary));
 
             .v-btn__overlay {
               opacity: 0.16;

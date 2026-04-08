@@ -1,47 +1,26 @@
-import { ability } from '@/plugins/casl/ability'
+import { isStoredLoggedIn } from '@/modules/auth/services/authStorage'
 
-const postLoginRouteCandidates = [
-  { name: 'system-dashboard', action: 'read', subject: 'Dashboard' },
-  { name: 'meetings-business-overview', action: 'dashboard', subject: 'Meeting' },
-  { name: 'meetings-list', action: 'index', subject: 'Meeting' },
-  { name: 'meetings-participant-my-meetings', action: 'index', subject: 'MyMeeting' },
-  { name: 'system-organizations', action: 'read', subject: 'Organization' },
-  { name: 'apps-user-list', action: 'read', subject: 'User' },
-  { name: 'apps-roles', action: 'read', subject: 'Role' },
-  { name: 'apps-permissions', action: 'read', subject: 'Permission' },
-  { name: 'system-settings-general', action: 'read', subject: 'Setting' },
-  { name: 'system-settings-admin-experience', action: 'read', subject: 'Setting' },
-  { name: 'system-settings-public-channels', action: 'read', subject: 'Setting' },
-  { name: 'system-settings-integrations', action: 'read', subject: 'Setting' },
-  { name: 'system-settings-notifications', action: 'read', subject: 'Setting' },
-  { name: 'user-profile', action: 'read', subject: 'Auth' },
-]
-
-const getDefaultAuthorizedRoute = () => {
-  const firstAllowedRoute = postLoginRouteCandidates.find(route => {
-    if (!(route.action && route.subject))
-      return true
-
-    return ability.can(route.action, route.subject)
-  })
-
-  return { name: firstAllowedRoute?.name || 'user-profile' }
-}
+const emailRouteComponent = () => import('@/pages/apps/email/index.vue')
+const logisticsDashboardComponent = () => import('@/pages/apps/logistics/dashboard.vue')
+const academyDashboardComponent = () => import('@/pages/apps/academy/dashboard.vue')
+const systemOverviewDashboardComponent = () => import('@/modules/dashboard/views/system-overview.vue')
+const businessOverviewDashboardComponent = () => import('@/modules/dashboard/views/business-overview.vue')
+const organizationsComponent = () => import('@/modules/organization/views/list/index.vue')
+const activityLogComponent = () => import('@/modules/activity-log/views/index.vue')
+const systemSettingsComponent = () => import('@/modules/system-settings/views/index.vue')
+const currentProfileComponent = () => import('@/modules/auth/views/profile.vue')
 
 // 👉 Redirects
 export const redirects = [
-  // ℹ️ We are redirecting to different pages based on role.
-  // NOTE: Role is just for UI purposes. ACL is based on abilities.
   {
     path: '/',
     name: 'index',
     redirect: to => {
-      // Bỏ check role vì backend không bắt buộc có userRole trong root object user
-      const userData = useCookie('userData')
-      
-      if (userData.value)
-        return getDefaultAuthorizedRoute()
-      
+      const isLoggedIn = isStoredLoggedIn()
+
+      if (isLoggedIn)
+        return { name: 'dashboards-overview' }
+
       return { name: 'login', query: to.query }
     },
   },
@@ -56,7 +35,72 @@ export const redirects = [
     redirect: () => ({ name: 'pages-account-settings-tab', params: { tab: 'account' } }),
   },
 ]
+export const routes = [
+  // Email filter
+  {
+    path: '/apps/email/filter/:filter',
+    name: 'apps-email-filter',
+    component: emailRouteComponent,
+    meta: {
+      navActiveLink: 'apps-email',
+      layoutWrapperClasses: 'layout-content-height-fixed',
+    },
+  },
 
-// ℹ️ Module-specific routes are now handled by src/modules/*/routes.js
-// Only shared/non-module routes should be added here
-export const routes = []
+  // Email label
+  {
+    path: '/apps/email/label/:label',
+    name: 'apps-email-label',
+    component: emailRouteComponent,
+    meta: {
+      // contentClass: 'email-application',
+      navActiveLink: 'apps-email',
+      layoutWrapperClasses: 'layout-content-height-fixed',
+    },
+  },
+  {
+    path: '/dashboards/logistics',
+    name: 'dashboards-logistics',
+    component: logisticsDashboardComponent,
+  },
+  {
+    path: '/dashboards/overview',
+    name: 'dashboards-overview',
+    component: systemOverviewDashboardComponent,
+  },
+  {
+    path: '/dashboards/business',
+    name: 'dashboards-business',
+    component: businessOverviewDashboardComponent,
+  },
+  {
+    path: '/dashboards/academy',
+    name: 'dashboards-academy',
+    component: academyDashboardComponent,
+  },
+  {
+    path: '/apps/ecommerce/dashboard',
+    name: 'apps-ecommerce-dashboard',
+    component: () => import('@/pages/dashboards/ecommerce.vue'),
+  },
+  {
+    path: '/apps/activity-log',
+    name: 'apps-activity-log',
+    component: activityLogComponent,
+  },
+  {
+    path: '/apps/organizations',
+    name: 'apps-organizations',
+    component: organizationsComponent,
+  },
+  {
+    path: '/apps/system-settings',
+    name: 'apps-system-settings',
+    component: systemSettingsComponent,
+  },
+  {
+    path: '/apps/profile',
+    name: 'apps-profile',
+    component: currentProfileComponent,
+  },
+]

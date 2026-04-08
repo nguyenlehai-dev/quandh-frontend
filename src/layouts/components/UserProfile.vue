@@ -1,22 +1,53 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { logout as authLogout, redirectToOrganizationSelection } from '@/services/auth'
+import { getStoredUserData, getStoredAvailableOrganizations } from '@/modules/auth/services/authStorage'
+import { clearAuthSession, logoutWithCore, switchOrganizationWithCore } from '@/modules/auth/services/coreAuth'
 
-const { t } = useI18n()
 const router = useRouter()
-const route = useRoute()
+const ability = useAbility()
 
-// TODO: Get type from backend
-const userData = useCookie('userData')
+const userData = ref(getStoredUserData())
+const availableOrganizations = ref(getStoredAvailableOrganizations() ?? [])
+const isOrganizationDialogVisible = ref(false)
+const selectedOrganizationId = ref(userData.value?.currentOrganizationId ?? null)
+const isSwitchingOrganization = ref(false)
 
 const logout = async () => {
-  await authLogout(router)
+  const authProvider = useCookie('authProvider').value
+
+  if (authProvider === 'core') {
+    try {
+      await logoutWithCore()
+    }
+    catch {
+      // Clear local session even if backend logout fails.
+    }
+  }
+
+  clearAuthSession(ability)
+
+  // Redirect to login page
+  await router.push('/login')
 }
 
-const clearOrgAndSwitch = async () => {
-  await redirectToOrganizationSelection(router, {
-    to: route.fullPath !== '/' ? route.fullPath : undefined,
-  })
+const handleOrganizationSelection = async () => {
+  if (!selectedOrganizationId.value) return
+
+  isSwitchingOrganization.value = true
+
+  try {
+    const accessToken = useCookie('accessToken').value
+    await switchOrganizationWithCore(selectedOrganizationId.value, accessToken)
+    
+    // Switch successful, reload location to hydrate session securely
+    window.location.reload()
+  }
+  catch (error) {
+    console.error('Failed to switch organization', error)
+  }
+  finally {
+    isSwitchingOrganization.value = false
+  }
 }
 
 const userProfileList = [
@@ -24,16 +55,45 @@ const userProfileList = [
   {
     type: 'navItem',
     icon: 'tabler-user',
-    title: t('navigation.navigation.user_profile'),
+    title: 'Profile',
     to: {
-      name: 'user-profile',
+      name: 'apps-profile',
     },
   },
   {
     type: 'navItem',
-    icon: 'tabler-building-community',
-    title: t('navigation.navigation.switch_organization'),
-    action: 'switchOrg',
+    icon: 'tabler-settings',
+    title: 'Settings',
+    to: {
+      name: 'pages-account-settings-tab',
+      params: { tab: 'account' },
+    },
+  },
+  {
+    type: 'navItem',
+    icon: 'tabler-file-dollar',
+    title: 'Billing Plan',
+    to: {
+      name: 'pages-account-settings-tab',
+      params: { tab: 'billing-plans' },
+    },
+    badgeProps: {
+      color: 'error',
+      content: '4',
+    },
+  },
+  { type: 'divider' },
+  {
+    type: 'navItem',
+    icon: 'tabler-currency-dollar',
+    title: 'Pricing',
+    to: { name: 'pages-pricing' },
+  },
+  {
+    type: 'navItem',
+    icon: 'tabler-question-mark',
+    title: 'FAQ',
+    to: { name: 'pages-faq' },
   },
 ]
 </script>
@@ -63,6 +123,7 @@ const userProfileList = [
         icon="tabler-user"
       />
 
+      <!-- SECTION Menu -->
       <VMenu
         activator="parent"
         width="240"
@@ -99,13 +160,10 @@ const userProfileList = [
 
               <div>
                 <h6 class="text-h6 font-weight-medium">
-                  {{ userData.name || userData.user_name }}
+                  {{ userData.fullName || userData.username }}
                 </h6>
-                <VListItemSubtitle
-                  class="text-capitalize text-disabled"
-                  style="white-space: normal;"
-                >
-                  {{ userData.assignments?.map(a => a.role_name).join(', ') || t('navigation.navigation.user') }}
+                <VListItemSubtitle class="text-capitalize text-disabled">
+                  {{ userData.role }}
                 </VListItemSubtitle>
               </div>
             </div>
@@ -118,8 +176,7 @@ const userProfileList = [
             >
               <VListItem
                 v-if="item.type === 'navItem'"
-                :to="item.to || undefined"
-                @click="item.action === 'switchOrg' ? clearOrgAndSwitch() : undefined"
+                :to="item.to"
               >
                 <template #prepend>
                   <VIcon
@@ -128,7 +185,18 @@ const userProfileList = [
                   />
                 </template>
 
-                <VListItemTitle>{{ item.title }}</VListItemTitle>
+                <VListItemTitle>{{ $t(item.title) }}</VListItemTitle>
+
+                <template
+                  v-if="item.badgeProps"
+                  #append
+                >
+                  <VBadge
+                    rounded="sm"
+                    class="me-3"
+                    v-bind="item.badgeProps"
+                  />
+                </template>
               </VListItem>
 
               <VDivider
@@ -137,7 +205,18 @@ const userProfileList = [
               />
             </template>
 
-            <div class="px-4 py-2">
+            <div class="px-4 py-2 d-flex flex-column gap-y-2">
+              <VBtn
+                v-if="availableOrganizations.length > 1"
+                block
+                size="small"
+                color="secondary"
+                variant="tonal"
+                append-icon="tabler-building-community"
+                @click="isOrganizationDialogVisible = true"
+              >
+                {{ $t('Switch Organization') }}
+              </VBtn>
               <VBtn
                 block
                 size="small"
@@ -145,12 +224,48 @@ const userProfileList = [
                 append-icon="tabler-logout"
                 @click="logout"
               >
-                {{ t('navigation.navigation.logout') }}
+                {{ $t('Logout') }}
               </VBtn>
             </div>
           </PerfectScrollbar>
         </VList>
       </VMenu>
+      <!-- !SECTION -->
     </VAvatar>
+
+    <!-- Dialog switch organization -->
+    <VDialog
+      v-model="isOrganizationDialogVisible"
+      max-width="520"
+      persistent
+    >
+      <VCard :title="$t('Select working organization')">
+        <VCardText>
+          <AppSelect
+            v-model="selectedOrganizationId"
+            :label="$t('Organization field')"
+            :placeholder="$t('Choose organization')"
+            :items="availableOrganizations.map(item => ({ title: item.name, value: item.id }))"
+          />
+        </VCardText>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap pt-0">
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            @click="isOrganizationDialogVisible = false"
+          >
+            {{ $t('Cancel') }}
+          </VBtn>
+
+          <VBtn
+            :loading="isSwitchingOrganization"
+            @click="handleOrganizationSelection"
+          >
+            {{ $t('Continue') }}
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
   </VBadge>
 </template>

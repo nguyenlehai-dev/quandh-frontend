@@ -56,8 +56,8 @@ swiper-slide {
 
   &.swiper-slide-active {
     .v-card {
-      border: 1px solid rgb(var(--v-theme-primary-darken-1));
-      background: rgb(var(--v-theme-primary-darken-1));
+      border: 1px solid rgb(var(--v-theme-primary));
+      background: rgb(var(--v-theme-primary));
       color: rgb(var(--v-theme-on-primary));
     }
   }

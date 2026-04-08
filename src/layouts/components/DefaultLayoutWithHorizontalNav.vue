@@ -1,5 +1,5 @@
 <script setup>
-import { getHorizontalNavItems } from '@/navigation/horizontal'
+import navItems from '@/navigation/horizontal'
 import { themeConfig } from '@themeConfig'
 
 // Components
@@ -9,12 +9,9 @@ import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import NavbarShortcuts from '@/layouts/components/NavbarShortcuts.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
-import OrgSwitcher from '@/layouts/components/OrgSwitcher.vue'
 import NavBarI18n from '@core/components/I18n.vue'
 import { HorizontalNavLayout } from '@layouts'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
-
-const navItems = computed(() => getHorizontalNavItems())
 </script>
 
 <template>
@@ -23,7 +20,7 @@ const navItems = computed(() => getHorizontalNavItems())
     <template #navbar>
       <RouterLink
         to="/"
-        class="app-logo d-flex align-center gap-x-3 me-4"
+        class="app-logo d-flex align-center gap-x-3"
       >
         <VNodeRenderer :nodes="themeConfig.app.logo" />
 
@@ -33,23 +30,15 @@ const navItems = computed(() => getHorizontalNavItems())
       </RouterLink>
       <VSpacer />
 
-      <OrgSwitcher class="me-2 d-none d-md-flex" />
-
       <NavSearchBar trigger-btn-class="ms-lg-n3" />
 
-      <div class="d-none d-sm-flex">
-        <NavBarI18n
-          v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
-          :languages="themeConfig.app.i18n.langConfig"
-        />
-      </div>
+      <NavBarI18n
+        v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
+        :languages="themeConfig.app.i18n.langConfig"
+      />
 
-      <div class="d-none d-sm-flex">
-        <NavbarThemeSwitcher />
-      </div>
-      <div class="d-none d-md-flex">
-        <NavbarShortcuts />
-      </div>
+      <NavbarThemeSwitcher />
+      <NavbarShortcuts />
       <NavBarNotifications class="me-2" />
       <UserProfile />
     </template>
@@ -66,12 +55,3 @@ const navItems = computed(() => getHorizontalNavItems())
     <TheCustomizer />
   </HorizontalNavLayout>
 </template>
-
-<style scoped>
-.app-title {
-  overflow: hidden;
-  max-inline-size: 14rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-</style>

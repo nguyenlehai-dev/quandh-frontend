@@ -2,10 +2,12 @@
 import { useConfigStore } from '@core/stores/config'
 import { AppContentLayoutNav } from '@layouts/enums'
 import { switchToVerticalNavOnLtOverlayNavBreakpoint } from '@layouts/utils'
+import { useCoreSettingsStore } from '@/modules/system-settings/stores/useCoreSettingsStore'
 
 const DefaultLayoutWithHorizontalNav = defineAsyncComponent(() => import('./components/DefaultLayoutWithHorizontalNav.vue'))
 const DefaultLayoutWithVerticalNav = defineAsyncComponent(() => import('./components/DefaultLayoutWithVerticalNav.vue'))
 const configStore = useConfigStore()
+const coreSettingsStore = useCoreSettingsStore()
 
 // ℹ️ This will switch to vertical nav when define breakpoint is reached when in horizontal nav layout
 
@@ -30,6 +32,19 @@ watch([
     refLoadingIndicator.value.resolveHandle()
 }, { immediate: true })
 // !SECTION
+
+// Load core settings (copyright, favicon, logo, etc.) and apply favicon
+onMounted(async () => {
+  if (!coreSettingsStore.isLoaded) {
+    await coreSettingsStore.fetchSettings()
+    coreSettingsStore.applyFavicon()
+  }
+})
+
+// Watch favicon changes to update browser tab
+watch(() => coreSettingsStore.favicon, () => {
+  coreSettingsStore.applyFavicon()
+})
 </script>
 
 <template>

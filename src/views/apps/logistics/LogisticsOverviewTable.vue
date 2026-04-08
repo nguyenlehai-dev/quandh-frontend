@@ -9,17 +9,35 @@ const updateOptions = options => {
   orderBy.value = options.sortBy[0]?.order
 }
 
-const { data: vehiclesData } = await useApi(createUrl('/apps/logistics/vehicles', {
-  query: {
-    page,
-    itemsPerPage,
-    sortBy,
-    orderBy,
-  },
-}))
+// Endpoint này là demo, trên Core backend không có. Dùng dữ liệu mẫu trực tiếp để tránh lỗi Console.
+const vehiclesData = ref({
+  vehicles: [],
+  totalVehicles: 0,
+})
 
-const vehicles = computed(() => vehiclesData.value.vehicles)
-const totalVehicles = computed(() => vehiclesData.value.totalVehicles)
+const vehiclesError = ref(null)
+
+const fallbackVehicles = [
+  { id: 1, location: 468031, startCity: 'Cagnes-sur-Mer', startCountry: 'France', endCity: 'Catania', endCountry: 'Italy', warnings: 'No Warnings', progress: 49 },
+  { id: 2, location: 302781, startCity: 'Köln', startCountry: 'Germany', endCity: 'Laspezia', endCountry: 'Italy', warnings: 'Ecu Not Responding', progress: 24 },
+  { id: 3, location: 715822, startCity: 'Chambray-lès-Tours', startCountry: 'France', endCity: 'Hamm', endCountry: 'Germany', warnings: 'Oil Leakage', progress: 7 },
+  { id: 4, location: 451430, startCity: 'Berlin', startCountry: 'Germany', endCity: 'Gelsenkirchen', endCountry: 'Germany', warnings: 'No Warnings', progress: 95 },
+  { id: 5, location: 921577, startCity: 'Cergy-Pontoise', startCountry: 'France', endCity: 'Berlin', endCountry: 'Germany', warnings: 'No Warnings', progress: 65 },
+]
+
+const vehicles = computed(() => {
+  if (vehiclesError.value || !vehiclesData.value?.vehicles?.length)
+    return fallbackVehicles
+  
+  return vehiclesData.value.vehicles
+})
+
+const totalVehicles = computed(() => {
+  if (vehiclesError.value || !vehiclesData.value?.totalVehicles)
+    return fallbackVehicles.length
+    
+  return vehiclesData.value.totalVehicles
+})
 
 const headers = [
   {

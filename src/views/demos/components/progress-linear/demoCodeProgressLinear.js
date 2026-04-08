@@ -263,7 +263,7 @@ const power = ref(78)
 export const striped = { ts: `<template>
   <div class="demo-space-y">
     <VProgressLinear
-      color="rgb(var(--v-theme-primary-darken-1))"
+      color="rgb(var(--v-theme-primary))"
       model-value="75"
       striped
     />
@@ -284,7 +284,7 @@ export const striped = { ts: `<template>
 `, js: `<template>
   <div class="demo-space-y">
     <VProgressLinear
-      color="rgb(var(--v-theme-primary-darken-1))"
+      color="rgb(var(--v-theme-primary))"
       model-value="75"
       striped
     />

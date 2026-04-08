@@ -4,6 +4,31 @@ import { HttpResponse, http } from 'msw'
 import { db } from '@db/apps/ecommerce/db'
 import { paginateArray } from '@api-utils/paginateArray'
 
+const getRangeDate = (value, mode) => {
+  if (!value)
+    return undefined
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime()))
+    return undefined
+
+  if (mode === 'start')
+    date.setHours(0, 0, 0, 0)
+  else
+    date.setHours(23, 59, 59, 999)
+
+  return date
+}
+
+const getProductCreatedDate = product => {
+  const createdDate = new Date('2023-01-01')
+
+  createdDate.setDate(createdDate.getDate() + product.id * 4)
+
+  return createdDate
+}
+
 export const handlerAppsEcommerce = [
   // 👉 Products
   // Get Product List
@@ -13,6 +38,8 @@ export const handlerAppsEcommerce = [
     const stock = url.searchParams.get('stock')
     const category = url.searchParams.get('category')
     const status = url.searchParams.get('status')
+    const fromDate = url.searchParams.get('fromDate')
+    const toDate = url.searchParams.get('toDate')
     const sortBy = url.searchParams.get('sortBy')
     const orderBy = url.searchParams.get('orderBy')
     const itemsPerPage = url.searchParams.get('itemsPerPage')
@@ -29,12 +56,22 @@ export const handlerAppsEcommerce = [
     const parsedPage = destr(page)
     const itemsPerPageLocal = is.number(parsedItemsPerPage) ? parsedItemsPerPage : 10
     const pageLocal = is.number(parsedPage) ? parsedPage : 1
+    const fromDateLocal = getRangeDate(fromDate, 'start')
+    const toDateLocal = getRangeDate(toDate, 'end')
 
     // Filtering Products
-    let filteredProducts = db.products.filter(product => ((product.productName.toLowerCase().includes(queryLower) || product.productBrand.toLowerCase().includes(queryLower))
-            && product.category === (category || product.category)
-            && (product.status === (status || product.status))
-            && (typeof stockLocal === 'undefined' ? true : (product.stock === stockLocal)))).reverse()
+    let filteredProducts = db.products.filter(product => {
+      const createdDate = getProductCreatedDate(product)
+      const matchesFromDate = fromDateLocal ? createdDate >= fromDateLocal : true
+      const matchesToDate = toDateLocal ? createdDate <= toDateLocal : true
+
+      return ((product.productName.toLowerCase().includes(queryLower) || product.productBrand.toLowerCase().includes(queryLower))
+        && product.category === (category || product.category)
+        && (product.status === (status || product.status))
+        && (typeof stockLocal === 'undefined' ? true : (product.stock === stockLocal))
+        && matchesFromDate
+        && matchesToDate)
+    }).reverse()
 
     // Sort
     if (sortByLocal) {
@@ -124,6 +161,29 @@ export const handlerAppsEcommerce = [
     
     return new HttpResponse(null, {
       status: 404,
+    })
+  }),
+
+  // 👉 Update Product
+  http.patch('/api/apps/ecommerce/products/:id', async ({ params, request }) => {
+    const id = Number(params.id)
+    const productIndex = db.products.findIndex(product => product.id === id)
+
+    if (productIndex === -1) {
+      return new HttpResponse(null, {
+        status: 404,
+      })
+    }
+
+    const body = await request.json()
+
+    db.products[productIndex] = {
+      ...db.products[productIndex],
+      ...body,
+    }
+
+    return HttpResponse.json(db.products[productIndex], {
+      status: 200,
     })
   }),
 

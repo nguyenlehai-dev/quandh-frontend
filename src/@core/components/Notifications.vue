@@ -23,7 +23,6 @@ const emit = defineEmits([
   'unread',
   'remove',
   'click:notification',
-  'click:all',
 ])
 
 const isAllMarkRead = computed(() => {
@@ -74,7 +73,7 @@ const toggleReadUnread = (isSeen, Id) => {
         <!-- 👉 Header -->
         <VCardItem class="notification-section">
           <VCardTitle class="text-h6">
-            Thông báo
+            Notifications
           </VCardTitle>
 
           <template #append>
@@ -84,7 +83,7 @@ const toggleReadUnread = (isSeen, Id) => {
               color="primary"
               class="me-2"
             >
-              {{ totalUnseenNotifications }} Mới
+              {{ totalUnseenNotifications }} New
             </VChip>
             <IconBtn
               v-show="props.notifications.length"
@@ -101,7 +100,7 @@ const toggleReadUnread = (isSeen, Id) => {
                 activator="parent"
                 location="start"
               >
-                {{ !isAllMarkRead ? 'Đánh dấu tất cả chưa đọc' : 'Đánh dấu tất cả đã đọc' }}
+                {{ !isAllMarkRead ? 'Mark all as unread' : 'Mark all as read' }}
               </VTooltip>
             </IconBtn>
           </template>
@@ -117,7 +116,7 @@ const toggleReadUnread = (isSeen, Id) => {
           <VList class="notification-list rounded-0 py-0">
             <template
               v-for="(notification, index) in props.notifications"
-              :key="notification.id ?? notification.title"
+              :key="notification.title"
             >
               <VDivider v-if="index > 0" />
               <VListItem
@@ -178,7 +177,7 @@ const toggleReadUnread = (isSeen, Id) => {
                       size="20"
                       icon="tabler-x"
                       class="visible-in-hover"
-                      @click.stop="$emit('remove', notification.id)"
+                      @click="$emit('remove', notification.id)"
                     />
                   </div>
                 </div>
@@ -190,7 +189,7 @@ const toggleReadUnread = (isSeen, Id) => {
               class="text-center text-medium-emphasis"
               style="block-size: 56px;"
             >
-              <VListItemTitle>Không có thông báo nào!</VListItemTitle>
+              <VListItemTitle>No Notification Found!</VListItemTitle>
             </VListItem>
           </VList>
         </PerfectScrollbar>
@@ -205,9 +204,8 @@ const toggleReadUnread = (isSeen, Id) => {
           <VBtn
             block
             size="small"
-            @click="$emit('click:all')"
           >
-            Xem tất cả thông báo
+            View All Notifications
           </VBtn>
         </VCardText>
       </VCard>

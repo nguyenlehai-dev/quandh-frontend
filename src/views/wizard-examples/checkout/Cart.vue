@@ -173,7 +173,7 @@ watch(() => props.currentStep, updateCartData)
       <!-- 👉 Add more from wishlist -->
       <div
         class="d-flex align-center justify-space-between rounded py-2 px-5 text-base mt-4"
-        style="border: 1px solid rgb(var(--v-theme-primary-darken-1));"
+        style="border: 1px solid rgb(var(--v-theme-primary));"
       >
         <a
           href="#"

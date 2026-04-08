@@ -135,7 +135,7 @@ const pricingPlans = [
             v-for="(plan, index) in pricingPlans"
             :key="index"
           >
-            <VCard :style="plan.current ? 'border:2px solid rgb(var(--v-theme-primary-darken-1))' : ''">
+            <VCard :style="plan.current ? 'border:2px solid rgb(var(--v-theme-primary))' : ''">
               <VCardText class="pa-8 pt-12">
                 <VImg
                   :src="plan.image"

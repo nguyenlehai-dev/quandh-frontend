@@ -74,9 +74,6 @@ const verticalNavAttrs = computed(() => {
         <template #before-nav-items>
           <slot name="before-vertical-nav-items" />
         </template>
-        <template #after-nav-items>
-          <slot name="after-vertical-nav-items" />
-        </template>
       </VerticalNav>
     </component>
     <div class="layout-content-wrapper">

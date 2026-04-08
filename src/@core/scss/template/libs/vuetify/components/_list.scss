@@ -18,12 +18,12 @@
 
   &.v-list-item--active {
     &.v-list-group__header {
-      color: rgb(var(--v-theme-primary-darken-1));
+      color: rgb(var(--v-theme-primary));
     }
 
     &:not(.v-list-group__header) {
       .v-list-item-subtitle {
-        color: rgb(var(--v-theme-primary-darken-1));
+        color: rgb(var(--v-theme-primary));
       }
     }
   }
