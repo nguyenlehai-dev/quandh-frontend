@@ -1,5 +1,6 @@
 <script setup>
 import { useOperationSnackbar } from '@/composables/useOperationSnackbar'
+import { getStoredUserId } from '@/modules/auth/services/authStorage'
 import { getCoreErrorMessage, isCoreForbiddenError } from '@/modules/core/utils/coreErrors'
 import MeetingChildEditorDialog from '@/modules/meeting/components/MeetingChildEditorDialog.vue'
 import MeetingEditorDialog from '@/modules/meeting/components/MeetingEditorDialog.vue'
@@ -8,6 +9,7 @@ import MeetingImportDialog from '@/modules/meeting/components/MeetingImportDialo
 import { MEETING_CHILD_TABS, MEETING_STATUS_OPTIONS, getOptionColor, getOptionTitle } from '@/modules/meeting/configs/meetingOptions'
 import { getCoreUsers } from '@/modules/user-management/services/coreUsers'
 import {
+  checkInMeetingByQr,
   createMeetingChild,
   deleteMeetingChild,
   getMeeting,
@@ -42,6 +44,14 @@ const selectedChildRows = ref([])
 const selectedChildBulkAction = ref()
 const qrCodeDataUrl = ref('')
 const isGeneratingQr = ref(false)
+const isQrScannerDialogVisible = ref(false)
+const scannerVideoRef = ref()
+const scannerStream = ref(null)
+const scannerLoopTimer = ref(null)
+const scannerErrorMessage = ref('')
+const manualQrInput = ref('')
+const isStartingScanner = ref(false)
+const isSubmittingCheckIn = ref(false)
 
 const activeChildConfig = computed(() => MEETING_CHILD_TABS.find(item => item.key === activeTab.value) ?? MEETING_CHILD_TABS[0])
 const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
@@ -143,6 +153,8 @@ const meetingTimeRange = computed(() => {
   return `${meeting.value.startAt || 'N/A'} -> ${meeting.value.endAt || 'N/A'}`
 })
 
+const currentUserId = computed(() => getStoredUserId())
+
 const loadMeeting = async () => {
   isLoading.value = true
 
@@ -236,6 +248,148 @@ const handleCopyQrToken = async () => {
   catch {
     showSnackbar('Không thể sao chép QR token.', 'error')
   }
+}
+
+const stopQrScanner = () => {
+  if (scannerLoopTimer.value) {
+    window.clearTimeout(scannerLoopTimer.value)
+    scannerLoopTimer.value = null
+  }
+
+  scannerStream.value?.getTracks()?.forEach(track => track.stop())
+  scannerStream.value = null
+}
+
+const extractQrToken = rawValue => {
+  if (!rawValue)
+    return ''
+
+  try {
+    const parsedValue = JSON.parse(rawValue)
+
+    return parsedValue?.qr_token ?? rawValue
+  }
+  catch {
+    return rawValue
+  }
+}
+
+const submitMeetingCheckIn = async rawValue => {
+  const qrToken = extractQrToken(rawValue).trim()
+
+  if (!qrToken) {
+    showSnackbar('Không đọc được QR token.', 'error')
+
+    return
+  }
+
+  isSubmittingCheckIn.value = true
+
+  try {
+    await checkInMeetingByQr({
+      qr_token: qrToken,
+      user_id: currentUserId.value ?? undefined,
+    })
+    stopQrScanner()
+    isQrScannerDialogVisible.value = false
+    manualQrInput.value = ''
+    activeTab.value = 'participants'
+    await loadMeeting()
+    showSnackbar('Check-in thành công. Trạng thái người dự họp đã được cập nhật.')
+  }
+  catch (error) {
+    showSnackbar(getCoreErrorMessage(error, 'Không thể check-in bằng QR.'), 'error')
+  }
+  finally {
+    isSubmittingCheckIn.value = false
+  }
+}
+
+const scanQrFrame = async detector => {
+  if (!isQrScannerDialogVisible.value || !scannerVideoRef.value)
+    return
+
+  try {
+    const barcodes = await detector.detect(scannerVideoRef.value)
+
+    if (barcodes.length) {
+      await submitMeetingCheckIn(barcodes[0].rawValue)
+
+      return
+    }
+  }
+  catch {
+    scannerErrorMessage.value = 'Không thể đọc QR từ camera hiện tại.'
+  }
+
+  scannerLoopTimer.value = window.setTimeout(() => {
+    scanQrFrame(detector)
+  }, 350)
+}
+
+const startQrScanner = async () => {
+  if (!isQrScannerDialogVisible.value)
+    return
+
+  stopQrScanner()
+
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    scannerErrorMessage.value = 'Trình duyệt hiện tại không hỗ trợ mở camera.'
+
+    return
+  }
+
+  if (typeof window.BarcodeDetector === 'undefined') {
+    scannerErrorMessage.value = 'Trình duyệt hiện tại chưa hỗ trợ quét QR trực tiếp. Bạn có thể dán QR token để check-in.'
+
+    return
+  }
+
+  isStartingScanner.value = true
+  scannerErrorMessage.value = ''
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'environment',
+      },
+      audio: false,
+    })
+
+    scannerStream.value = stream
+
+    await nextTick()
+
+    if (!scannerVideoRef.value) {
+      scannerErrorMessage.value = 'Không thể khởi tạo khung quét QR.'
+
+      return
+    }
+
+    scannerVideoRef.value.srcObject = stream
+    await scannerVideoRef.value.play()
+
+    const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+    await scanQrFrame(detector)
+  }
+  catch {
+    scannerErrorMessage.value = 'Không thể mở camera để quét QR.'
+  }
+  finally {
+    isStartingScanner.value = false
+  }
+}
+
+const openQrScannerDialog = async () => {
+  manualQrInput.value = ''
+  scannerErrorMessage.value = ''
+  isQrScannerDialogVisible.value = true
+  await nextTick()
+  await startQrScanner()
+}
+
+const closeQrScannerDialog = () => {
+  isQrScannerDialogVisible.value = false
 }
 
 const openCreateChildDialog = () => {
@@ -423,6 +577,14 @@ watch(activeTab, () => {
 
 watch(meetingCheckInPayload, generateQrCode, { immediate: true })
 
+watch(isQrScannerDialogVisible, isVisible => {
+  if (!isVisible) {
+    stopQrScanner()
+    scannerErrorMessage.value = ''
+    manualQrInput.value = ''
+  }
+})
+
 const resolveChildPrimaryText = item => item.title
   || item.name
   || item.content
@@ -460,6 +622,10 @@ onMounted(async () => {
     loadMeeting(),
   ])
 })
+
+onBeforeUnmount(() => {
+  stopQrScanner()
+})
 </script>
 
 <template>
@@ -484,6 +650,17 @@ onMounted(async () => {
       </div>
 
       <div class="d-flex flex-wrap gap-3">
+        <VBtn
+          variant="tonal"
+          color="secondary"
+          :icon="$vuetify.display.smAndDown ? 'tabler-scan' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-scan'"
+          :disabled="!meeting?.qrToken"
+          @click="openQrScannerDialog"
+        >
+          <span v-if="!$vuetify.display.smAndDown">Quét check-in</span>
+        </VBtn>
+
         <VBtn
           variant="tonal"
           color="secondary"
@@ -693,7 +870,7 @@ onMounted(async () => {
 
       <VCol cols="12">
         <VCard>
-          <VCardText class="d-flex align-center justify-space-between flex-wrap gap-4">
+          <VCardText class="pb-2">
             <VTabs v-model="activeTab">
               <VTab
                 v-for="tab in MEETING_CHILD_TABS"
@@ -708,8 +885,12 @@ onMounted(async () => {
                 {{ tab.title }}
               </VTab>
             </VTabs>
+          </VCardText>
 
-            <div class="d-flex align-center flex-wrap gap-4">
+          <VDivider />
+
+          <VCardText class="d-flex justify-end flex-wrap gap-4">
+            <div class="d-flex align-center justify-end flex-wrap gap-4 w-100">
               <AppSelect
                 v-if="selectedChildRows.length"
                 v-model="selectedChildBulkAction"
@@ -870,6 +1051,89 @@ onMounted(async () => {
       cancel-msg="Dữ liệu chi tiết được giữ nguyên."
       @confirm="confirmDeleteChild"
     />
+
+    <VDialog
+      v-model="isQrScannerDialogVisible"
+      max-width="720"
+      persistent
+    >
+      <VCard title="Quét QR check-in">
+        <VCardText>
+          <div class="text-body-2 text-medium-emphasis mb-4">
+            Quét mã QR của cuộc họp để cập nhật người dùng hiện tại sang trạng thái tham dự.
+          </div>
+
+          <div class="border rounded pa-2 mb-4">
+            <video
+              ref="scannerVideoRef"
+              autoplay
+              muted
+              playsinline
+              class="w-100 rounded d-block"
+              style="min-block-size: 320px; background: rgb(var(--v-theme-surface-variant)); object-fit: cover;"
+            />
+          </div>
+
+          <VAlert
+            v-if="isStartingScanner"
+            color="info"
+            variant="tonal"
+            density="comfortable"
+            class="mb-4"
+          >
+            Đang khởi tạo camera để quét QR.
+          </VAlert>
+
+          <VAlert
+            v-if="scannerErrorMessage"
+            color="warning"
+            variant="tonal"
+            density="comfortable"
+            class="mb-4"
+          >
+            {{ scannerErrorMessage }}
+          </VAlert>
+
+          <VTextField
+            v-model="manualQrInput"
+            label="QR token hoặc nội dung QR"
+            placeholder="Dán QR token để check-in thủ công"
+            prepend-inner-icon="tabler-qrcode"
+          />
+        </VCardText>
+
+        <VDivider />
+
+        <VCardActions class="justify-end flex-wrap gap-3 pa-4">
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            prepend-icon="tabler-refresh"
+            :loading="isStartingScanner"
+            @click="startQrScanner"
+          >
+            Mở lại camera
+          </VBtn>
+
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            @click="closeQrScannerDialog"
+          >
+            Đóng
+          </VBtn>
+
+          <VBtn
+            prepend-icon="tabler-check"
+            :disabled="!manualQrInput.trim()"
+            :loading="isSubmittingCheckIn"
+            @click="submitMeetingCheckIn(manualQrInput)"
+          >
+            Check-in
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
 
     <VSnackbar
       v-model="isSnackbarVisible"
