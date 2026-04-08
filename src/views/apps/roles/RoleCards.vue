@@ -239,6 +239,12 @@ const handleExportRoles = async () => {
   showSnackbar('Đã xuất dữ liệu vai trò thành công.')
 }
 
+const resetFilters = () => {
+  selectedRoleIds.value = []
+  selectedBulkAction.value = undefined
+  refreshRoleCards()
+}
+
 onMounted(() => {
   refreshRoleCards()
 })
@@ -273,19 +279,31 @@ onMounted(() => {
             <VBtn
               variant="tonal"
               color="secondary"
-              prepend-icon="tabler-download"
+              :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
               @click="isImportDialogVisible = true"
             >
-              {{ $t('Import') }}
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Import Data') }}</span>
             </VBtn>
 
             <VBtn
               variant="tonal"
               color="secondary"
-              prepend-icon="tabler-upload"
+              :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
               @click="isExportDialogVisible = true"
             >
-              {{ $t('Export') }}
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Export Data') }}</span>
+            </VBtn>
+
+            <VBtn
+              variant="tonal"
+              color="secondary"
+              :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+              @click="resetFilters"
+            >
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Reset') }}</span>
             </VBtn>
           </div>
         </VCardText>
@@ -391,9 +409,11 @@ onMounted(() => {
             <VCardText class="d-flex flex-column align-end justify-end gap-4">
               <VBtn
                 size="small"
+                :icon="$vuetify.display.smAndDown ? 'tabler-plus' : undefined"
+                :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
                 @click="isAddRoleDialogVisible = true"
               >
-                {{ $t('Add New Role') }}
+                <span v-if="!$vuetify.display.smAndDown">{{ $t('Add New') }}</span>
               </VBtn>
               <div class="text-end">
                 {{ $t('Add a new role if it does not already exist in the system.') }}

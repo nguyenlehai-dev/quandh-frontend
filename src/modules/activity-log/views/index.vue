@@ -20,7 +20,7 @@ const headers = computed(() => [
   { title: t('HTTP Status'), key: 'status_code' },
   { title: 'IP', key: 'ip_address', sortable: false },
   { title: t('Time'), key: 'created_at' },
-  { title: t('Action'), key: 'actions', sortable: false },
+  { title: t('Action'), key: 'actions', sortable: false, align: 'center' },
 ])
 
 const methodOptions = computed(() => [
@@ -176,6 +176,15 @@ const handleExportLogs = async () => {
   showSnackbar('Đã xuất danh sách nhật ký.')
 }
 
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedMethodType.value = 'all'
+  statusCodeQuery.value = ''
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
+}
+
 watch([searchQuery, selectedMethodType, statusCodeQuery, fromDate, toDate, itemsPerPage], () => {
   page.value = 1
 })
@@ -317,7 +326,7 @@ onMounted(() => {
             v-model="fromDate"
             :label="$t('From Date')"
             :placeholder="$t('From Date')"
-            :config="{ dateFormat: 'Y-m-d' }"
+            :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
           />
         </VCol>
 
@@ -329,7 +338,7 @@ onMounted(() => {
             v-model="toDate"
             :label="$t('To Date')"
             :placeholder="$t('To Date')"
-            :config="{ dateFormat: 'Y-m-d' }"
+            :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
           />
         </VCol>
       </VRow>
@@ -353,10 +362,21 @@ onMounted(() => {
         <VBtn
           variant="tonal"
           color="secondary"
-          prepend-icon="tabler-upload"
+          :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
           @click="handleExportLogs"
         >
-          {{ $t('Export') }}
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Export Data') }}</span>
+        </VBtn>
+
+        <VBtn
+          variant="tonal"
+          color="secondary"
+          :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+          @click="resetFilters"
+        >
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Reset') }}</span>
         </VBtn>
 
         <VBtn
@@ -441,13 +461,15 @@ onMounted(() => {
       </template>
 
       <template #item.actions="{ item }">
-        <IconBtn @click="openLogDetail(item.id)">
-          <VIcon icon="tabler-eye" />
-        </IconBtn>
+        <div class="d-flex align-center justify-center">
+          <IconBtn @click="openLogDetail(item.id)">
+            <VIcon icon="tabler-eye" />
+          </IconBtn>
 
-        <IconBtn @click="requestDelete({ type: 'single', id: item.id })">
-          <VIcon icon="tabler-trash" />
-        </IconBtn>
+          <IconBtn @click="requestDelete({ type: 'single', id: item.id })">
+            <VIcon icon="tabler-trash" />
+          </IconBtn>
+        </div>
       </template>
 
       <template #bottom>

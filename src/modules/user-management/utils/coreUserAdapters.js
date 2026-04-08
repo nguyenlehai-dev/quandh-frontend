@@ -40,11 +40,12 @@ export const buildCoreUserAssignmentsPayload = ({ selectedRoleIds, roleOrganizat
 
 export const mapCoreUserSortField = sortKey => {
   const sortFieldMap = {
+    createdAt: 'created_at',
     email: 'email',
     organization: 'updated_at',
     role: 'updated_at',
     status: 'status',
-    updatedBy: 'updated_at',
+    updatedAt: 'updated_at',
     user: 'name',
   }
 

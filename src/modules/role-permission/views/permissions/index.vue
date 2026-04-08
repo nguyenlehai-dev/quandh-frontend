@@ -23,10 +23,12 @@ import * as XLSX from 'xlsx'
 const { t } = useI18n()
 
 const headers = computed(() => [
+  { title: t('Index'), key: 'stt', sortable: false, align: 'center' },
   { title: t('Permission Name'), key: 'name' },
   { title: t('Assigned Roles Label'), key: 'assignedTo', sortable: false },
-  { title: t('Created Date'), key: 'createdDate' },
-  { title: t('Action'), key: 'actions', sortable: false },
+  { title: t('Created'), key: 'createdAt' },
+  { title: t('Updated'), key: 'updatedAt' },
+  { title: t('Action'), key: 'actions', sortable: false, align: 'center' },
 ])
 
 const search = ref('')
@@ -50,6 +52,31 @@ const orderBy = ref()
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key
   orderBy.value = options.sortBy[0]?.order
+}
+
+const resetFilters = () => {
+  search.value = ''
+  selectedRole.value = undefined
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
+}
+
+const formatDateTime = value => {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime()))
+    return value || 'N/A'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 const isPermissionDialogVisible = ref(false)
@@ -95,12 +122,16 @@ const permissions = computed(() => buildPermissionRoleAssignments(permissionsDir
   .map(permission => ({
     assignedRoleIds: permission.assignedRoleIds,
     assignedTo: permission.assignedRoleNames,
+    createdAt: permission.created_at,
+    createdBy: permission.created_by ?? 'N/A',
     createdDate: permission.created_at,
     description: permission.description,
     id: permission.id,
     name: permission.name,
     parentId: permission.parent_id,
     sortOrder: permission.sort_order,
+    updatedAt: permission.updated_at ?? permission.created_at ?? '',
+    updatedBy: permission.updated_by ?? 'N/A',
   })))
 
 const filteredPermissions = computed(() => permissions.value.filter(permission => (
@@ -214,7 +245,7 @@ const loadPermissions = async () => {
         limit: 100,
         page: currentPage,
         search: normalizedSearch.value,
-        sortBy: sortBy.value === 'createdDate' ? 'created_at' : sortBy.value || 'created_at',
+        sortBy: sortBy.value === 'updatedAt' ? 'updated_at' : sortBy.value || 'updated_at',
         sortOrder: orderBy.value || 'desc',
         toDate: toDate.value,
       })
@@ -350,7 +381,7 @@ const handleExportPermissions = async scope => {
     await downloadCorePermissionsExport({
       fromDate: fromDate.value,
       search: normalizedSearch.value,
-      sortBy: sortBy.value === 'createdDate' ? 'created_at' : sortBy.value,
+      sortBy: sortBy.value === 'updatedAt' ? 'updated_at' : sortBy.value,
       sortOrder: orderBy.value || 'desc',
       toDate: toDate.value,
     })
@@ -504,7 +535,7 @@ onMounted(() => {
               <AppDateTimePicker
                 v-model="fromDate"
                 :placeholder="$t('From Date')"
-                :config="{ dateFormat: 'Y-m-d' }"
+                :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
               />
             </VCol>
 
@@ -516,7 +547,7 @@ onMounted(() => {
               <AppDateTimePicker
                 v-model="toDate"
                 :placeholder="$t('To Date')"
-                :config="{ dateFormat: 'Y-m-d' }"
+                :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
               />
             </VCol>
           </VRow>
@@ -540,27 +571,40 @@ onMounted(() => {
             <VBtn
               variant="tonal"
               color="secondary"
-              prepend-icon="tabler-download"
+              :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
               @click="isImportDialogVisible = true"
             >
-              {{ $t('Import') }}
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Import Data') }}</span>
             </VBtn>
 
             <VBtn
               variant="tonal"
               color="secondary"
-              prepend-icon="tabler-upload"
+              :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
               @click="isExportDialogVisible = true"
             >
-              {{ $t('Export') }}
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Export Data') }}</span>
+            </VBtn>
+
+            <VBtn
+              variant="tonal"
+              color="secondary"
+              :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+              @click="resetFilters"
+            >
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Reset') }}</span>
             </VBtn>
 
             <VBtn
               density="default"
-              prepend-icon="tabler-plus"
+              :icon="$vuetify.display.smAndDown ? 'tabler-plus' : undefined"
+              :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
               @click="openPermissionDialog()"
             >
-              {{ $t('Add New') }}
+              <span v-if="!$vuetify.display.smAndDown">{{ $t('Add New') }}</span>
             </VBtn>
           </div>
         </VCardText>
@@ -580,6 +624,14 @@ onMounted(() => {
           show-select
           @update:options="updateOptions"
         >
+          <template #item.stt="{ index }">
+            <div class="d-flex align-center justify-center">
+              <span class="text-body-1 text-high-emphasis">
+                {{ (page - 1) * itemsPerPage + index + 1 }}
+              </span>
+            </div>
+          </template>
+
           <template #item.name="{ item }">
             <div class="text-high-emphasis text-body-1">
               {{ item.name }}
@@ -601,8 +653,32 @@ onMounted(() => {
             </div>
           </template>
 
+          <template #item.updatedAt="{ item }">
+            <div class="d-flex flex-column">
+              <span
+                class="text-body-2"
+                :class="item.updatedBy === 'admin' ? 'text-primary font-weight-medium' : 'text-medium-emphasis'"
+              >
+                {{ item.updatedBy }}
+              </span>
+              <span class="text-body-2 text-medium-emphasis">{{ formatDateTime(item.updatedAt) }}</span>
+            </div>
+          </template>
+
+          <template #item.createdAt="{ item }">
+            <div class="d-flex flex-column">
+              <span
+                class="text-body-2"
+                :class="item.createdBy === 'admin' ? 'text-primary font-weight-medium' : 'text-medium-emphasis'"
+              >
+                {{ item.createdBy }}
+              </span>
+              <span class="text-body-2 text-medium-emphasis">{{ formatDateTime(item.createdAt) }}</span>
+            </div>
+          </template>
+
           <template #item.actions="{ item }">
-            <div class="d-flex align-center">
+            <div class="d-flex align-center justify-center">
               <IconBtn @click="openPermissionDialog(item)">
                 <VIcon icon="tabler-pencil" />
               </IconBtn>

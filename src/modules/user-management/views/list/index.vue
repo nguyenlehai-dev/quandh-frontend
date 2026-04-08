@@ -50,24 +50,26 @@ const userStats = ref({
 })
 
 const headers = computed(() => [
+  { title: t('Index'), key: 'stt', sortable: false, align: 'center' },
   { title: t('User'), key: 'user' },
   { title: t('Roles'), key: 'role' },
   { title: t('Organization'), key: 'organization' },
-  { title: t('Updated By'), key: 'updatedBy' },
-  { title: t('Status'), key: 'status' },
-  { title: t('Actions'), key: 'actions', sortable: false },
+  { title: t('Created'), key: 'createdAt' },
+  { title: t('Updated'), key: 'updatedAt' },
+  { title: t('Status'), key: 'status', align: 'center' },
+  { title: t('Actions'), key: 'actions', sortable: false, align: 'center' },
 ])
 
 const statusOptions = computed(() => [
   { title: t('Active'), value: 'active' },
   { title: t('Inactive'), value: 'inactive' },
-  { title: 'Banned', value: 'banned' },
+  { title: t('Banned'), value: 'banned' },
 ])
 
 const bulkActions = computed(() => [
   { title: t('Activate'), value: 'active' },
   { title: t('Deactivate'), value: 'inactive' },
-  { title: 'Banned', value: 'banned' },
+  { title: t('Banned'), value: 'banned' },
   { title: t('Delete'), value: 'delete' },
 ])
 
@@ -143,6 +145,33 @@ const totalUsers = computed(() => sortedUsers.value.length)
 const updateOptions = options => {
   sortBy.value = options.sortBy[0]?.key
   orderBy.value = options.sortBy[0]?.order
+}
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedRole.value = undefined
+  selectedOrganization.value = undefined
+  selectedStatus.value = undefined
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
+}
+
+const formatDateTime = value => {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime()))
+    return value || 'N/A'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 const resolveUserRoleVariant = role => {
@@ -540,7 +569,7 @@ onMounted(async () => {
             <AppDateTimePicker
               v-model="fromDate"
               :placeholder="$t('From Date')"
-              :config="{ dateFormat: 'Y-m-d' }"
+              :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
             />
           </VCol>
 
@@ -552,7 +581,7 @@ onMounted(async () => {
             <AppDateTimePicker
               v-model="toDate"
               :placeholder="$t('To Date')"
-              :config="{ dateFormat: 'Y-m-d' }"
+              :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
             />
           </VCol>
         </VRow>
@@ -580,28 +609,41 @@ onMounted(async () => {
           <VBtn
             variant="tonal"
             color="secondary"
-            prepend-icon="tabler-download"
+            :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
             @click="isImportDialogVisible = true"
           >
-            {{ $t('Import') }}
+            <span v-if="!$vuetify.display.smAndDown">{{ $t('Import Data') }}</span>
           </VBtn>
 
           <!-- 👉 Export button -->
           <VBtn
             variant="tonal"
             color="secondary"
-            prepend-icon="tabler-upload"
+            :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
             @click="isExportDialogVisible = true"
           >
-            {{ $t('Export') }}
+            <span v-if="!$vuetify.display.smAndDown">{{ $t('Export Data') }}</span>
+          </VBtn>
+
+          <VBtn
+            variant="tonal"
+            color="secondary"
+            :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+            @click="resetFilters"
+          >
+            <span v-if="!$vuetify.display.smAndDown">{{ $t('Reset') }}</span>
           </VBtn>
 
           <!-- 👉 Add user button -->
           <VBtn
-            prepend-icon="tabler-plus"
+            :icon="$vuetify.display.smAndDown ? 'tabler-plus' : undefined"
+            :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
             :to="{ name: 'apps-user-create' }"
           >
-            {{ $t('Add New User') }}
+            <span v-if="!$vuetify.display.smAndDown">{{ $t('Add New') }}</span>
           </VBtn>
         </div>
       </VCardText>
@@ -622,6 +664,14 @@ onMounted(async () => {
         show-select
         @update:options="updateOptions"
       >
+        <template #item.stt="{ index }">
+          <div class="d-flex align-center justify-center">
+            <span class="text-body-1 text-high-emphasis">
+              {{ (page - 1) * itemsPerPage + index + 1 }}
+            </span>
+          </div>
+        </template>
+
         <!-- User -->
         <template #item.user="{ item }">
           <div class="d-flex align-center gap-x-4">
@@ -673,26 +723,46 @@ onMounted(async () => {
           </div>
         </template>
 
-        <template #item.updatedBy="{ item }">
-          <div class="text-body-1 text-high-emphasis">
-            {{ item.updatedBy || 'N/A' }}
+        <template #item.createdAt="{ item }">
+          <div class="d-flex flex-column">
+            <span
+              class="text-body-2"
+              :class="item.createdBy === 'admin' ? 'text-primary font-weight-medium' : 'text-medium-emphasis'"
+            >
+              {{ item.createdBy || 'N/A' }}
+            </span>
+            <span class="text-body-2 text-medium-emphasis">{{ formatDateTime(item.createdAt) }}</span>
+          </div>
+        </template>
+
+        <template #item.updatedAt="{ item }">
+          <div class="d-flex flex-column">
+            <span
+              class="text-body-2"
+              :class="item.updatedBy === 'admin' ? 'text-primary font-weight-medium' : 'text-medium-emphasis'"
+            >
+              {{ item.updatedBy || 'N/A' }}
+            </span>
+            <span class="text-body-2 text-medium-emphasis">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
         </template>
 
         <!-- Status -->
         <template #item.status="{ item }">
-          <VSwitch
-            :model-value="item.status === 'active'"
-            color="primary"
-            density="compact"
-            class="mt-0"
-            @update:model-value="toggleUserStatus(item)"
-          />
+          <div class="d-flex align-center justify-center">
+            <VSwitch
+              :model-value="item.status === 'active'"
+              color="primary"
+              density="compact"
+              class="mt-0"
+              @update:model-value="toggleUserStatus(item)"
+            />
+          </div>
         </template>
 
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <div class="d-flex align-center">
+          <div class="d-flex align-center justify-center">
             <IconBtn :to="{ name: 'apps-user-view-id', params: { id: item.id } }">
               <VIcon icon="tabler-eye" />
             </IconBtn>

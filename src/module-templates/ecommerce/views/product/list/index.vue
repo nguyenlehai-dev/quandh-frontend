@@ -26,6 +26,7 @@ const headers = computed(() => [
     title: t('Index'),
     key: 'stt',
     sortable: false,
+    align: 'center',
   },
   {
     title: t('Organization Name'),
@@ -36,18 +37,24 @@ const headers = computed(() => [
     key: 'parentName',
   },
   {
-    title: t('Status'),
-    key: 'status',
-    sortable: false,
+    title: t('Created'),
+    key: 'createdAt',
   },
   {
     title: t('Updated'),
     key: 'updatedAt',
   },
   {
+    title: t('Status'),
+    key: 'status',
+    sortable: false,
+    align: 'center',
+  },
+  {
     title: t('Action'),
     key: 'actions',
     sortable: false,
+    align: 'center',
   },
 ])
 
@@ -141,6 +148,7 @@ const selectedOrganizations = computed(() => organizationRows.value.filter(item 
 const updateOptions = options => {
   const sortKey = options.sortBy[0]?.key
   const sortKeyMap = {
+    createdAt: 'created_at',
     name: 'name',
     parentName: 'parent_id',
     status: 'status',
@@ -229,6 +237,14 @@ const fetchOrganizations = async () => {
 const refreshOrganizations = async () => {
   await fetchOrganizationTree()
   await fetchOrganizations()
+}
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedStatus.value = 'all'
+  fromDate.value = ''
+  toDate.value = ''
+  page.value = 1
 }
 
 const resetOrganizationDrawer = () => {
@@ -431,7 +447,7 @@ onMounted(() => {
             v-model="fromDate"
             :label="$t('From Date')"
             :placeholder="$t('From Date')"
-            :config="{ dateFormat: 'Y-m-d' }"
+            :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
           />
         </VCol>
 
@@ -444,7 +460,7 @@ onMounted(() => {
             v-model="toDate"
             :label="$t('To Date')"
             :placeholder="$t('To Date')"
-            :config="{ dateFormat: 'Y-m-d' }"
+            :config="{ altFormat: 'd/m/Y', altInput: true, dateFormat: 'Y-m-d' }"
           />
         </VCol>
       </VRow>
@@ -468,27 +484,40 @@ onMounted(() => {
         <VBtn
           variant="tonal"
           color="secondary"
-          prepend-icon="tabler-download"
+          :icon="$vuetify.display.smAndDown ? 'tabler-download' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-download'"
           @click="isImportDialogVisible = true"
         >
-          {{ $t('Import') }}
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Import Data') }}</span>
         </VBtn>
 
         <VBtn
           variant="tonal"
           color="secondary"
-          prepend-icon="tabler-upload"
+          :icon="$vuetify.display.smAndDown ? 'tabler-upload' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-upload'"
           @click="isExportDialogVisible = true"
         >
-          {{ $t('Export') }}
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Export Data') }}</span>
+        </VBtn>
+
+        <VBtn
+          variant="tonal"
+          color="secondary"
+          :icon="$vuetify.display.smAndDown ? 'tabler-refresh' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-refresh'"
+          @click="resetFilters"
+        >
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Reset') }}</span>
         </VBtn>
 
         <VBtn
           color="primary"
-          prepend-icon="tabler-plus"
+          :icon="$vuetify.display.smAndDown ? 'tabler-plus' : undefined"
+          :prepend-icon="$vuetify.display.smAndDown ? undefined : 'tabler-plus'"
           @click="openOrganizationDrawer('create')"
         >
-          {{ $t('Add New Organization') }}
+          <span v-if="!$vuetify.display.smAndDown">{{ $t('Add New') }}</span>
         </VBtn>
       </div>
     </VCardText>
@@ -509,9 +538,11 @@ onMounted(() => {
       @update:options="updateOptions"
     >
       <template #item.stt="{ index }">
-        <span class="text-body-1 text-high-emphasis">
-          {{ (page - 1) * itemsPerPage + index + 1 }}
-        </span>
+        <div class="d-flex align-center justify-center">
+          <span class="text-body-1 text-high-emphasis">
+            {{ (page - 1) * itemsPerPage + index + 1 }}
+          </span>
+        </div>
       </template>
 
       <template #item.name="{ item }">
@@ -541,14 +572,28 @@ onMounted(() => {
         </div>
       </template>
 
+      <template #item.createdAt="{ item }">
+        <div class="d-flex flex-column">
+          <span
+            class="text-body-2"
+            :class="item.createdBy === 'admin' ? 'text-primary font-weight-medium' : 'text-medium-emphasis'"
+          >
+            {{ item.createdBy }}
+          </span>
+          <span class="text-body-2 text-medium-emphasis">{{ formatDateTime(item.createdAt) }}</span>
+        </div>
+      </template>
+
       <template #item.status="{ item }">
-        <VSwitch
-          :model-value="item.status"
-          color="primary"
-          hide-details
-          inset
-          @update:model-value="toggleOrganizationStatus(item.id)"
-        />
+        <div class="d-flex align-center justify-center">
+          <VSwitch
+            :model-value="item.status"
+            color="primary"
+            hide-details
+            inset
+            @update:model-value="toggleOrganizationStatus(item.id)"
+          />
+        </div>
       </template>
 
       <template #item.updatedAt="{ item }">
@@ -564,7 +609,7 @@ onMounted(() => {
       </template>
 
       <template #item.actions="{ item }">
-        <div class="d-flex align-center">
+        <div class="d-flex align-center justify-center">
           <IconBtn @click="openOrganizationDrawer('view', item)">
             <VIcon icon="tabler-eye" />
           </IconBtn>

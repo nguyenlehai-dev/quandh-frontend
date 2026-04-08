@@ -1,7 +1,7 @@
 import { ofetch } from 'ofetch'
 
 export const resolveCoreApiBaseUrl = () => {
-  const configuredBaseUrl = import.meta.env.VITE_CORE_API_BASE_URL?.trim() || 'https://quandh-core.theworkpc.com'
+  const configuredBaseUrl = import.meta.env.VITE_CORE_API_BASE_URL?.trim() || 'https://yukimart.io.vn'
   const normalizedBaseUrl = configuredBaseUrl.replace(/\/+$/, '')
 
   return normalizedBaseUrl.endsWith('/api') ? normalizedBaseUrl : `${normalizedBaseUrl}/api`

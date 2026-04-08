@@ -221,10 +221,24 @@ export const applyCoreAuthSession = (payload, ability) => {
   ability.update(payload.userAbilityRules)
 }
 
+const expireAuthCookie = name => {
+  if (typeof document === 'undefined')
+    return
+
+  const expires = 'expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  const domains = ['', '; domain=.yukimart.io.vn', '; domain=yukimart.io.vn']
+
+  domains.forEach(domain => {
+    document.cookie = `${name}=; ${expires}; path=/${domain}; SameSite=Lax${secure}`
+  })
+}
+
 export const clearAuthSession = ability => {
   useCookie('accessToken').value = null
   useCookie('authProvider').value = null
   useCookie('currentOrganizationId').value = null
+  ;['accessToken', 'authProvider', 'currentOrganizationId'].forEach(expireAuthCookie)
   clearStoredAuthSession()
 
   if (ability)
