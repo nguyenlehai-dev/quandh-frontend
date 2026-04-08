@@ -31,6 +31,8 @@ const isChildDialogVisible = ref(false)
 const isChildDeleteDialogVisible = ref(false)
 const editedChildItem = ref(null)
 const pendingChildDelete = ref(null)
+const selectedChildRows = ref([])
+const selectedChildBulkAction = ref()
 
 const activeChildConfig = computed(() => MEETING_CHILD_TABS.find(item => item.key === activeTab.value) ?? MEETING_CHILD_TABS[0])
 const meetingTypeItems = computed(() => meetingTypes.value.map(item => ({
@@ -90,6 +92,18 @@ const childHeaders = [
   { title: 'TRẠNG THÁI', key: 'status', align: 'center' },
   { title: 'HÀNH ĐỘNG', key: 'actions', sortable: false, align: 'center' },
 ]
+
+const childBulkActions = computed(() => {
+  const statusActions = (activeChildConfig.value.statusOptions ?? []).map(item => ({
+    title: `Chuyển ${item.title.toLowerCase()}`,
+    value: item.value,
+  }))
+
+  return [
+    ...statusActions,
+    { title: 'Xóa', value: 'delete' },
+  ]
+})
 
 const loadMeeting = async () => {
   isLoading.value = true
@@ -177,6 +191,8 @@ const handleSaveChild = async formData => {
     await createMeetingChild(meetingId.value, activeChildConfig.value.key, payload)
 
   isChildDialogVisible.value = false
+  selectedChildRows.value = []
+  selectedChildBulkAction.value = undefined
   await loadMeeting()
   showSnackbar(formData.id ? 'Đã cập nhật dữ liệu chi tiết.' : 'Đã thêm dữ liệu chi tiết.')
 }
@@ -190,11 +206,39 @@ const confirmDeleteChild = async isConfirmed => {
   if (!isConfirmed || !pendingChildDelete.value)
     return
 
-  await deleteMeetingChild(meetingId.value, activeChildConfig.value.key, pendingChildDelete.value.id)
+  const deletedId = pendingChildDelete.value.id
+
+  await deleteMeetingChild(meetingId.value, activeChildConfig.value.key, deletedId)
   pendingChildDelete.value = null
+  selectedChildRows.value = selectedChildRows.value.filter(id => id !== deletedId)
   await loadMeeting()
   showSnackbar('Đã xóa dữ liệu chi tiết.')
 }
+
+const handleChildBulkAction = async action => {
+  if (!action || !selectedChildRows.value.length)
+    return
+
+  const targetIds = [...selectedChildRows.value]
+
+  if (action === 'delete') {
+    await Promise.all(targetIds.map(id => deleteMeetingChild(meetingId.value, activeChildConfig.value.key, id)))
+    showSnackbar('Đã xóa các dữ liệu chi tiết đã chọn.')
+  }
+  else {
+    await Promise.all(targetIds.map(id => updateMeetingChild(meetingId.value, activeChildConfig.value.key, id, { status: action })))
+    showSnackbar('Đã cập nhật trạng thái cho các dữ liệu đã chọn.')
+  }
+
+  selectedChildRows.value = []
+  selectedChildBulkAction.value = undefined
+  await loadMeeting()
+}
+
+watch(activeTab, () => {
+  selectedChildRows.value = []
+  selectedChildBulkAction.value = undefined
+})
 
 const resolveChildPrimaryText = item => item.title
   || item.name
@@ -433,21 +477,34 @@ onMounted(async () => {
               </VTab>
             </VTabs>
 
-            <VBtn
-              prepend-icon="tabler-plus"
-              @click="openCreateChildDialog"
-            >
-              Thêm mới
-            </VBtn>
+            <div class="d-flex align-center flex-wrap gap-4">
+              <AppSelect
+                v-if="selectedChildRows.length"
+                v-model="selectedChildBulkAction"
+                placeholder="Hành động"
+                :items="childBulkActions"
+                style="inline-size: 13rem;"
+                @update:model-value="handleChildBulkAction"
+              />
+
+              <VBtn
+                prepend-icon="tabler-plus"
+                @click="openCreateChildDialog"
+              >
+                Thêm mới
+              </VBtn>
+            </div>
           </VCardText>
 
           <VDivider />
 
           <VDataTable
+            v-model:model-value="selectedChildRows"
             :headers="childHeaders"
             :items="childRows"
             item-value="id"
             class="text-no-wrap"
+            show-select
           >
             <template #item.stt="{ index }">
               <div class="d-flex align-center justify-center">
