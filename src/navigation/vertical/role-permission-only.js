@@ -18,10 +18,6 @@ export default [
     action: 'read',
     subject: 'Meeting',
     children: [
-      { title: 'Danh sách Cuộc họp', to: 'apps-meetings', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Biểu quyết', to: 'apps-meeting-votings', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Tài liệu', to: 'apps-meeting-documents', action: 'read', subject: 'Meeting' },
-      { title: 'Danh sách Kết luận', to: 'apps-meeting-conclusions', action: 'read', subject: 'Meeting' },
       {
         title: 'Danh mục',
         icon: { icon: 'tabler-category' },
