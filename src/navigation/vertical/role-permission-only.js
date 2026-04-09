@@ -38,24 +38,24 @@ export default [
     ],
   },
   {
-    title: 'Quản lý hệ thống',
+    title: t('navigation.system_management.title'),
     icon: { icon: 'tabler-settings-cog' },
     children: [
-      { title: 'Tổ chức', to: 'apps-organizations', action: 'read', subject: 'Organization' },
-      { title: 'Người dùng', to: 'apps-user-list', action: 'read', subject: 'User' },
-      { title: 'Nhật ký hoạt động', to: 'apps-activity-log', action: 'read', subject: 'LogActivity' },
+      { title: t('navigation.system_management.organization'), to: 'apps-organizations', action: 'read', subject: 'Organization' },
+      { title: t('navigation.system_management.users'), to: 'apps-user-list', action: 'read', subject: 'User' },
+      { title: t('navigation.system_management.activity_log'), to: 'apps-activity-log', action: 'read', subject: 'LogActivity' },
       {
-        title: 'Vai trò & Quyền hạn',
+        title: t('navigation.system_management.roles_permissions'),
         children: [
-          { title: 'Vai trò', to: 'apps-roles', action: 'read', subject: 'Role' },
-          { title: 'Quyền hạn', to: 'apps-permissions', action: 'read', subject: 'Permission' },
+          { title: t('navigation.system_management.roles'), to: 'apps-roles', action: 'read', subject: 'Role' },
+          { title: t('navigation.system_management.permissions'), to: 'apps-permissions', action: 'read', subject: 'Permission' },
         ],
       },
       {
-        title: 'Cấu hình hệ thống',
+        title: t('navigation.system_management.settings'),
         children: [
-          { title: 'Cấu hình chung', to: 'apps-system-settings-general', action: 'read', subject: 'Setting' },
-          { title: 'Cấu hình thông báo', to: 'apps-system-settings-notification', action: 'read', subject: 'Setting' },
+          { title: t('navigation.system_management.general_settings'), to: 'apps-system-settings-general', action: 'read', subject: 'Setting' },
+          { title: t('navigation.system_management.notification_settings'), to: 'apps-system-settings-notification', action: 'read', subject: 'Setting' },
         ],
       },
     ],
